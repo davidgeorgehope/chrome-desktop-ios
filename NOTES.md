@@ -125,7 +125,7 @@ SIMCTL_CHILD_KERNARIUM_ROOTFS=alpine-3.24.2-minimal.ext4 \
 
 Do not pass both `-scheme` and `-target` to xcodebuild. Rebuild helper: `notes/rebuild-and-relaunch.sh`. Editing the ext4 must be done inside Lima's own disk (copy, e2fsck, loop-mount, copy back, `chmod u+w`); virtiofs of the case-sensitive volume will not allow a writable loop mount.
 
- ## Repo and artifacts
+## Repo and artifacts
 
 The bakeoff notes, reproduce steps, and local-fork patch live in `~/linux-ios-bakeoff/linux-ios-fast`. Large artifacts were uploaded to Google Drive `gdrive:linux-ios-fast/artifacts/` (see that repo's REPRODUCE.md for SHA-256s). The private GitHub repo `davidgeorgehope/linux-ios-fast` could not be created from this machine: GitHub CLI is logged out, SSH keys are rejected, and Cursor's GitHub App cannot see the repo. The local git history is ready to push once David signs `gh` in (do not change auth from an agent session).
 
