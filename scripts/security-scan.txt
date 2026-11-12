@@ -1,0 +1,42 @@
+=== Security scan Thu Nov 12 17:08:26 EST 2026 ===
+Repos: Kernarium, LinuxRunner, Henge (shallow clones, official GitHub)
+
+######## Kernarium ########
+-- remotes --
+origin	https://github.com/imxieyi/Kernarium.git (fetch)
+origin	https://github.com/imxieyi/Kernarium.git (push)
+-- HEAD --
+ce0fa8683a5103175dfb62d58cdb5b27a6ecd5a9 Update README.md
+
+-- suspicious URL / exfil patterns in tracked text (excluding docs screenshots, licenses, large generated) --
+
+-- network-calling scripts (curl/wget/urllib/URLSession) --
+
+-- unexpected chmod +s / launchctl / dscl / osascript --
+
+######## LinuxRunner ########
+-- remotes --
+origin	https://github.com/mxhm11cr/LinuxRunner.git (fetch)
+origin	https://github.com/mxhm11cr/LinuxRunner.git (push)
+-- HEAD --
+4a3521143087a3e9beb458bce3c271791881b77c Release LinuxRunner 1.1.1 (905)
+
+-- suspicious URL / exfil patterns in tracked text (excluding docs screenshots, licenses, large generated) --
+
+-- network-calling scripts (curl/wget/urllib/URLSession) --
+
+-- unexpected chmod +s / launchctl / dscl / osascript --
+
+######## Henge ########
+-- remotes --
+origin	https://github.com/Leviidev/Henge.git (fetch)
+origin	https://github.com/Leviidev/Henge.git (push)
+-- HEAD --
+e98920ce3b108d17f98acaff87f74e5a477ec4b2 Mac apps: OpenGL opened by path answers Henge's OpenGL (SDL2 games: The Powder Toy plays), KBGetLayoutType
+
+-- suspicious URL / exfil patterns in tracked text (excluding docs screenshots, licenses, large generated) --
+
+-- network-calling scripts (curl/wget/urllib/URLSession) --
+
+-- unexpected chmod +s / launchctl / dscl / osascript --
+

@@ -1,0 +1,20 @@
+.DS_Store
+*.sparseimage
+*.ext4
+*.img
+*.cpio
+*.cpio.gz
+*.app/
+*.xcframework/
+*.xcframework.zip
+vmlinux
+vmlinux.bin
+*.dSYM/
+.build/
+DerivedData/
+# never commit secrets or pairing files
+*.pem
+*.p12
+*.mobileprovision
+Signing.local.xcconfig
+.env
