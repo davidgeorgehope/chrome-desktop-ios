@@ -5,7 +5,15 @@ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export HOME=/root
 export TERM=linux
 
-# Wait for DHCP so apk can reach Alpine mirrors.
+# If OpenRC was skipped, bring up loopback and DHCP ourselves.
+ip link set lo up 2>/dev/null || true
+ip link set eth0 up 2>/dev/null || true
+if ! ip route | grep -q default; then
+  if command -v udhcpc >/dev/null 2>&1; then
+    udhcpc -i eth0 -n -q -t 10 -s /usr/share/udhcpc/default.script || true
+  fi
+fi
+# Wait for a default route so apk can reach Alpine mirrors.
 i=0
 while [ "$i" -lt 40 ]; do
   if ip route | grep -q default; then

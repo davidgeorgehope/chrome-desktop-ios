@@ -199,6 +199,21 @@ index 434bd5a..ada4668 100644
                  DispatchQueue.main.async {
                      MainActor.assumeIsolated { refused(error) }
                  }
+diff --git a/Kernarium/Kernarium/ContentView.swift b/Kernarium/Kernarium/ContentView.swift
+index 6869cd9..2c1503e 100644
+--- a/Kernarium/Kernarium/ContentView.swift
++++ b/Kernarium/Kernarium/ContentView.swift
+@@ -823,6 +823,10 @@ private func runGuest(
+         request.gpu_budget_application_mib = gpuBudget.applicationMiB
+         request.gpu_budget_engine_mib = gpuBudget.engineMiB
+         request.gpu_budget_headroom_mib = gpuBudget.headroomMiB
++        // Local bakeoff fork: ask for the ARM64 JIT. On the Simulator this
++        // uses MAP_JIT; if preparation fails, the runtime falls back to the
++        // gadget interpreter and logs why.
++        request.use_jit = 1
+         request.rootfs_path = paths[0]
+         request.overlay_path = paths[1]
+         request.android_data_disk_path = paths[2]
 diff --git a/Kernarium/Kernarium/GuestPictureInPicture.swift b/Kernarium/Kernarium/GuestPictureInPicture.swift
 index 720ccc3..ad1d3be 100644
 --- a/Kernarium/Kernarium/GuestPictureInPicture.swift
@@ -263,6 +278,119 @@ index 720ccc3..ad1d3be 100644
          framesShown += 1
          if framesShown % 150 == 1 {
              print(
+diff --git a/Kernarium/Kernarium/Kernarium.entitlements b/Kernarium/Kernarium/Kernarium.entitlements
+index caa3d58..9f7b867 100644
+--- a/Kernarium/Kernarium/Kernarium.entitlements
++++ b/Kernarium/Kernarium/Kernarium.entitlements
+@@ -2,6 +2,8 @@
+ <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+ <plist version="1.0">
+ <dict>
++	<key>com.apple.security.cs.allow-jit</key>
++	<true/>
+ 	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+ 	<true/>
+ 	<key>com.apple.developer.kernel.increased-memory-limit</key>
+diff --git a/Kernarium/Runtime/KernariumRuntime.mm b/Kernarium/Runtime/KernariumRuntime.mm
+index eeecc4e..83f72e6 100644
+--- a/Kernarium/Runtime/KernariumRuntime.mm
++++ b/Kernarium/Runtime/KernariumRuntime.mm
+@@ -1345,6 +1345,13 @@ void booted(unsigned restarts, bool answered) noexcept override
+             arguments.emplace_back(
+                 "--jit-cache-budget=" +
+                 std::to_string(request_.jitCacheBudget));
++            std::printf(
++                "Kernarium: execution engine jit (cache budget %zu bytes)\n",
++                request_.jitCacheBudget);
++        } else {
++            std::printf(
++                "Kernarium: execution engine %s (no JIT cache budget)\n",
++                selectedExecutionEngine());
+         }
+ #endif
+ #if KERNARIUM_RUNTIME_ANDROID_GUEST
+diff --git a/darwin/cpu/arm64/jit/jit_memory_preparation.cpp b/darwin/cpu/arm64/jit/jit_memory_preparation.cpp
+index 3908e45..a2892a4 100644
+--- a/darwin/cpu/arm64/jit/jit_memory_preparation.cpp
++++ b/darwin/cpu/arm64/jit/jit_memory_preparation.cpp
+@@ -23,8 +23,24 @@ std::size_t jit_memory_region_bytes(std::size_t total_bytes,
+ JitMemoryStatus prepare_jit_memory(std::size_t total_bytes,
+ 	unsigned executors, std::size_t per_executor_bytes) noexcept
+ {
+-	if (!jit_memory::debugger_route())
+-		return JitMemoryStatus::unsupported;
++	/* Local bakeoff fork: macOS and the iOS Simulator publish through
++	 * the host JIT mapping route (debugger_route is false there). Treat a successful
++	 * availability probe as ready so use_jit can set the cache budget.
++	 */
++	if (!jit_memory::debugger_route()) {
++		const auto bytes = jit_memory_region_bytes(
++			total_bytes, executors, per_executor_bytes);
++		if (bytes == 0)
++			return JitMemoryStatus::failed;
++		if (!jit_cache_budget_publishable(
++				total_bytes, executors, per_executor_bytes))
++			return JitMemoryStatus::other_settings;
++		if (!jit_memory::available())
++			return JitMemoryStatus::unsupported;
++		return set_jit_cache_budget(
++			       total_bytes, executors, per_executor_bytes) ?
++			JitMemoryStatus::ready : JitMemoryStatus::other_settings;
++	}
+ 	const auto bytes = jit_memory_region_bytes(
+ 		total_bytes, executors, per_executor_bytes);
+ 	if (bytes == 0)
+diff --git a/darwin/cpu/jit_memory/executable_memory.cpp b/darwin/cpu/jit_memory/executable_memory.cpp
+index 8852af4..22061cd 100644
+--- a/darwin/cpu/jit_memory/executable_memory.cpp
++++ b/darwin/cpu/jit_memory/executable_memory.cpp
+@@ -9,6 +9,7 @@
+ #include <libkern/OSCacheControl.h>
+ #include <os/lock.h>
+ #include <pthread.h>
++#include <dlfcn.h>
+ #include <unistd.h>
+ 
+ #include <array>
+@@ -86,10 +87,26 @@ namespace {
+ /* The region's pages are written through their alias: no write window. */
+ constexpr void jit_write_protect(int) {}
+ #elif defined(__APPLE__) && defined(__aarch64__) && defined(MAP_JIT) && \
+-	!defined(__IPHONE_OS_VERSION_MAX_ALLOWED)
++	(!defined(__IPHONE_OS_VERSION_MAX_ALLOWED) || \
++	 (defined(TARGET_OS_SIMULATOR) && TARGET_OS_SIMULATOR))
++/* Local bakeoff fork: the iOS Simulator is a macOS process and can use
++ * MAP_JIT + pthread_jit_write_protect_np. Upstream leaves this off so the
++ * Simulator stays on the gadget engine like a device with no debugger
++ * (G157 rejected JIT for the GPU-bound Aquarium workload; CPU benches were
++ * not the reason). This fork turns it on to measure the JIT on the same
++ * sh/sha256/apk suite. A physical iPhone without StikDebug still uses
++ * gadgets.
++ */
+ void jit_write_protect(int enable)
+ {
+-	pthread_jit_write_protect_np(enable);
++	/* The iOS Simulator SDK marks pthread_jit_write_protect_np
++	 * unavailable (it is a macOS API), but the Simulator is a macOS
++	 * process and the symbol is present. Resolve it at run time. */
++	using Fn = void (*)(int);
++	static const Fn fn = reinterpret_cast<Fn>(
++		dlsym(RTLD_DEFAULT, "pthread_jit_write_protect_np"));
++	if (fn != nullptr)
++		fn(enable);
+ }
+ 
+ constexpr bool jit_publication_supported() noexcept
+@@ -792,6 +809,9 @@ bool available() noexcept
+ 		 */
+ 		if (!jit_publication_supported())
+ 			return false;
++		if (dlsym(RTLD_DEFAULT, "pthread_jit_write_protect_np") ==
++		    nullptr)
++			return false;
+ 		void *mapping = mmap(nullptr, 16U * 1024U,
+ 			PROT_READ | PROT_WRITE | PROT_EXEC,
+ 			MAP_PRIVATE | MAP_ANON | MAP_JIT, -1, 0);
 diff --git a/darwin/device/audio/apple_microphone_input.mm b/darwin/device/audio/apple_microphone_input.mm
 index 5183332..aca72ec 100644
 --- a/darwin/device/audio/apple_microphone_input.mm

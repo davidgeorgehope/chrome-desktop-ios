@@ -114,3 +114,38 @@ Uploaded 6:39 PM ET Nov 12, 2026 to `gdrive:linux-ios-fast/artifacts/` (rclone o
 | release-manifest.json | `7f5b687f2779047eb067ac4cb83e71685b40ca075f1181505765ea0f4a8b5f55` |
 
 The boot-base SHA-256 is of the cpio.gz itself (same as `accepted-aarch64.env`). A `SHA256SUMS` file sits next to these objects in Drive.
+
+## Simulator JIT (local fork)
+
+Upstream leaves the Simulator on the gadget interpreter so it resembles a
+device with no debugger. This fork measures the ARM64 JIT in the Simulator:
+
+- `darwin/cpu/jit_memory/executable_memory.cpp` publishes via MAP_JIT and
+  resolves `pthread_jit_write_protect_np` with `dlsym` (the iOS Simulator SDK
+  marks the header unavailable; the symbol exists in the process).
+- `ContentView.swift` sets `use_jit = 1`. The runtime logs
+  `Kernarium: execution engine jit (cache budget …)` when prepare succeeds.
+- `KERNARIUM_EXECUTION_ENGINE=jit` can also be passed through
+  `SIMCTL_CHILD_KERNARIUM_EXECUTION_ENGINE` as a belt and suspenders.
+- Build with `RUNTIME_EXCEPTION_ALLOW_JIT=YES`. The entitlements file includes
+  `com.apple.security.cs.allow-jit`.
+
+This is not how a physical iPhone runs without StikDebug. Do not treat these
+JIT numbers as a device promise.
+
+## Slim init
+
+To cut OpenRC (~5 s, or ~10 s under a cold JIT) down to about 1 s guest
+uptime, inittab is only:
+
+```
+::sysinit:/bin/mount -a
+::once:/usr/local/bin/run-benches.sh
+::shutdown:/bin/umount -a -r
+```
+
+`scripts/guest-run-benches.sh` brings up `lo`/`eth0` and runs `udhcpc` if there
+is no default route. The hostname stays `(none)` because the OpenRC hostname
+service is skipped. `scripts/patch-alpine-benches.sh` plus a rewritten inittab
+is how the image is updated (copy off virtiofs onto Lima's disk, e2fsck,
+loop-mount, copy back, `chmod u+w`).
