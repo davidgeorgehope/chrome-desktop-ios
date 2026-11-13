@@ -277,3 +277,105 @@ avoid a per-access bitmap (for example a same-page run that already hoists
 translation), or find a way to install every 4 KiB user page without
 breaking 16 KiB host isolation. It must beat 0.18 s dash and 1.16 s warm
 compile with the flag off, not just boot.
+
+## 16 KiB guest PAGE_SIZE (13 Nov 2026) — experimental, not landed
+
+A 16 KiB guest `PAGE_SIZE` for arm64 Darwin UML is **feasible** and was
+booted, but it is not an accepted product and it is not in
+`linux-ios-fast` yet. It is the layout the fixed-offset user map wants:
+one guest page is one Darwin host page, so the 4-into-1 mixed-span
+bitmap that taxed the 4 KiB prototype is no longer required for ordinary
+pages.
+
+### What was verified
+
+- Guest `getconf PAGE_SIZE=16384`. A 1 GiB launch reported `Total pages:
+  65536` (1 GiB / 16 KiB).
+- The kernel is an experimental out-of-tree build from a detached worktree
+  of the accepted source (`/Volumes/KernariumCS/linux-16k`, commit
+  `8246678b2`), not a dirtying of the accepted tree or a change of
+  `accepted-4k.env`. Config: `CONFIG_PAGE_SIZE_16KB=y`,
+  `CONFIG_PAGE_SHIFT=14`, `CONFIG_KERNEL_STACK_ORDER=2` (64 KiB stacks,
+  same as order-4 × 4 KiB). Four-level UML page tables still give a
+  47-bit VA (`PGDIR_SHIFT = 14 + 3×11`), which matches
+  `DARWIN_UML_GUEST_ADDRESS_LIMIT`.
+- Darwin `tlb.c` host-page packing was generalized from a hard `4 × 4 KiB`
+  to `DARWIN_HOST_PAGE_SIZE / PAGE_SIZE` (4 or 1). The official 4 KiB path
+  is unchanged when `PAGE_SIZE` is 4096.
+- A host build option `UML_GUEST_16K_PAGES` (preset
+  `macos-integration-16k`, arm64 only) sets
+  `DARWIN_UML_GUEST_PAGE_SIZE=16384`. The canonical ABI header and
+  `identity.env` (version 26, fingerprint `0x1d7ce579d497fc37`) were
+  **left unchanged**; a generated header is `-include`d only for C/C++/ObjC++
+  so the 4 KiB-only `static_assert` does not fire. `tlb.hpp` and the
+  gadget `PAGE_SHIFT` follow the compile definition.
+- The official artifact importer still requires a 4 KiB bundle
+  (`kernel_artifact.py` has `GUEST_PAGE_SIZE = 4096`). A 16K uml-darwin
+  therefore imports the accepted 4 KiB artifact for CMake identity, then
+  retargets the embedded `__TEXT,__uml_elf` at
+  `-DUML_16K_KERNEL_IMAGE=` (a strip-debug copy of the experimental
+  vmlinux). Mixing a 16K host with a 4K kernel, or the reverse, is
+  unsupported.
+- Alpine 3.24.2 minimal booted, mounted ext4, ran `/bin/busybox` ash, and
+  powered off with `result=0`.
+- The official ASLR-on CPU suite was then measured on the same overnight
+  mini (2 GiB, 8 cpus, profiler off, packages installed each boot from
+  `notes/cpu-benches/apks.tar`) on three setups: the official 4 KiB
+  binary, the experimental 16K binary with `UML_JIT_USER_MAP` off, and
+  16K with `UML_JIT_USER_MAP=1`. Walls, 13 Nov 2026, America/New_York:
+
+  | bench | 4K baseline | 16K flag-off | 16K + user-map |
+  | --- | ---: | ---: | ---: |
+  | dash | 0.18 s | 0.18 s | 0.28 s |
+  | ash | 0.18 s | 0.17 s | 0.28 s |
+  | apk add (offline) | 2.80 s | 2.68 s | 3.29 s |
+  | evp aes-256-cbc 16 KiB | 1,039,985.32k | 1,044,921.11k | 1,040,143.70k |
+  | evp sha256 16 KiB | 1,790,006.61k | 1,806,035.63k | 1,734,907.22k |
+  | compile tiny-sha (cold) | 2.11 s | 1.90 s | 2.24 s |
+  | compile tiny-sha (warm) | 1.15 s | 1.12 s | 1.33 s |
+  | tiny-sha run | 1.171529 s / 81.94 MiB/s | 1.175699 s / 81.65 MiB/s | 1.211553 s / 79.24 MiB/s |
+  | tight loop | 0.49 s | 0.48 s | 0.76 s |
+
+  Logs: `notes/jit-baseline/16k/official-4k-20261113-013849.log`,
+  `official-16k-20261113-013641.log`,
+  `official-16k-usermap-20261113-013750.log`.
+- 16K flag-off is even with 4K on dash and the tight loop, and a little
+  ahead on the compiles and evp rates — within ordinary run noise for
+  most rows, not a product change. `UML_JIT_USER_MAP=1` on 16K **lost**:
+  dash 1.56× slower than 16K flag-off, warm compile 1.19×, tight loop
+  1.58×, evp sha256 ~4 % slower. The reservation still succeeded as the
+  compact pack (32 × 32 GiB at `0x600800000000`, guest window the top
+  32 GiB, slot0 `K=0xffffe01000000000`; a first 1 TiB reserve still
+  fails with `errno=12`). The prototype is therefore still not landed,
+  even as an opt-in experimental preset. A 16K guest page is one Darwin
+  host page, so the 4-into-1 mixed-span bitmap is no longer the excuse;
+  the remaining tax is in the user-map load/store sequences, binding, or
+  fault path, and has to be fixed before the flag can be a default or a
+  documented preset.
+
+### What still blocks an official 16K product
+
+- `kernel_artifact.py` rejects any manifest whose `page_size` is not
+  4096; `publish_artifact` also hardcodes `4k` in the directory name.
+  `build-kernel.sh` prints "built … 4k Darwin UML kernel" and requires a
+  clean source tree whose hash matches `UML_KERNEL_FINAL_TREE`. A real
+  16K accepted artifact would need a page-size-aware verifier, a new
+  `accepted-16k.env`, a documented `build-kernel.sh --pages 16k` (or
+  equivalent) path, and a new tree hash if the tlb.c / Kconfig /
+  Makefile-os-Darwin patches are replayed into the official series.
+- `darwin-uml.fragment` pins `CONFIG_PAGE_SIZE_4KB=y` and
+  `CONFIG_KERNEL_STACK_ORDER=4`. The 16K overlay must keep being applied
+  last (and must keep stacks at 64 KiB via order 2).
+- `arch/um/Kconfig` advertised only `HAVE_PAGE_SIZE_4KB`. The
+  experimental worktree also selects `HAVE_PAGE_SIZE_16KB`. That select
+  is not in the official series.
+- x86_64 guests stay on 4 KiB. The CMake option is fatal on that slice.
+- Official CPU benches have now been measured (table above). 16K
+  flag-off does not clearly beat 4K, and 16K + user-map regresses, so
+  neither the 16K preset nor the user-map flag is landed. The official
+  4 KiB identity (`identity.env` v26, `0x1d7ce579d497fc37`) is unchanged.
+
+The user-map prototype stays behind `UML_JIT_USER_MAP` in the Kernarium
+tree on the mini. It must beat 0.18 s dash and 1.15 s warm compile with
+the flag off (and must not regress the tight loop past 0.49 s) before it
+is committed as an opt-in experimental preset.
