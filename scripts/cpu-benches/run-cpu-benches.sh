@@ -174,6 +174,11 @@ time_run() {
       sh -c "cd \"$work\" && make clean && make CC=$CC CFLAGS='-O2 -std=c11'"
     fi
     echo "COMPILE_EXIT:$?"
+    if [ "$CPU_BENCH_ONLY" = compile ]; then
+      echo ===UML_JIT_PROFILE_DUMP===
+      echo ===UML_JIT_PROFILE_COLD===
+      sleep 1
+    fi
     if [ -x "$work/tiny-sha" ]; then
       if [ "$CPU_BENCH_ONLY" != compile ]; then
         time_run run_tiny_sha "$work/tiny-sha" 3

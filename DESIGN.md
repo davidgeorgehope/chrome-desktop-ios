@@ -201,3 +201,8 @@ then stay on the guest's own addressing until the mapping changes.
   host. There is no such hole, and two guests would smash each other.
 - Changing macOS, the Keychain, brew, or the iPhone to make more VA
   available.
+
+## Shared-translation budget (landed 12 Nov 2026)
+
+`patches/0007-jit-shared-translations`. The process-wide shared cache is charged against the leftover of the whole-process JIT budget after every vCPU's private L1 (capped at 256 MiB). The previous default of `guest_memory/2` left almost no leftover at `mem=2G` `ncpus=8`, so publication rejected ~1.7M admits. The default total is now `guest/2 + 256 MiB * ncpus + 1 GiB` (4 GiB at the usual 2 GiB/8 vCPU launch): private L1s fill to the 256 MiB cap and the shared cache gets a 2 GiB leftover. Out-of-range relocatable link pointers use a nearby literal island rather than a host-baked MOV-wide stub, publication is allowed with one live executor, and a translation may carry up to `maximum_block_instructions` link relocations (the previous cap of 2 rejected ~145k unique gcc blocks). Entries are still keyed by guest PC + instruction words; a file+offset or content-hash key and a slide of baked guest PCs are still required for a warm `cc1` under ASLR.
+
