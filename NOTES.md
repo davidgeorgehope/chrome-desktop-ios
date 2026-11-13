@@ -490,7 +490,7 @@ A production-launcher boot of the clean 0444 labwc image (03:59:57 AM ET, offici
 - Accepts `UML_ROOTFS` as an override.
 - If VNC port 5900 is already in use (macOS Screen Sharing after a reboot holds it on launchd), falls back to `--gpu-vnc-port=5901` and says so. Screen Sharing is not disabled.
 
-Clean labwc image SHA-256 (uncompressed) `02a13eb21a63956f625f1f1789ae979ba0c4fbf2c0010f429ed4c867fe8b0617`. Local gzip `-1` of that image is `alpine-3.24.2-desktop-labwc-clean-20261113.ext4.gz` (1,091,534,974 bytes, sha256 `2a219e5409a7e3a52a197a624d6edd5862270edd95014bc57d241347d208a7eb`). The previous Drive object `alpine-3.24.2-desktop-labwc.ext4.gz` (994,819,499 bytes, sha256 `9471344de45d308d2f4bb4db20b076be906d431ba935f15f2d56e00d21901480`, uncompressed `0564698…`) was kept and not overwritten. A 1 GiB upload from this session was not completed after the mini rebooted at 4:15:34 AM ET (unexpected; KernariumCS sparse image was remounted; official inode unchanged). The new gz remains on the volume next to the old one.
+Clean labwc image SHA-256 (uncompressed) `02a13eb21a63956f625f1f1789ae979ba0c4fbf2c0010f429ed4c867fe8b0617`. Local gzip `-1` of that image is `alpine-3.24.2-desktop-labwc-clean-20261113.ext4.gz` (1,091,534,974 bytes, sha256 `2a219e5409a7e3a52a197a624d6edd5862270edd95014bc57d241347d208a7eb`). The previous dirty Drive object was kept as `alpine-3.24.2-desktop-labwc-dirty-journal.ext4.gz` (same bytes, sha256 `9471344de45d308d2f4bb4db20b076be906d431ba935f15f2d56e00d21901480`, uncompressed `0564698…`). The already-shared Drive file ID was then updated in place with the clean gzip (see the 4:25 AM ET section below).
 
 The same journal repair was applied to `alpine-3.24.2-desktop-fast.ext4`; its dirty original was also parked.
 
@@ -511,3 +511,74 @@ Firefox Isolated Web Content after READY, same session after the 4:15 AM reboot 
 | Isolated Web Content after READY | 15.68 s | 14.40 s | **14.15 s** |
 
 Those Firefox numbers are slower than the earlier 3:53 AM ET same-machine figures (official 12.27 s, packed 11.93 s) because the session was post-reboot and cold. Within this session, arena is tied with packed-publish on compile-cold and slightly ahead on Isolated Web Content. Evict-on-full plus packed publish plus the arena is a verified compile-cold improvement of about 5–8% versus official 4K, not a clean full-suite wall-time win, so the official identity was **not** bumped (still v26 / `0x1d7ce579d497fc37`). The official binary was kept as the fallback.
+
+
+## Drive repair, 4:15 AM reboot, and Simulator JIT through a48d90a (13 Nov 2026, 4:25–4:39 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Official 4K inode still 244909018 (identity v26 / `0x1d7ce579d497fc37`). Screen Sharing was left on port 5900.
+
+### Drive images (in-place update of the already-shared links)
+
+The shared labwc and fast Drive objects were the dirty-journal snapshots and did not boot under the production ro overlay. The dirty payloads were server-side copied to new names, then the original file IDs were overwritten with the journal-replayed gzs so existing links now serve the clean images.
+
+| Object | Drive file ID (unchanged for the names already shared) | gzip SHA-256 | uncompressed SHA-256 |
+| --- | --- | --- | --- |
+| `alpine-3.24.2-desktop-labwc.ext4.gz` (clean, 1,091,534,974 bytes) | `1z5ekg6nr5qcv86ST-yy_O3ZLk9nIJYvR` | `2a219e5409a7e3a52a197a624d6edd5862270edd95014bc57d241347d208a7eb` | `02a13eb21a63956f625f1f1789ae979ba0c4fbf2c0010f429ed4c867fe8b0617` |
+| `alpine-3.24.2-desktop-fast.ext4.gz` (clean, 1,091,530,692 bytes) | `1T6V-9MLZqjtNOYIB5vkJ4FDI6phrYcld` | `e4a1f6858ec238ca313e5abef2de6897e018ae675950e115dff4acbb0b9c1d6b` | `caa0801f2b19c5868afc9cd345b34a6ec0188b69b722d9262f1081923551fd1a` |
+| `alpine-3.24.2-desktop-labwc-dirty-journal.ext4.gz` (kept, 994,819,499 bytes) | `1cP4YnylIgWlkcwQ2vS1aaybNpy2THOLq` | `9471344de45d308d2f4bb4db20b076be906d431ba935f15f2d56e00d21901480` | `0564698ccf4064b975e7998a471295d279d9b3542f2b95802c54aad41e5fdab3` |
+| `alpine-3.24.2-desktop-fast-dirty-journal.ext4.gz` (kept, 994,836,889 bytes) | `1IiP9NAXN1YbqWYAEBfCNPm_RMlDhXYr6` | `721b2c12359178511e9741846385155c9f2847d86c978bae1a6bf30c02c6f6d8` | `bc60fbe9a0cfa0290328775ccd97a00ed6741dbb5c114003ca49748e230c0063` |
+
+Links:
+
+- labwc (clean, same ID as already shared): https://drive.google.com/file/d/1z5ekg6nr5qcv86ST-yy_O3ZLk9nIJYvR/view
+- fast (clean, same ID as already shared): https://drive.google.com/file/d/1T6V-9MLZqjtNOYIB5vkJ4FDI6phrYcld/view
+- labwc dirty-journal (kept): https://drive.google.com/file/d/1cP4YnylIgWlkcwQ2vS1aaybNpy2THOLq/view
+- fast dirty-journal (kept): https://drive.google.com/file/d/1IiP9NAXN1YbqWYAEBfCNPm_RMlDhXYr6/view
+- `SHA256SUMS` (updated in place, ID `1C3U1FQ7hibVJqSluDDDLOCMS76rmp6P-`): https://drive.google.com/file/d/1C3U1FQ7hibVJqSluDDDLOCMS76rmp6P-/view
+- `README.txt` (new, ID `12l8imppa2SUliqCgwyXZmeycEuGSF3-x`): https://drive.google.com/file/d/12l8imppa2SUliqCgwyXZmeycEuGSF3-x/view
+
+`alpine-3.24.2-desktop.ext4.gz` (XFCE) was already clean and was not replaced.
+
+The dirty journals came from baking the fast/labwc images with `exec poweroff -f` (skips init umount) and gzipping the ext4 without e2fsck. `scripts/desktop-guest/install-fast-desktop.sh` now syncs, `umount -a -r`, and `poweroff` without `-f`. New host helper `scripts/macos-metal/pack-rootfs-gz.sh` refuses to gzip an image that still has `INCOMPAT_RECOVER`, running e2fsck first when `e2fsck` or Lima `kernarium-linux` is available.
+
+### Why the mini rebooted at 4:15 AM ET
+
+This was not a kernel panic, not jetsam/OOM, and not the 8 GiB JIT cache budget (that budget was not used in the preceding runs). There is no panic report under `/Library/Logs/DiagnosticReports`. `last` shows a shutdown and a reboot at 4:15 AM ET. The shutdown stall spindump (`shutdown_stall_2026-11-13-041519_Davids-Mac-mini-2.shutdownStall`, sampling started 4:15:03 AM ET) recorded an already-running shutdown, with `uml-darwin` (official binary, parent zsh, footprint 4,084.94 MB, forked ~14 s earlier) still in the guest JIT loop.
+
+The initiator is in `log show`:
+
+```
+2026-11-13 04:15:01.523556-0500 shutdown[89862]: reboot by root: securityd-guard: securityd still hung 211s after kickstart
+2026-11-13 04:15:01.523756-0500 launchd[1]: System shutdown initiated by: shutdown[89862]<-bash[89707]
+```
+
+`/usr/local/sbin/securityd-guard.sh` (LaunchDaemon `com.davidhope.securityd-guard.plist`) probes `security list-keychains` every 60 s, kickstarts `system/com.apple.securityd` after two failed 10 s probes, and if securityd is still hung 180 s later issues `shutdown -r now`. The user log:
+
+- 04:00:08 AM ET: probe ok (0.058 s)
+- 04:10:10 AM ET: first fail (`probe_rc=142`, 10.1 s timeout); no stuck `security` CLI processes
+- 04:11:20 AM ET: second fail, kickstart
+- 04:14:51 AM ET: still hung, graceful reboot (211 s after kickstart)
+
+`uml-darwin` started around 04:14:49 AM ET, after securityd had already been wedged for about five minutes, so it was a bystander, not the cause. The same guard has rebooted this mini on this pattern many times (including 4:15 AM ET 13 Nov, 11:22 AM ET 12 Nov, and earlier October dates). Rate limit is 6 hours, so the next automatic reboot cannot happen before 10:15 AM ET. Avoid touching Keychain / the `security` CLI; do not disable the guard unless asked. After reboot, memory was 16 GiB with swap unused, not an OOM condition.
+
+### Simulator JIT through a48d90a
+
+The 4:15 AM reboot cleared the wedged Simulator. Peek iPhone 17 (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`) and iPad (A16) (`6532E3AA-A7DF-48F4-9E87-6C4EA94F4C74`) both booted cleanly. Nothing was installed on a physical iPhone.
+
+The live Kernarium tree was still at the pre-evict JIT sources (official evict/packed/arena builds had been side copies). For this Simulator rebuild only, `patches/0013-jit-publish-arena/` (evict-on-full + packed publish + bump arena) was copied onto `darwin/cpu/arm64/jit/{jit_shared_translations.cpp,jit_shared_translations.hpp,jit_executor_cache.cpp}`. `cmake --build --preset kernarium-ios-simulator` first failed because `darwin/memory/mmu/user_map.cpp` (mtime 01:09 AM ET) includes `<mach/mach_vm.h>`, which the iPhoneSimulator 26.5 SDK rejects (`#error mach_vm.h unsupported`). `inventory_holes()` was switched to `vm_region_64` so the Simulator SDK can compile it; the official macOS binary was not rebuilt (inode 244909018 unchanged). Then KRuntime was packaged and `xcodebuild` produced `Release-iphonesimulator/Kernarium.app` at 4:36 AM ET (`SIMCTL_CHILD_KERNARIUM_EXECUTION_ENGINE=jit`, cache budget 1 GiB). MesaEGL/MesaGallium xcframeworks were reused from the 12 Nov 11:48 PM ET Simulator build.
+
+CPU benches on Peek, same Alpine 3.24.2 slim-init image as the old Simulator table, 4:36–4:37 AM ET (`notes/macos-metal-desktop/kernarium-sim-jit-0013-benches.log`):
+
+| Bench | LinuxRunner | Simulator JIT (old, slim init) | Simulator JIT through a48d90a (4:37 AM ET) |
+| --- | ---: | ---: | ---: |
+| Boot to auto-benches (guest uptime at `BENCH_START`) | ~3.2 s to terminal frontend | **1.00 s** | 1.15 s |
+| `sh` loop, 20,000 increments | 1.03 s | 0.34 s | **0.20 s** |
+| `sha256sum` of 32 MiB | 1.64 s | 0.38 s | **0.37 s** |
+| `apk add --no-cache tree` | 3.08 s | **1.49 s** | 1.64 s |
+| `apk add --no-cache openssl` | 3.39 s | **1.58 s** | 1.75 s |
+| `openssl speed -evp` at 16 KiB | aes 169.3 MB/s; sha256 376.0 MB/s | aes 875.1; sha256 1696.3 | aes **984.1** MB/s; sha256 1658.3 MB/s |
+| Desktop (`DESKTOP_READY`, guest uptime) | (not compared) | 28.60 s (XFCE / virgl→llvmpipe) | **5.97 s** (labwc; iPad A16, 1920×1080) |
+
+The `sh` loop is clearly faster than the previous Simulator JIT (0.20 s vs 0.34 s, now 5.15× LinuxRunner). sha256sum is tied with the old JIT. apk was a bit slower this run and is partly network-bound; do not treat that as a regression of the arena. Boot to benches was 1.15 s vs 1.00 s, within DHCP noise (lease obtained just before `BENCH_START`).
+
+The desktop number is not a like-for-like XFCE rematch: the current production image is labwc (`alpine-3.24.2-desktop-labwc.ext4`, journal-clean). On iPad (A16) at 4:38 AM ET, `DESKTOP_START` was 3.28 s, labwc's Wayland socket was up at 5.95 s, and `DESKTOP_READY` was **5.97 s** (`display=wayland-0 labwc=1`). A second boot at 4:39 AM ET was ready in **3.96 s**. The old 28.60 s figure was XFCE. The serial log is the source for those times; `simctl io screenshot` of the iPad showed only Simulator chrome over a black guest surface (Firefox had been started but a painted-frame rematch was not captured). Execution engine was jit, 1 GiB cache budget. No phone install.

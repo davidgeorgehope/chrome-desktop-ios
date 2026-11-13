@@ -11,4 +11,8 @@ else
 fi
 sync
 echo "===INSTALL_FAST_DESKTOP_DONE===" | tee /dev/ttyS0
-exec poweroff -f
+# Do not use poweroff -f: that skips umount and leaves a dirty ext4 journal
+# (INCOMPAT_RECOVER) which the production ro overlay cannot replay.
+umount -a -r 2>/dev/null || true
+sync
+exec poweroff
