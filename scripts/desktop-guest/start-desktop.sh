@@ -6,8 +6,10 @@ export DISPLAY=:0
 export XDG_RUNTIME_DIR=/tmp/runtime-root
 export XDG_SESSION_TYPE=x11
 export LANG=C.UTF-8
-# Prefer the virtio-gpu gallium path (host virgl) over guest llvmpipe.
-export MESA_LOADER_DRIVER_OVERRIDE=virtio_gpu
+# Do not force MESA_LOADER_DRIVER_OVERRIDE. On the Simulator host this session
+# uses guest virgl (host llvmpipe). On Designed for iPad / a device host with
+# Venus, desktop-ready.sh prefers guest Zink over virtio-vulkan / KosmicKrisp.
+unset MESA_LOADER_DRIVER_OVERRIDE
 export LIBGL_ALWAYS_SOFTWARE=0
 mkdir -p "$XDG_RUNTIME_DIR" /run/dbus /var/run /tmp /var/log
 chmod 700 "$XDG_RUNTIME_DIR"
@@ -40,7 +42,7 @@ while [ ! -e /dev/dri/card0 ] && [ "$i" -lt 40 ]; do
   i=$((i + 1))
   sleep 0.2
 done
-# A render node is what Mesa uses for virgl. Create it if udev did not.
+# A render node is what Mesa uses for virgl/zink. Create it if udev did not.
 if [ -e /dev/dri/card0 ] && [ ! -e /dev/dri/renderD128 ]; then
   mknod /dev/dri/renderD128 c 226 128 2>/dev/null || true
 fi

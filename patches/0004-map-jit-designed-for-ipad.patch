@@ -1,0 +1,95 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0e913ff..fb393ff 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -120,10 +120,16 @@ if(UML_APP_STORE_RUNTIME)
+     set(UML_IOS_DEBUGGER_JIT OFF)
+ else()
+     set(UML_ARM64_JIT_ENGINE ON)
+-    if(UML_APPLE_PLATFORM STREQUAL "ios")
+-        set(UML_IOS_DEBUGGER_JIT ON)
+-    else()
+-        set(UML_IOS_DEBUGGER_JIT OFF)
++    # Local bakeoff: a -DUML_IOS_DEBUGGER_JIT=OFF override lets the ios-device
++    # slice publish through MAP_JIT on an Apple silicon Mac (Designed for iPad)
++    # instead of the debugger-prepared region a physical iPhone uses.
++    # The default on ios remains the debugger route.
++    if(NOT DEFINED UML_IOS_DEBUGGER_JIT)
++        if(UML_APPLE_PLATFORM STREQUAL "ios")
++            set(UML_IOS_DEBUGGER_JIT ON)
++        else()
++            set(UML_IOS_DEBUGGER_JIT OFF)
++        endif()
+     endif()
+ endif()
+ 
+diff --git a/Kernarium/scripts/run-ios-mac.sh b/Kernarium/scripts/run-ios-mac.sh
+index 7a7b8e6..de8652b 100755
+--- a/Kernarium/scripts/run-ios-mac.sh
++++ b/Kernarium/scripts/run-ios-mac.sh
+@@ -173,8 +173,12 @@ fi
+ 
+ CDPATH= cd -- "$ROOT_DIR"
+ if [ "$SKIP_BUILD" -eq 0 ]; then
++	# Local bakeoff: Designed for iPad is an ios-device binary on macOS.
++	# Turn off the iPhone debugger JIT region so MAP_JIT + allow-jit is
++	# used. A physical iPhone install is still out of scope.
+ 	cmake --preset "$PRESET" \
+-		-DUML_MAINLINE_618_KERNEL_ARTIFACT_DIR="$ARTIFACT"
++		-DUML_MAINLINE_618_KERNEL_ARTIFACT_DIR="$ARTIFACT" \
++		-DUML_IOS_DEBUGGER_JIT=OFF
+ 	cmake --build --preset "$PRESET" --parallel "$JOBS"
+ 	if [ -n "$ANDROID_PRESET" ]; then
+ 		cmake --preset "$ANDROID_PRESET"
+diff --git a/darwin/cpu/jit_memory/executable_memory.cpp b/darwin/cpu/jit_memory/executable_memory.cpp
+index 8852af4..1264f0b 100644
+--- a/darwin/cpu/jit_memory/executable_memory.cpp
++++ b/darwin/cpu/jit_memory/executable_memory.cpp
+@@ -9,6 +9,7 @@
+ #include <libkern/OSCacheControl.h>
+ #include <os/lock.h>
+ #include <pthread.h>
++#include <dlfcn.h>
+ #include <unistd.h>
+ 
+ #include <array>
+@@ -85,11 +86,26 @@ namespace {
+ #if UML_JIT_MEMORY_REGION_ROUTE
+ /* The region's pages are written through their alias: no write window. */
+ constexpr void jit_write_protect(int) {}
+-#elif defined(__APPLE__) && defined(__aarch64__) && defined(MAP_JIT) && \
+-	!defined(__IPHONE_OS_VERSION_MAX_ALLOWED)
++#elif defined(__APPLE__) && defined(__aarch64__) && defined(MAP_JIT)
++/* Local bakeoff fork: publish through MAP_JIT + pthread_jit_write_protect_np
++ * on macOS, the iOS Simulator, and the ios-device slice when it runs on an
++ * Apple silicon Mac (Designed for iPad) with the allow-jit entitlement.
++ * Upstream leaves this off so the Simulator stays on the gadget engine like
++ * a device with no debugger (G157). available() still probes mmap(MAP_JIT);
++ * a physical iPhone without the entitlement or StikDebug falls back to
++ * gadgets. pthread_jit_write_protect_np is resolved at run time because the
++ * iOS / Simulator SDKs mark it unavailable even when the host provides it.
++ */
+ void jit_write_protect(int enable)
+ {
+-	pthread_jit_write_protect_np(enable);
++	/* The iOS Simulator SDK marks pthread_jit_write_protect_np
++	 * unavailable (it is a macOS API), but the Simulator is a macOS
++	 * process and the symbol is present. Resolve it at run time. */
++	using Fn = void (*)(int);
++	static const Fn fn = reinterpret_cast<Fn>(
++		dlsym(RTLD_DEFAULT, "pthread_jit_write_protect_np"));
++	if (fn != nullptr)
++		fn(enable);
+ }
+ 
+ constexpr bool jit_publication_supported() noexcept
+@@ -792,6 +808,9 @@ bool available() noexcept
+ 		 */
+ 		if (!jit_publication_supported())
+ 			return false;
++		if (dlsym(RTLD_DEFAULT, "pthread_jit_write_protect_np") ==
++		    nullptr)
++			return false;
+ 		void *mapping = mmap(nullptr, 16U * 1024U,
+ 			PROT_READ | PROT_WRITE | PROT_EXEC,
+ 			MAP_PRIVATE | MAP_ANON | MAP_JIT, -1, 0);
