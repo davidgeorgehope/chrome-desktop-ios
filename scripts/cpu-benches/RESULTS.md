@@ -9,19 +9,19 @@ Times are America/New_York (UTC-5). Host baseline started 10:05:51 PM ET on 12 N
 
 | Bench | Host native | Guest JIT | Guest / host |
 | --- | --- | --- | --- |
-| `sh` loop 20k | 0.03 s (`/bin/dash`) | 0.31 s (Alpine ash) | 10.3× |
+| `sh` loop 20k | 0.03 s (`/bin/dash`) | 0.26 s (Alpine ash) | 8.7× |
 | `sha256sum` 32 MiB | 0.02 s (macOS coreutils, HW) | 0.38 s (busybox, software) | 19×, not a fair 1× comparison |
 | openssl evp sha256, 16 KiB | 2,647,014.75k (~2,585 MB/s), OpenSSL 4.1.0, `OPENSSL_armcap=0x987d` | 1,731,317.55k (~1,691 MB/s), OpenSSL 3.5.9, `OPENSSL_armcap=0x8fd` | 1.53× |
 | openssl evp aes-256-cbc, 16 KiB | 1,326,698.62k (~1,296 MB/s) | 880,214.02k (~860 MB/s) | 1.51× |
 | compile tiny-sha, clang 21 `-O2` | 0.14 s | — | guest used gcc |
-| compile tiny-sha, gcc `-O2` | 0.24 s (Homebrew gcc-16) | 2.78 s (Alpine gcc 15.2) | 11.6× |
+| compile tiny-sha, gcc `-O2` | 0.24 s (Homebrew gcc-16) | 2.92 s (Alpine gcc 15.2) | 12.2× |
 | run tiny-sha 3×32 MiB, clang `-O2` | 0.380 s / 252.56 MiB/s | — | — |
 | run tiny-sha 3×32 MiB, gcc `-O2` | 0.628 s / 152.90 MiB/s (gcc-16) | 1.179 s / 81.42 MiB/s (gcc 15.2) | 1.88× |
 | apk add tree+openssl+build-base, offline | n/a | 3.07 s | guest-only |
 
 Digests matched: `sha256sum` of the 32 MiB buffer is `83ee4724…`; tiny-sha digest is `bcb5fa62…` on both sides.
 
-Fair 1× columns are openssl evp (both use ARMv8 crypto; the JIT already advertises `sha2`/`aes` and lowers them) and tiny-sha compiled with gcc. `sha256sum` on the host is hardware; Alpine busybox is software, so 19× is not a JIT tax. The shell-loop shells also differ (`dash` vs `ash`) but both are simple POSIX `while` arithmetic; 10× is still a real gap.
+Fair 1× columns are openssl evp (both use ARMv8 crypto; the JIT already advertises `sha2`/`aes` and lowers them) and tiny-sha compiled with gcc. `sha256sum` on the host is hardware; Alpine busybox is software, so 19× is not a JIT tax. The shell-loop shells also differ (`dash` vs `ash`) but both are simple POSIX `while` arithmetic; 8.7× is still a real gap. Only the shell loop and the gcc compile were re-timed after the 12 Nov 2026 link/IC change; evp and tiny-sha-run numbers are still the 10:11 PM ET baseline.
 
 ## Increments tried after the baseline (all reverted)
 
@@ -80,9 +80,72 @@ The 10× shell tax is not syscalls or compile. Almost every translated block ret
 
 The 11.6× compile tax is two problems stacked. First, this one-shot `gcc`/`cc1`/`as` run compiled 681k new blocks (1.40 s). The process-wide shared translation cache did not reuse any of them: publications require two live executors at once, and entries are keyed by guest PC + words, so ASLR after `exec` misses even when the bytes are the same (`libc`, the dynamic linker, `libgcc`). Second, the blocks that do hit still exit the same way the shell does (continued + indirect miss). SVC is not the top exit on either bench.
 
+## Direct links, fairness underflow, and an A64 indirect table (12 Nov 2026, 11:06–11:09 PM ET)
+
+Patch `patches/0006-jit-direct-and-indirect-links.patch` (full sources in `patches/0006-jit-direct-and-indirect-links/`). Three changes, measured together because the first two have to land as a pair and the third was already wired in the same tree:
+
+1. **Full chain capabilities.** A no-store / no-FP entry block used to advertise selector 0, so a compiled store or FP successor failed the `allowed_selectors` check and every such direct branch returned to C++ (1.38M of 1.92M `continued` exits on the shell). The executor now opens `JitBlockPublication` for every chain and materializes FP + the native FP environment at entry, so the selector is 5 whenever stores do not need tracking. While a reservation is live and the entry block itself has no stores, store publication is still not advertised.
+
+2. **Fairness no longer wraps.** The remaining-instruction counter already decremented toward the 4096-instruction budget, but the subtract did not set flags. When remaining was smaller than the just-finished block, `x20` underflowed to a huge unsigned value, the `remaining < successor.instruction_count` check never fired, and well-linked tight loops (observed: `grep | sort` of `/proc/cpuinfo`) ran without returning to C++, so timers and RCU stalled. Direct and indirect links now use `SUBS` and take the fairness fallback on unsigned underflow. After the fix, the shell shows 20,094 fairness exits and no stalls.
+
+3. **In-JIT A64 indirect hash.** Behind each site's 2-cell inline cache, generated A64 `BR`/`BLR`/`RET` looks up an 8192-entry per-executor direct-mapped table (keyed by the target PC, guarded by the chain's link epoch). A hit stays in generated code; a miss still returns to C++ to train the table. There is not yet a return-address stack, and the per-site IC is still 2-entry.
+
+Timing with the profiler off, two clean boots (11:07 and 11:08 PM ET):
+
+| Bench | Before (baseline) | After (run 1 / run 2) |
+| --- | ---: | ---: |
+| `sh` loop 20k | 0.31 s (10.3×) | **0.25 s / 0.26 s** (**8.3× / 8.7×**) |
+| compile tiny-sha, gcc `-O2` | 2.78 s (11.6×) | 2.90 s / 2.94 s (12.1× / 12.3×) |
+
+The table at the top uses the conservative 0.26 s / 2.92 s pair. The shell is a verified gain. The compile is slightly slower: new-block translation is still ~1.31 s (45% of wall), and always-on publication + FP setup is paid on every chain entry. A first attempt at (1) without (2) hung the guest in `grep`/`sort` with `rcu_sched` stalls and was not landed on its own.
+
+### `sh` loop 20k after the change (0.26 s wall with the profiler on)
+
+| Counter | Count | Share of `run_blocks` |
+| --- | ---: | ---: |
+| `run_blocks` | 259,229 | 100% (was 3,263,109) |
+| cache hit | 254,188 | 98.1% |
+| cache miss / compile | 5,041 / 5,000 | 1.9% |
+| compile time | 19.1 ms | — |
+| shared reuse | 0 | — |
+| exit continued | 257,568 | 99.4% |
+| — of which fairness | 20,094 | 7.8% |
+| — uncompiled | 5,838 | 2.3% |
+| — unsafe (reservation split) | 84,653 | 32.7% |
+| — nonlink (ISB / helpers / etc.) | 146,982 | 56.7% |
+| — selector store / FP | 1 / 0 | ~0% |
+| exit indirect miss | 1,378 | 0.5% (was 1,344,306 / 41.2%) |
+| exit SVC | 127 | ~0% |
+| exit page fault | 156 | ~0% |
+| exit IRQ | 0 | 0% |
+
+Raw: `scripts/cpu-benches/profiles/profile-sh_loop-links.txt`. Retired ~308M guest instructions, same work as before, in 12.6× fewer `run_block` trips. Selector mismatches are gone. Indirect misses are essentially gone. The leftover `continued` exits are mostly non-link cuts and reservation-split targets, plus a working fairness window.
+
+### compile tiny-sha, gcc `-O2` after the change (2.91 s wall with the profiler on)
+
+| Counter | Count | Share of `run_blocks` |
+| --- | ---: | ---: |
+| `run_blocks` | 1,018,048 | 100% (was 5,538,113) |
+| cache hit | 388,573 | 38.2% |
+| cache miss / compile | 629,475 / 628,670 | 61.8% |
+| compile time | **1,311 ms** | **45% of wall** |
+| shared reuse | 0 | — |
+| exit continued | 800,988 | 78.7% |
+| — of which uncompiled | 636,325 | 62.5% |
+| — fairness | 78,593 | 7.7% |
+| — unsafe | 28,437 | 2.8% |
+| — nonlink | 56,593 | 5.6% |
+| — selector FP / store | 1,040 / 0 | 0.1% |
+| exit indirect miss | 201,749 | 19.8% (was 2,565,360 / 46.3%) |
+| exit SVC | 5,199 | 0.5% |
+| exit page fault | 10,113 | 1.0% |
+| exit IRQ | 0 | 0% |
+
+Raw: `scripts/cpu-benches/profiles/profile-compile-links.txt`. Execution exits dropped sharply, but this bench still spends 1.31 s compiling ~629k new blocks with no shared-cache reuse across `gcc`/`cc1`/`as`, so wall time does not improve.
+
 ## Next costs
 
-- Shell (~10×): a return-address stack plus a deeper polymorphic inline cache for indirect sites (they are still 2-entry), and a split of `exit.continued` into fairness vs unlinked-direct so those chains stay in generated code.
-- Compile (~11.6×): persist or share translations across `fork`/`exec` of the same file, keyed by file+offset (or a fixed guest-user mapping so PCs are stable). Also allow the shared cache to publish when only one executor is live, which is how a sequential toolchain actually runs. Cheaper SVC round trips are not the top cost here (7,897 SVC exits vs 1.40 s of compile and millions of continued/indirect exits).
+- Shell (~8.7×): direct links and the A64 indirect table already removed the 59%/41% C++-exit mix. Leftover continued exits are reservation splits, non-link cuts (ISB / helpers), and fairness. A return-address stack and a deeper per-site IC may still help a little; they are not the main leftover.
+- Compile (~12.2×): still dominated by cold translation (1.31 s, 45% of wall; 636k uncompiled continued exits). Persist or share translations across `fork`/`exec` of the same file, keyed by file+offset (or a fixed guest-user mapping so PCs are stable), and allow the shared cache to publish when only one executor is live. Indirect misses are down to 202k (20%) but are secondary to compile time.
 - Software CPU (~1.88×): left alone for now. A correct hoist of `LDP`/`STP` and signed/post-index still needs a unit test first (the naive run hung `/init`); a multi-entry last-page cache must not tax the miss path.
-- A fixed host offset for guest user memory (the Darwin native window and `direct-root` already map guest physical RAM) was not implemented; it needs a conflict-free VA plan on 16 KiB host pages. A design belongs in `DESIGN.md`.
+- A fixed host offset for guest user memory (the Darwin native window and `direct-root` already map guest physical RAM) was not implemented; it needs a conflict-free VA plan on 16 KiB host pages. A design is in `DESIGN.md`.

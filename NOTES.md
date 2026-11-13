@@ -254,11 +254,11 @@ Guest `/proc/cpuinfo` already advertises `aes pmull sha1 sha2 sha3 sha512 crc32 
 
 | Bench | Host | Guest JIT | Ratio |
 | --- | --- | --- | --- |
-| sh loop 20k | 0.03 s (dash) | 0.31 s (ash) | 10.3× |
+| sh loop 20k | 0.03 s (dash) | 0.26 s (ash) | 8.7× |
 | sha256sum 32 MiB | 0.02 s (HW) | 0.38 s (busybox SW) | 19×, unfair |
 | openssl evp sha256 16 KiB | 2,585 MB/s (OpenSSL 4.1.0) | 1,691 MB/s (OpenSSL 3.5.9) | 1.53× |
 | openssl evp aes-256-cbc 16 KiB | 1,296 MB/s | 860 MB/s | 1.51× |
-| compile tiny-sha, gcc -O2 | 0.24 s (gcc-16) | 2.78 s (gcc 15.2) | 11.6× |
+| compile tiny-sha, gcc -O2 | 0.24 s (gcc-16) | 2.92 s (gcc 15.2) | 12.2× |
 | run tiny-sha 3×32 MiB, gcc -O2 | 0.628 s / 152.90 MiB/s | 1.179 s / 81.42 MiB/s | 1.88× |
 | apk add offline (tree+openssl+build-base) | n/a | 3.07 s | — |
 
@@ -270,6 +270,12 @@ The slim guest's first apk attempt failed on DNS (`DNS: transient error`); bench
 
 A default-off `UML_JIT_PROFILE` counter in the uml-darwin JIT (`patches/0005-jit-exit-profile.patch`) recorded isolated `sh` loop and `gcc -O2` tiny-sha compiles, reset after boot / `apk add` and snapshotting at the end of the bench. Full table: `scripts/cpu-benches/RESULTS.md`. Profiles: `scripts/cpu-benches/profiles/`.
 
-The shell at ~10× is 3.26 million translated-block entries in 0.37 s, split 59% `continued` (fairness or unlinked direct) and 41% indirect-cache misses. SVC and compile are noise (80 syscalls, 16 ms of compile). The compile at ~11.6× has the same exit mix, plus 1.40 s (47% of wall) spent compiling 681k new blocks with zero shared-cache reuse: the shared cache only publishes when two executors are live at once, and it keys entries by guest PC, so `exec` of `cc1`/`as` under ASLR cannot reuse `libc` or the toolchain. SVC is not the top exit on either bench. The profiler is off unless `UML_JIT_PROFILE` is set, and was not used for the performance table.
+The shell at ~10× was 3.26 million translated-block entries in 0.37 s, split 59% `continued` (1.38M of those were selector mismatches on compiled successors, not unlinked or fairness) and 41% indirect-cache misses. SVC and compile were noise (80 syscalls, 16 ms of compile). The compile at ~11.6× had the same exit mix, plus 1.40 s (47% of wall) spent compiling 681k new blocks with zero shared-cache reuse: the shared cache only publishes when two executors are live at once, and it keys entries by guest PC, so `exec` of `cc1`/`as` under ASLR cannot reuse `libc` or the toolchain. SVC is not the top exit on either bench. The profiler is off unless `UML_JIT_PROFILE` is set, and was not used for the performance table.
+
+## Direct links and A64 indirect table (12 Nov 2026, 11:06–11:09 PM ET)
+
+`patches/0006-jit-direct-and-indirect-links.patch`. Chains now enter with a live store publication and a full link selector (unless a reservation is held on a no-store entry), so compiled direct successors actually get jumped to. A `SUBS` fairness check stops the remaining-instruction counter wrapping, which had hung `grep|sort` with RCU stalls once those links started succeeding. A64 `BR`/`BLR`/`RET` also consult an 8192-entry in-JIT hash behind the 2-cell IC. Isolated profiles: `scripts/cpu-benches/profiles/profile-sh_loop-links.txt` and `profile-compile-links.txt`. Full write-up: `scripts/cpu-benches/RESULTS.md`.
+
+The shell dropped from 0.31 s (10.3×) to 0.25–0.26 s (8.3–8.7×) with the profiler off; `run_blocks` fell from 3.26M to 259k, selector mismatches to ~0, and indirect misses from 1.34M to 1,378. The gcc compile went from 2.78 s (11.6×) to 2.90–2.94 s (12.1–12.3×): execution exits fell (5.54M → 1.02M run_blocks, indirect 2.57M → 202k) but 1.31 s (45%) is still cold translation of ~629k new blocks with no shared reuse, so wall time did not improve. A return-address stack and a deeper per-site IC were not added. Next cost for compile is sharing translations across exec, keyed by file+offset.
 
 A design for a fixed-offset guest user memory mapping (and for sharing translations across exec) is in `DESIGN.md`. It is not implemented.
