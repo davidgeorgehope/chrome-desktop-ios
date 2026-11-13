@@ -196,9 +196,67 @@ The same budget change grows each private L1 from ~128 MiB to 256 MiB. Isolated 
 
 Host sampling of the shell: `dtrace` is denied (SIP). `sample` hung previously (target already exited, and/or a TCC prompt that was not touched) and was not captured this pass; there is no `/usr/bin/timeout` on the Mac, so a second 8 s sample missed the 14.5 s window. A 1.6M-iteration dash loop was 14.50 s real, 14.48 user, 0.02 sys in the guest. Host `/usr/bin/time -l` around the whole `uml-darwin` (boot + apk + loop + poweroff) was 16.08 s real, 15.41 user, 0.67 sys, 17 page faults, 68,068 page reclaims. The leftover 6.3× is userspace in the interpreter (non-link cuts, reservation splits, fairness), not UML kernel time, COW, or timer IRQs. No further shell-exit change was landed in this pass.
 
+
+## File+offset shared cache under ASLR (13 Nov 2026, 12:36–12:52 AM ET)
+
+`patches/0008-jit-sigprof/` and `patches/0009-jit-file-offset-aslr/`.
+Simulator work was left alone (CoreSimulator still wedged; needs a mini
+reboot). The unused exclusive-pair codegen test and its `engine.cmake`
+entry were dropped and not committed.
+
+### SIGPROF dash histogram
+
+`UML_JIT_SIGPROF=1` at 99 Hz on a 1.6M-iteration dash loop (14.46 s real,
+14.41 user). The first dump was lost because `darwin_uml_exit()` uses
+`_exit()` and skipped `atexit`; the sampler now dumps from that path and
+from a 1 s flusher, still default off.
+
+Final histogram: `samples=1411` `dropped=0` `unique=1092`. 79.7% of
+samples are in JIT generated code, spread across 919 unique PCs, with no
+cluster above 2.5%. The top libc hits (memset 27, an unsybolized
+`0x6000002ec0cc` at 15) did not grow after boot, so the dash loop itself
+is almost entirely generated code. `run_block` is ~2% and
+`jit_profile::enabled` is 0.8% even with profiling off. There is no
+clear, safe C++ hotspot for the remaining 6.3×; it is codegen quality of
+the dash interpreter loop. Raw: `scripts/cpu-benches/profiles/uml-jit-sigprof-dash.txt`
+and `uml-jit-sigprof-dash.analysis.txt`.
+
+### File+offset keys and a slide of baked guest PCs
+
+Shared translations stay keyed by guest PC + words for same-VA hits, and
+are also indexed by the host code-page stamp (stable for one physical
+backing page) plus the guest page offset. `store_pc`, ADR/ADRP, BL
+return, and indirect-site keys are `JitRelocationKind::guest_pc`
+literals, slid by `new_pc - recorded_pc` at materialization.
+
+The first ASLR-on boot after only `store_pc` was relocated segfaulted in
+`ld-musl` (same data address `0x7fffbd8ced68` from two processes at
+different load bases). Recording ADR/ADRP and the leftover PC literals
+fixed it.
+
+Official-like timings, profiler off, ASLR **left on** (`randomize_va_space=1`).
+Raw: `scripts/cpu-benches/profiles/aslr-file-offset-timings.txt`. A
+profiled compile (boot + apk + cold + warm) is
+`scripts/cpu-benches/profiles/profile-compile-aslr-file-offset.txt`.
+
+| Bench | This run (ASLR on) | 12 Nov official (ASLR off) | Host native (prior) | Ratio vs native |
+| --- | ---: | ---: | ---: | ---: |
+| `sh_loop_dash` (20k) | 0.18 s | 0.19 s | 0.03 s | **6.0×** |
+| `compile_tiny_sha` cold | 2.12 s | 1.87 s | 0.24 s | **8.8×** |
+| `compile_tiny_sha` warm | 1.22 s | 1.09 s | 0.24 s | **5.1×** |
+
+Before this change a warm `cc1` under ASLR missed the PC+words key and
+looked like a cold compile. Warm wall is now close to the ASLR-off figure,
+i.e. mostly execution. A profiled compile showed `shared.reuses=513,919`,
+`shared.insertions=171,055`, `compile_ms=814` (process lifetime, including
+boot and apk). 8,909 publications were rejected for `reloc_count` now that
+blocks carry extra guest-PC slots; the cap is still `maximum_block_instructions`.
+That leftover, plus leaving ASLR on, is why warm wall is 1.22 s rather than
+1.09 s. vkcube / Venus was not diagnosed in this pass.
+
 ## Next costs
 
-- Shell (fair dash **6.3×**): still the interpreter, not ordinary integer JIT (the tight gcc loop is now 1.26×). Leftover exits are non-link cuts, reservation splits, and fairness. A return-address stack and a deeper per-site IC were not added. Host `sample`/`dtrace` were not obtained; `time -l` rules out kernel/page-fault dominance.
-- Compile is **7.8×** cold and **4.5×** warm with ASLR off. Warm wall is execution, not compile (3 ms of translation). Cold still spends 0.55 s compiling 130k new blocks; a cheaper first-tier or lazy-hot compile might cut that and was not tried. Under ASLR a warm `cc1` still needs a file+offset or content-hash key and a slide of baked guest PCs (`store_pc`, ADRP, BL return).
+- Shell (fair dash **6.0–6.3×**): SIGPROF on a 1.6M-iteration loop put 80% of samples in generated JIT code, with no single C++ hotspot worth a safe fix. The leftover is codegen quality of the dash interpreter (non-link cuts, reservation splits, fairness), not the dispatcher. A return-address stack and a deeper per-site IC were not added.
+- Compile is **8.8×** cold and **5.1×** warm with ASLR on, after file+offset keys and a slide of baked guest PCs (`patches/0009-jit-file-offset-aslr`). Warm wall is close to the earlier 1.09 s ASLR-off figure (mostly execution). 8,909 unique blocks still miss the shared cache because they now exceed the 64-relocation cap (`shared.malformed.reloc_count`). Raising that cap, or a cheaper first-tier compile for the remaining 0.55–0.8 s of cold translation, was not tried.
 - Software CPU (~1.88× tiny-sha run, not re-timed): left alone. A correct hoist of `LDP`/`STP` and signed/post-index still needs a unit test first; a multi-entry last-page cache must not tax the miss path.
 - A fixed host offset for guest user memory was not implemented; a design is in `DESIGN.md`.

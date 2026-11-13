@@ -1,0 +1,216 @@
+^DUML: reserved native kernel window 0x600000000000-0x60014000c000 (5368758272 bytes, host page 16384)
+Darwin native window 0x600000000000-0x60014000c000 (host-page aligned)
+Kernel virtual memory size shrunk to 2139131904 bytes
+Darwin anonymous guest RAM: registered sparse descriptor token fd=5
+Darwin anonymous guest RAM: reserved 2105540608 suffix bytes plus 7323648 reserved-tail bytes in the 2147483648-byte physical window; committed on demand; direct-root=yes offset=41943040
+UML: enabling 8 virtual CPUs
+[    0.000000] Linux version 6.18.60-g8246678b2d74 (kernarium@kernarium) (Homebrew clang version 23.1.5, Homebrew LLD 23.1.5) #2 SMP Thu Nov 12 20:57:53 EST 2026
+[    0.031119] Zone ranges:
+[    0.031122]   DMA      empty
+[    0.031124]   DMA32    empty
+[    0.031124]   Normal   [mem 0x0000000000000000-0x00006000c0007fff]
+[    0.031125] Movable zone start for each node
+[    0.031126] Early memory node ranges
+[    0.031126]   node   0: [mem 0x0000000000000000-0x000000007fffffff]
+[    0.031127] Initmem setup node 0 [mem 0x0000000000000000-0x000000007fffffff]
+[    0.034254] random: crng init done
+[    0.034326] percpu: Embedded 25 pages/cpu s73464 r0 d28936 u102400
+[    0.034334] Kernel command line: ubd0c=/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-minimal.ext4 rootfstype=ext4 init=/uml-per-run-initramfs-did-not-run root=/dev/ubda console=tty0 console=ttyS0
+[    0.034374] printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
+[    0.034519] Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[    0.034580] Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.037731] Built 1 zonelists, mobility grouping on.  Total pages: 524288
+[    0.037733] mem auto-init: stack:all(zero), heap alloc:off, heap free:off
+[    0.039885] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=8, Nodes=1
+[    0.039963] rcu: Hierarchical RCU implementation.
+[    0.039963] rcu: 	RCU restricting CPUs from NR_CPUS=64 to nr_cpu_ids=8.
+[    0.039964] 	Tracing variant of Tasks RCU enabled.
+[    0.039965] rcu: RCU calculated value of scheduler-enlistment delay is 10 jiffies.
+[    0.039965] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=8
+[    0.039971] RCU Tasks Trace: Setting shift to 3 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=8.
+[    0.042830] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 64
+[    0.042913] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.042915] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+[    0.042948] Console: colour dummy device 80x25
+[    0.042949] printk: legacy console [tty0] enabled
+[    0.042977] clocksource: timer: mask: 0xffffffffffffffff max_cycles: 0x1cd42e205, max_idle_ns: 881590404426 ns
+[    0.042979] Calibrating delay loop... 6174.31 BogoMIPS (lpj=30871552)
+[    0.083990] pid_max: default: 32768 minimum: 301
+[    0.084009] LSM: initializing lsm=capability,landlock,safesetid,smack
+[    0.084015] landlock: Up and running.
+[    0.084018] Smack:  Initializing.
+[    0.084019] Smack:  IPv6 port labeling enabled.
+[    0.084030] Mount-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.084035] Mountpoint-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.084703] SMBIOS 3.0.0 present.
+[    0.084706] DMI: Kernarium Virtual Machine/Virtual Machine, BIOS 6.18.60-g8246678b2d74 
+[    0.084710] DMI: Memory slots populated: 1/1
+[    0.084738] rcu: Hierarchical SRCU implementation.
+[    0.084739] rcu: 	Max phase no-delay instances is 1000.
+[    0.084801] Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[    0.084986] smp: Bringing up secondary CPUs ...
+[    0.087193] smp: Brought up 1 node, 8 CPUs
+[    0.088275] Memory: 1929332K/2097152K available (13123K kernel code, 5178K rwdata, 8736K rodata, 365K init, 3249K bss, 158724K reserved, 0K cma-reserved)
+[    0.088563] devtmpfs: initialized
+[    0.088760] AArch32 userspace enabled (hwcap 0xff7b0d6 hwcap2 0x3f)
+[    0.088907] posixtimers hash table entries: 4096 (order: 4, 65536 bytes, linear)
+[    0.088925] futex hash table entries: 2048 (65536 bytes on 1 NUMA nodes, total 64 KiB, linear).
+[    0.088985] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    0.095651] raid6: skipped pq benchmark and selected int64x8
+[    0.095653] raid6: using intx1 recovery algorithm
+[    0.095667] iommu: Default domain type: Translated
+[    0.095668] iommu: DMA domain TLB invalidation policy: strict mode
+[    0.096404] mc: Linux media interface: v0.10
+[    0.096407] videodev: Linux video capture interface: v2.00
+[    0.096409] pps_core: LinuxPPS API ver. 1 registered
+[    0.096410] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[    0.096412] PTP clock support registered
+[    0.096419] Advanced Linux Sound Architecture Driver Initialized.
+[    0.096496] NetLabel: Initializing
+[    0.096497] NetLabel:  domain hash size = 128
+[    0.096498] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[    0.096512] NetLabel:  unlabeled traffic allowed by default
+[    0.096761] clocksource: Switched to clocksource timer
+[    0.096826] VFS: Disk quotas dquot_6.6.0
+[    0.096830] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[    0.103609] NET: Registered PF_INET protocol family
+[    0.103642] IP idents hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[    0.110105] tcp_listen_portaddr_hash hash table entries: 1024 (order: 2, 16384 bytes, linear)
+[    0.110110] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[    0.110113] TCP established hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[    0.110124] TCP bind hash table entries: 16384 (order: 7, 524288 bytes, linear)
+[    0.110140] TCP: Hash tables configured (established 16384 bind 16384)
+[    0.110148] UDP hash table entries: 1024 (order: 4, 65536 bytes, linear)
+[    0.110153] UDP-Lite hash table entries: 1024 (order: 4, 65536 bytes, linear)
+[    0.110171] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[    0.110443] RPC: Registered named UNIX socket transport module.
+[    0.110444] RPC: Registered udp transport module.
+[    0.110445] RPC: Registered tcp transport module.
+[    0.110446] RPC: Registered tcp-with-tls transport module.
+[    0.110447] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[    0.110602] mconsole (version 2) initialized on /var/folders/h8/v5t0nwts67bdftm782096mwr0000gn/T/uml-kern48671/mconsole
+[    0.110813] Trying to unpack rootfs image as initramfs...
+[    0.110987] uml-rtc uml-rtc.0: registered as rtc0
+[    0.110991] uml-rtc uml-rtc.0: setting system clock to 2026-11-13T05:51:22 UTC (1794549082)
+[    0.113834] workingset: timestamp_bits=46 max_order=19 bucket_order=0
+[    0.114027] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[    0.123835] NFS: Registering the id_resolver key type
+[    0.123840] Key type id_resolver registered
+[    0.123842] Key type id_legacy registered
+[    0.123845] nfs4filelayout_init: NFSv4 File Layout Driver Registering...
+[    0.123847] nfs4flexfilelayout_init: NFSv4 Flexfile Layout Driver Registering...
+[    0.137200] Freeing initrd memory: 88800K
+[    0.137720] Key type cifs.idmap registered
+[    0.137831] fuse: init (API version 7.45)
+[    0.137954] SGI XFS with security attributes, scrub, repair, no debug enabled
+[    0.139536] NET: Registered PF_ALG protocol family
+[    0.139539] xor: measuring software checksum speed
+[    0.139613]    8regs           : 46267 MB/sec
+[    0.139694]    8regs_prefetch  : 41610 MB/sec
+[    0.139772]    32regs          : 43151 MB/sec
+[    0.139860]    32regs_prefetch : 38142 MB/sec
+[    0.139861] xor: using function: 8regs (46267 MB/sec)
+[    0.139863] Key type asymmetric registered
+[    0.139864] Asymmetric key parser 'x509' registered
+[    0.139869] io scheduler mq-deadline registered
+[    0.139870] io scheduler kyber registered
+[    0.146336] brd: module loaded
+[    0.148547] loop: module loaded
+[    0.162416] zram: Added device: zram0
+[    0.162662] wireguard: WireGuard 1.0.0 loaded. See www.wireguard.com for information.
+[    0.162663] wireguard: Copyright (C) 2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+[    0.162667] tun: Universal TUN/TAP device driver, 1.6
+[    0.162864] mousedev: PS/2 mouse device common for all mice
+[    0.163057] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[    0.163482] Initializing XFRM netlink socket
+[    0.163491] NET: Registered PF_INET6 protocol family
+[    0.163772] Segment Routing with IPv6
+[    0.163775] In-situ OAM (IOAM) with IPv6
+[    0.163788] sit: IPv6, IPv4 and MPLS over IPv4 tunneling driver
+[    0.163822] NET: Registered PF_PACKET protocol family
+[    0.163827] Bridge firewalling registered
+[    0.163933] sctp: Hash tables configured (bind 256/256)
+[    0.163952] Key type dns_resolver registered
+[    0.164048] NET: Registered PF_VSOCK protocol family
+[    0.164066] Free page reporting enabled
+[    0.164067] Darwin free-page reporting returns free guest memory to the host
+[    0.164069] Initializing software serial port version 1
+[    0.164495] Console initialized on /dev/ttyS0
+[    0.164498] printk: legacy console [ttyS0] enabled
+[    0.167908] Darwin user network: registered eth0 with user-mode NAT
+[    0.167931] printk: legacy console [mc-1] enabled
+[    0.168027] Not locking "/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-minimal.ext4" on the host
+[    0.169418] registered taskstats version 1
+[    0.170428] zswap: loaded using pool zstd
+[    0.170456] Key type .fscrypt registered
+[    0.170478] Key type fscrypt-provisioning registered
+[    0.170666] Btrfs loaded, zoned=no, fsverity=yes
+[    0.170696] Key type big_key registered
+[    0.171036] Key type encrypted registered
+[    0.234215] ALSA device list:
+[    0.234232]   No soundcards found.
+[    0.234292] Run /init as init process
+[    0.255460] EXT4-fs (ubda): mounted filesystem b85ff199-deda-4271-85a9-89e3c86780f9 ro with ordered data mode. Quota mode: none.
+UML_BOOT_SWITCH_ROOT:/sbin/init
+( 1/32) Upgrading musl (1.2.6-r2 -> 1.2.6-r3)
+7  0%                                             8[0K( 2/32) Upgrading libcrypto3 (3.5.8-r0 -> 3.5.9-r0)
+7  0%                                             8[0K7  1%                                             8[0K7  2%                                             8[0K7  2% #                                           8[0K7  3% #                                           8[0K( 3/32) Upgrading libssl3 (3.5.8-r0 -> 3.5.9-r0)
+7  3% #                                           8[0K( 4/32) Upgrading zlib (1.3.2-r0 -> 1.4-r0)
+7  3% #                                           8[0K( 5/32) Upgrading ca-certificates-bundle (20260909-r0 -> 20261020-r0)
+7  3% #                                           8[0K( 6/32) Installing libgcc (15.2.0-r5)
+7  3% #                                           8[0K( 7/32) Installing jansson (2.15.0-r0)
+7  3% #                                           8[0K7  4% #                                           8[0K( 8/32) Installing libstdc++ (15.2.0-r5)
+7  4% #                                           8[0K7  4% ##                                          8[0K7  5% ##                                          8[0K( 9/32) Installing zstd-libs (1.5.7-r2)
+7  5% ##                                          8[0K(10/32) Installing binutils (2.45.1-r1)
+7  5% ##                                          8[0K7  6% ##                                          8[0K7  6% ###                                         8[0K7  7% ###                                         8[0K7  8% ###                                         8[0K7  9% ####                                        8[0K(11/32) Installing libmagic (5.47-r2)
+7  9% ####                                        8[0K(12/32) Installing file (5.47-r2)
+7  9% ####                                        8[0K7 10% ####                                        8[0K(13/32) Installing libgcc-static (15.2.0-r5)
+7 10% ####                                        8[0K7 11% ####                                        8[0K7 11% #####                                       8[0K7 12% #####                                       8[0K(14/32) Installing libgomp (15.2.0-r5)
+7 12% #####                                       8[0K(15/32) Installing libatomic (15.2.0-r5)
+7 12% #####                                       8[0K(16/32) Installing gmp (6.3.0-r4)
+7 12% #####                                       8[0K7 13% #####                                       8[0K(17/32) Installing isl26 (0.26-r2)
+7 13% #####                                       8[0K7 13% ######                                      8[0K7 14% ######                                      8[0K(18/32) Installing mpfr4 (4.2.2-r0)
+7 14% ######                                      8[0K(19/32) Installing mpc1 (1.3.1-r1)
+7 14% ######                                      8[0K(20/32) Installing gcc (15.2.0-r5)
+7 14% ######                                      8[0K7 15% ######                                      8[0K7 16% #######                                     8[0K7 17% #######                                     8[0K7 18% #######                                     8[0K7 18% ########                                    8[0K7 19% ########                                    8[0K7 20% ########                                    8[0K7 20% #########                                   8[0K7 21% #########                                   8[0K7 22% #########                                   8[0K7 22% ##########                                  8[0K7 23% ##########                                  8[0K7 24% ##########                                  8[0K7 25% ###########                                 8[0K7 26% ###########                                 8[0K7 27% ###########                                 8[0K7 27% ############                                8[0K7 28% ############                                8[0K7 29% ############                                8[0K7 29% #############                               8[0K7 30% #############                               8[0K7 31% #############                               8[0K7 31% ##############                              8[0K7 32% ##############                              8[0K7 33% ##############                              8[0K7 34% ##############                              8[0K7 34% ###############                             8[0K7 35% ###############                             8[0K7 36% ###############                             8[0K7 36% ################                            8[0K7 37% ################                            8[0K7 38% ################                            8[0K7 38% #################                           8[0K7 39% #################                           8[0K7 40% #################                           8[0K7 40% ##################                          8[0K7 41% ##################                          8[0K7 42% ##################                          8[0K7 43% ##################                          8[0K7 43% ###################                         8[0K7 44% ###################                         8[0K7 45% ###################                         8[0K7 45% ####################                        8[0K7 46% ####################                        8[0K7 47% ####################                        8[0K7 47% #####################                       8[0K7 48% #####################                       8[0K7 49% #####################                       8[0K7 50% ######################                      8[0K7 51% ######################                      8[0K7 52% ######################                      8[0K7 52% #######################                     8[0K7 53% #######################                     8[0K7 54% #######################                     8[0K7 54% ########################                    8[0K7 55% ########################                    8[0K7 56% ########################                    8[0K7 56% #########################                   8[0K7 57% #########################                   8[0K7 58% #########################                   8[0K7 59% ##########################                  8[0K7 60% ##########################                  8[0K7 61% ##########################                  8[0K7 61% ###########################                 8[0K7 62% ###########################                 8[0K7 63% ###########################                 8[0K7 63% ############################                8[0K7 64% ############################                8[0K7 65% ############################                8[0K7 65% #############################               8[0K7 66% #############################               8[0K7 67% #############################               8[0K7 68% #############################               8[0K7 68% ##############################              8[0K7 69% ##############################              8[0K7 70% ##############################              8[0K7 70% ###############################             8[0K7 71% ###############################             8[0K7 72% ###############################             8[0K(21/32) Installing libstdc++-dev (15.2.0-r5)
+7 72% ###############################             8[0K7 72% ################################            8[0K7 73% ################################            8[0K7 74% ################################            8[0K7 75% #################################           8[0K7 76% #################################           8[0K(22/32) Installing musl-dev (1.2.6-r3)
+7 76% #################################           8[0K7 77% #################################           8[0K7 77% ##################################          8[0K7 78% ##################################          8[0K7 79% ##################################          8[0K(23/32) Installing g++ (15.2.0-r5)
+7 79% ##################################          8[0K7 79% ###################################         8[0K7 80% ###################################         8[0K7 81% ###################################         8[0K7 81% ####################################        8[0K7 82% ####################################        8[0K7 83% ####################################        8[0K7 84% ####################################        8[0K7 84% #####################################       8[0K7 85% #####################################       8[0K7 86% #####################################       8[0K7 86% ######################################      8[0K7 87% ######################################      8[0K7 88% ######################################      8[0K7 88% #######################################     8[0K7 89% #######################################     8[0K7 90% #######################################     8[0K7 91% ########################################    8[0K7 92% ########################################    8[0K7 93% ########################################    8[0K7 93% #########################################   8[0K7 94% #########################################   8[0K7 95% #########################################   8[0K7 95% ##########################################  8[0K7 96% ##########################################  8[0K7 97% ##########################################  8[0K7 97% ########################################### 8[0K7 98% ########################################### 8[0K(24/32) Installing make (4.4.1-r4)
+7 98% ########################################### 8[0K(25/32) Installing fortify-headers (3.0.1-r2)
+7 98% ########################################### 8[0K(26/32) Installing patch (2.8.1-r0)
+7 98% ########################################### 8[0K(27/32) Installing build-base (0.5-r4)
+7 98% ########################################### 8[0K(28/32) Installing ca-certificates (20261020-r0)
+7 98% ########################################### 8[0K7 99% ########################################### 8[0K(29/32) Installing dash (0.5.13.1-r2)
+7 99% ########################################### 8[0K  Executing dash-0.5.13.1-r2.post-install
+7 99% ########################################### 8[0K(30/32) Installing openssl (3.5.9-r0)
+7 99% ########################################### 8[0K(31/32) Installing pkgconf (2.5.1-r0)
+7 99% ########################################### 8[0K(32/32) Installing tree (2.3.2-r0)
+7 99% ########################################### 8[0K7100% ############################################8[0KExecuting busybox-1.37.0-r31.trigger
+Executing ca-certificates-20261020-r0.trigger
+7[syncing disks...]8[0KOK: 254.0 MiB in 57 packages
+ASLR: 1 (left unchanged)
+======== sh_loop_dash ========
+real 0.18
+user 0.18
+sys 0.00
+======== compile_tiny_sha ========
+rm -f tiny-sha main.o sha256.o
+cc -O2 -std=c11   -c -o main.o main.c
+cc -O2 -std=c11   -c -o sha256.o sha256.c
+cc -O2 -std=c11 -o tiny-sha main.o sha256.o
+real 2.12
+user 2.11
+sys 0.01
+COMPILE_EXIT:0
+======== compile_tiny_sha_warm ========
+rm -f tiny-sha main.o sha256.o
+cc -O2 -std=c11   -c -o main.o main.c
+cc -O2 -std=c11   -c -o sha256.o sha256.c
+cc -O2 -std=c11 -o tiny-sha main.o sha256.o
+real 1.22
+user 1.20
+sys 0.02
+COMPILE_WARM_EXIT:0
+guest powered off
+[    6.758791] reboot: Power down
+Darwin UML stopped: result=0 exitcode=0

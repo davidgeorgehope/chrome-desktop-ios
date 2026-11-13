@@ -190,8 +190,12 @@ then stay on the guest's own addressing until the mapping changes.
    single live executor, and measure `gcc` with guest ASLR off. If
    compile time of new blocks drops from ~1.4 s toward zero on a second
    `cc1`, land that even before file+offset keys.
-5. Only then key the shared cache by file+offset and slide PCs, which is
-   what makes the same translations work with ASLR and with a per-mm `K`.
+5. Key the shared cache by file+offset and slide PCs, which is what
+   makes the same translations work with ASLR and with a per-mm `K`.
+   Landed in `patches/0009-jit-file-offset-aslr`: the file identity is
+   the host code-page stamp of the physical backing page, plus the
+   guest page offset. Baked guest PCs and link keys slide by
+   `new_pc - recorded_pc`.
 
 ## Non-goals
 
@@ -204,5 +208,5 @@ then stay on the guest's own addressing until the mapping changes.
 
 ## Shared-translation budget (landed 12 Nov 2026)
 
-`patches/0007-jit-shared-translations`. The process-wide shared cache is charged against the leftover of the whole-process JIT budget after every vCPU's private L1 (capped at 256 MiB). The previous default of `guest_memory/2` left almost no leftover at `mem=2G` `ncpus=8`, so publication rejected ~1.7M admits. The default total is now `guest/2 + 256 MiB * ncpus + 1 GiB` (4 GiB at the usual 2 GiB/8 vCPU launch): private L1s fill to the 256 MiB cap and the shared cache gets a 2 GiB leftover. Out-of-range relocatable link pointers use a nearby literal island rather than a host-baked MOV-wide stub, publication is allowed with one live executor, and a translation may carry up to `maximum_block_instructions` link relocations (the previous cap of 2 rejected ~145k unique gcc blocks). Entries are still keyed by guest PC + instruction words; a file+offset or content-hash key and a slide of baked guest PCs are still required for a warm `cc1` under ASLR.
+`patches/0007-jit-shared-translations`. The process-wide shared cache is charged against the leftover of the whole-process JIT budget after every vCPU's private L1 (capped at 256 MiB). The previous default of `guest_memory/2` left almost no leftover at `mem=2G` `ncpus=8`, so publication rejected ~1.7M admits. The default total is now `guest/2 + 256 MiB * ncpus + 1 GiB` (4 GiB at the usual 2 GiB/8 vCPU launch): private L1s fill to the 256 MiB cap and the shared cache gets a 2 GiB leftover. Out-of-range relocatable link pointers use a nearby literal island rather than a host-baked MOV-wide stub, publication is allowed with one live executor, and a translation may carry up to `maximum_block_instructions` link relocations (the previous cap of 2 rejected ~145k unique gcc blocks). Entries were keyed by guest PC + instruction words until `patches/0009-jit-file-offset-aslr`, which also indexes by the host code-page stamp plus page offset and slides baked guest PCs (`store_pc`, ADR/ADRP, BL return, link keys) so a warm `cc1` hits under ASLR.
 
