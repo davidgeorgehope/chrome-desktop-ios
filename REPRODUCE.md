@@ -373,3 +373,23 @@ multilingual body (53 s → 39 s). SIGPROF:
 that sleeps 1.2 s after `COMPILE_COLD_START`, then
 `analyze-sigprof-hist.py` subtracting the pre-compile hist. `compiler_`
 must stay at the end of `Implementation`.
+
+
+## Exclusive-phase removal (0022, 13 Nov 2026)
+
+`git apply patches/0022-jit-exclusive-host-cas/0022-jit-exclusive-host-cas.patch`
+from the Kernarium tree after 0021. Three files only. Persist off.
+
+CPU benches: `mem=2G ncpus=8` on the minimal ext4, AB vs `uml-darwin-alloc`
+(0021). Look for compile_tiny_sha cold/warm holding within noise (2.06 s /
+1.29 s alloc vs 2.00 s / 1.32 s clean on 13 Nov 2026, 2:20–2:21 PM ET).
+
+Guest atomic-stress: `launch-atomic-stress-bin.sh` with `boot.env`, 8 threads
+× 200k; both alloc and 0022-clean PASS.
+
+Firefox + Chromium TTP: chromium labwc image
+`/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-desktop-labwc-chromium-20261113.ext4`,
+native Metal 1920×1080, `mem=4G ncpus=8`, `--jit-cache-budget=8G`, persist
+off, ABAB (alloc, 0022-clean, alloc, 0022-clean). Chrome / English / full
+are seconds after process start. Preflight gates on reclaimable headroom
+and swap-out rate, not stale swap used; mid-run SWAP_ABORT is start+2048M.

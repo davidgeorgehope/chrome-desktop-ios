@@ -1,0 +1,92 @@
+From 9676eadd53f420cf8e526e764c9e5b6898843228 Mon Sep 17 00:00:00 2001
+From: David Hope <djhope@btinternet.com>
+Date: Fri, 13 Nov 2026 13:51:16 -0500
+Subject: [PATCH] Remove the process-wide exclusive-phase wait around software
+ reservations.
+
+LDXR/STXR use a QEMU-style host CAS against the per-vCPU monitor instead
+of parking every vCPU's native stores in JitExclusiveOperationScope.
+Tracking still runs while a reservation is live. The phase wait remains
+for tests and any remaining fallback. ABA is still invisible, as in QEMU.
+---
+ darwin/cpu/arm64/jit/a32/a32_execute.cpp     | 10 ++++++----
+ darwin/cpu/arm64/jit/jit_publication.hpp     | 11 +++++++++--
+ darwin/cpu/arm64/jit/jit_semantic_memory.cpp | 19 +++++++++++++++----
+ 3 files changed, 30 insertions(+), 10 deletions(-)
+
+diff --git a/darwin/cpu/arm64/jit/a32/a32_execute.cpp b/darwin/cpu/arm64/jit/a32/a32_execute.cpp
+index 81e524d..3ed3c45 100644
+--- a/darwin/cpu/arm64/jit/a32/a32_execute.cpp
++++ b/darwin/cpu/arm64/jit/a32/a32_execute.cpp
+@@ -270,10 +270,12 @@ extern "C" std::uint64_t uml_arm64_jit_a32_execute(
+     }
+     return result;
+   };
+-  if (uses_software_reservation) {
+-    JitExclusiveOperationScope operation;
+-    return run();
+-  }
++  /*
++   * Same QEMU-style host CAS path as the A64 exclusive helper: the
++   * software-reservation phase wait is not taken. Tracking still runs
++   * while a reservation is live.
++   */
++  (void)uses_software_reservation;
+   return run();
+ }
+ 
+diff --git a/darwin/cpu/arm64/jit/jit_publication.hpp b/darwin/cpu/arm64/jit/jit_publication.hpp
+index 2bb2c2d..de9bc39 100644
+--- a/darwin/cpu/arm64/jit/jit_publication.hpp
++++ b/darwin/cpu/arm64/jit/jit_publication.hpp
+@@ -168,9 +168,16 @@ public:
+         }
+       } while (jit_exclusive_operation_is_active(phase));
+     }
+-    /* Every vCPU's store tracks while any vCPU holds a reservation, the
++    /* The exclusive phase wait above stays for helpers that still enter
++     * JitExclusiveOperationScope (tests, and any remaining fallback). The
++     * production LDXR/STXR path no longer does, so this constructor's
++     * uncontended path is the checking->direct/tracked store with no wait.
++     *
++     * Every vCPU's store tracks while any vCPU holds a reservation, the
+      * holder's own included: its store to the reserved granule must fail
+-     * its store-exclusive, and one to any other granule must not. */
++     * its store-exclusive, and one to any other granule must not. Tracking
++     * records host ranges and bumps reservation versions; it does not park
++     * the store on the phase. */
+     tracked_ =
+         active_jit_reservations.load(std::memory_order_seq_cst) != 0;
+     participant_.state().store(tracked_ ? JitStoreState::tracked
+diff --git a/darwin/cpu/arm64/jit/jit_semantic_memory.cpp b/darwin/cpu/arm64/jit/jit_semantic_memory.cpp
+index 673ed37..dc5fbe6 100644
+--- a/darwin/cpu/arm64/jit/jit_semantic_memory.cpp
++++ b/darwin/cpu/arm64/jit/jit_semantic_memory.cpp
+@@ -320,10 +320,21 @@ uml_arm64_jit_execute_exclusive(CpuState *cpu, Tlb *tlb,
+    * any instruction run while that reservation is held, which may consume
+    * it, wait out other vCPUs' native store blocks.
+    */
+-  if (uses_software_reservation) {
+-    JitExclusiveOperationScope operation;
+-    return execute();
+-  }
++  /*
++   * Exclusive load/store use a QEMU-style host compare-and-swap against the
++   * value the load-exclusive recorded in the per-vCPU monitor
++   * (atomic_store_exclusive_value). Ordinary stores therefore do not wait
++   * on a process-wide exclusive phase: a conflicting store of a different
++   * value fails the CAS, and tracked native stores bump the reservation
++   * version so a same-granule store fails a later STXR. A write that
++   * restores the monitored value (ABA) is not seen; that is the same
++   * compromise as the existing CAS comment, and as QEMU. LSE CAS/LDADD
++   * already skipped the gate for the same reason.
++   *
++   * The no-direct-pointer fallback still serializes on exclusive_memory_mutex
++   * with other semantic writers. It does not park every vCPU's native stores.
++   */
++  (void)uses_software_reservation;
+   return execute();
+ }
+ 
+-- 
+2.50.1 (Apple Git-155)

@@ -1146,3 +1146,69 @@ Swap during this work stayed sticky (~1.3–1.4 GiB used, later 1218 MiB of a 2 
 
 D4iPad openssl 8192 persist-on, persist-on benches, and Chromium persist-on were not rerun and remain outstanding before any later land.
 
+
+## Exclusive-phase removal (0022, 13 Nov 2026, 2:18–2:46 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3. Work stayed on this host. Nothing was installed on a phone. Display resolution, voxl, Screen Sharing, and Keychain were not changed. Persist stayed **off**. Official frozen 4K copies `uml-darwin-official-c134a87` / `-20261113` (inode 245391030 / 245391031, md5 `91afb4a7fc3037c87b782081029fac21`) were not overwritten.
+
+This official 0022 is the exclusive-scope removal, not the earlier emit-in-place experiment (that work was measured and not landed; it never shipped on main).
+
+### Preflight
+
+Start-of-run preflight no longer refuses on stale swap used (~1.2G leftover after the dirty 0022-cas SIGPROF blowup, with no active paging). It now requires reclaimable headroom (`vm_stat` free + speculative + inactive + purgeable) ≥ guest mem + ~2G margin, and a quiet swap-out rate (≤16 pages in a 2 s sample). Overlap refusal stays. Mid-run SWAP_ABORT is relative to swap used at start (+2048M). `UML_ALLOW_HEAVY=1` still overrides.
+
+### Clean tree
+
+Worktree `Kernarium-0022-clean` from `ce0fa86` + official 0001–0021 (`ee2e467`) + this three-file change (`9676ead`). `git diff ee2e467` is only `jit_semantic_memory.cpp`, `a32_execute.cpp`, and `jit_publication.hpp` (+30/−10). No persist-v2, no `user_map.hpp`, no lockfix, no enhanced SIGPROF (official 0008, 9526 B, default off, is in the 0021 base).
+
+Binary `uml-darwin-0022-clean-20261113` / `uml-darwin-official-0022-20261113`, built 1:52:09 PM ET, md5 `6ea8180e05fc6736d32530811ba3c439`, 54,302,536 bytes, kernel local2. Promoted to live `uml-darwin` at 2:46:31 PM ET. Alloc (0021) `uml-darwin-alloc` md5 `848b59fb6531ed6fa224e3973625c98a` is unchanged.
+
+### Unit tests (macos-unit exclusive suites, 1:50:27–1:51:08 PM ET)
+
+`reservation_alias` (line 57, exit 134) and `exclusive_events` (exit reason 0x7 / floating_point_trap) fail on clean 0021 (`ee2e467`, scope still on) and fail the same way after `9676ead`. exclusive_completion, publication_gate, exclusive_progress, and jit_a32_exclusive PASS on both. The two failures are pre-existing on 45875be/0021, not a regression.
+
+### CPU benches vs alloc (mem=2G ncpus=8, persist off, 2:20:08–2:21:47 PM ET)
+
+Preflight: headroom 7678M / 8380M, need 4096M, swapouts_delta=0, free% 82. Both status=0. Swap used stayed 1238.75M (delta 0). Peak RSS alloc 2239 MiB, clean 2072 MiB. No SWAP_ABORT.
+
+| Bench | Alloc (2:20:08 PM ET) | 0022-clean (2:20:58 PM ET) |
+| --- | --- | --- |
+| compile_tiny_sha cold | 2.06 s | **2.00 s** (−2.9%) |
+| compile_tiny_sha warm | 1.29 s | 1.32 s (+2.3%) |
+| compile_native_loop | 0.24 s | 0.27 s (+30 ms) |
+| native_loop | 0.51 s | 0.58 s |
+| sha256_32m | 0.36 s | 0.38 s |
+| apk_add_offline | 2.98 s | 3.06 s |
+
+Compile holds within noise. `compile_tiny_sha` is the canary that missed on the dirty persist-v2 tree (+35% / +95% warm); here it holds. `compile_native_loop` +30 ms is inside today's alloc noise (earlier alloc0 was 0.28 s).
+
+Logs: `notes/jit-baseline/compile-alloc/benches-alloc-c22ab-20261113-142006.log`, `benches-clean-c22ab-20261113-142056.log`.
+
+### Guest atomic-stress (8 threads × 200k, mem=2G, 2:22:50–2:24:32 PM ET)
+
+Both **PASS**, `atomics=1`. Swap delta 0. Peak RSS alloc 1804 MiB, clean 1834 MiB. Clean's wall clock was shorter because apk had already populated the shared minimal image on the alloc run; the result that matters is PASS.
+
+### Firefox + Chromium TTP, ABAB, 0 new swap (2:25:29–2:41:18 PM ET)
+
+Same chromium labwc image for both browsers (`alpine-3.24.2-desktop-labwc-chromium-20261113.ext4`), native Metal 1920×1080, `mem=4G ncpus=8`, `--jit-cache-budget=8G`, persist off. Times are seconds after process start. Chrome is the first visible browser window after the empty labwc desktop (New Tab, Loading, or example.com tab). Boot-console OCR hits of “chromium” on the 865k kernel dmesg frames are ignored. English is first “This domain is for use”. Full is Example Domain title + body; Learn more is noted when later. Network is English − chrome.
+
+No run grew swap (delta 0 the whole ABAB). Stale used fell 1230.75M → 1014.75M by 2:45 PM. Clean peak RSS stayed in the alloc band (5185–5224 MiB vs alloc 4946–5584 MiB). The 12.3G dirty-tree / 6.4G casex leak did not reappear. No SWAP_ABORT.
+
+| Run | Window (ET) | READY | Chrome | English | Full (title+body) | Learn more | Net | Peak RSS | Δ swap |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Firefox alloc r1 | 2:25:29–2:27:21 PM | 4 s | 21 s example.com/ (window 19 s) | 24 s | 25 s | 30 s | 3 s | 5110 MiB | 0 |
+| Firefox 0022 r1 | 2:27:27–2:29:19 PM | 2 s | **16 s** New Tab | **19 s** | **19 s** | 20 s | 3 s | 5189 MiB | 0 |
+| Firefox alloc r2 | 2:29:24–2:31:16 PM | 3 s | 18 s New Tab | 22 s | 31 s | 32 s | 4 s | 5584 MiB | 0 |
+| Firefox 0022 r2 | 2:31:22–2:33:14 PM | 3 s | **16 s** example.com/ | **17 s** | **19 s** | 20 s | 1 s | 5185 MiB | 0 |
+| Chromium alloc r1 | 2:33:32–2:35:24 PM | 2 s | 18 s Loading | 20 s | 20 s | 20 s | 2 s | 4946 MiB | 0 |
+| Chromium 0022 r1 | 2:35:30–2:37:22 PM | 2 s | **15 s** Example Domain | **16 s** | **16 s** | 16 s | 1 s | 5224 MiB | 0 |
+| Chromium alloc r2 | 2:37:27–2:39:20 PM | 3 s | 18 s Loading | 20 s | 20 s | 20 s | 2 s | 5495 MiB | 0 |
+| Chromium 0022 r2 | 2:39:25–2:41:18 PM | 3 s | **14 s** Loading | **17 s** | **17 s** | 17 s | 3 s | 5176 MiB | 0 |
+
+Firefox chrome mean 19.5 s → **16 s**, English 23 s → **18 s**, full 28 s → **19 s**. Chromium chrome 18 s → **14.5 s**, English/full 20 s → **16.5 s**. READY is unchanged (~2–4 s). This is a clear TTP win at sane memory.
+
+Shots: `~/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-ab-c22-{ff,cr}-{alloc,clean}-{1,2}-manual/`. Session logs: `session-ab-c22-*-20261113-*.log`.
+
+### Landing
+
+Landing bar met: compile within noise, TTP better, memory sane, unit tests no worse than base. Frozen copy already existed; new official named copy `uml-darwin-official-0022-20261113` (inode 245630846); live `uml-darwin` promoted at 2:46:31 PM ET; old official copies left frozen. Patch: `patches/0022-jit-exclusive-host-cas`.
