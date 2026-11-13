@@ -181,25 +181,31 @@ Guest Zink over Venus ( `MESA_LOADER_DRIVER_OVERRIDE=zink` ):
 
 | Event | Simulator virgl → host llvmpipe (9:00–9:04 PM ET) | macOS uml-darwin → KosmicKrisp (9:42–9:53 PM ET) |
 | --- | --- | --- |
-| Boot to desktop | DESKTOP_READY **28.60 s** | VNC server up 9:42:19 PM ET; XFCE already painted in the first framebuffer grab at 9:43:27 PM ET (**≤68 s** wall; serial was block-buffered, so no DESKTOP_READY line yet) |
-| GLX renderer | `virgl (LLVMPIPE (LLVM 22.1.8, 128 bits))` | `virgl (zink Vulkan 1.4(Apple M2 Pro (MESA KOSMICKRISP)))` |
-| Guest Zink / Venus | not offered | `zink Vulkan 1.4 (Virtio-GPU Venus (Apple M2 Pro) (MESA KOSMICKRISP))` |
-| glxgears (default vsync) | **27.4–28.0 FPS** | 20.086 FPS (one 5 s sample; vsync / compositor) |
-| glxgears (`vblank_mode=0`) | not measured | **91.5 FPS** first 5 s, then **119.6–119.8 FPS** steady |
-| xfce4-terminal | visible | visible |
-| Firefox 151 | example.com painted | example.com painted (and stayed up) |
-| vkcube | swrast segfault (no Venus) | selects Apple M2 Pro / Venus; window was black |
+| Boot to desktop | DESKTOP_READY **28.60 s** | **DESKTOP_READY 26.73 s** guest uptime (GUI native launch 10:00:52–10:01:19 PM ET; DESKTOP_START 1.38 s). First SSH+VNC boot was only bounded at ≤68 s because serial was block-buffered. |
+| GLX renderer | `virgl (LLVMPIPE (LLVM 22.1.8, 128 bits))` | First SSH session, no loader override: `virgl (zink Vulkan 1.4(Apple M2 Pro (MESA KOSMICKRISP)))`. GUI native launch with the payload scripts: **`===RENDERER_PATH=== guest_zink`**, `zink Vulkan 1.4(Virtio-GPU Venus (Apple M2 Pro) (MESA_KOSMICKRISP))` |
+| Guest Zink / Venus | not offered | Yes. `vulkaninfo`: `Virtio-GPU Venus (Apple M2 Pro)`, `venus`, `vendorID 0x106b`, `INTEGRATED_GPU` |
+| glxgears (default vsync) | **27.4–28.0 FPS** | 20.086 FPS (SSH session, one 5 s sample; vsync / compositor) |
+| glxgears (`vblank_mode=0`) | not measured | **91.5 FPS** first 5 s, then **119.6–119.8 FPS** steady (SSH session, default virgl→KosmicKrisp). Scripted `glxgears -info` on the Zink path printed `GL_RENDERER = zink … Apple M2 Pro` but exited in 2.3 s with no “frames in” line |
+| xfce4-terminal | visible | visible at TERM_AFTER_3S (51.58 s) |
+| Firefox 151 | example.com painted | window at **1 s** (`FIREFOX_WINDOW` 52.79 s); `FIREFOX_SCROLL` 72.42–77.29 s; example.com painted in the SSH session and in the native-window video |
+| vkcube | swrast segfault (no Venus) | selects `Virtio-GPU Venus (Apple M2 Pro)`; the `Vkcube X11` window stayed black (12 s timeout). No FPS line |
 
-A precise DESKTOP_READY and a `screencapture -v` of the AppKit window need a GUI relaunch with `--gpu-display=native` and a pty (`scripts/macos-metal/launch-in-gui.command`). This session was started from SSH, so only VNC existed. `Screen Sharing.app` on `vnc://127.0.0.1:5900` failed with "You cannot control your own screen" (it special-cases localhost). Videos below were recorded from the RFB framebuffer.
+A first SSH launch used the CLI default `--gpu-display=vnc` (no AppKit window). `Screen Sharing.app` on `vnc://127.0.0.1:5900` failed with "You cannot control your own screen" (it special-cases localhost). RFB recordings from that session are listed below.
+
+A GUI relaunch at 10:00:52 PM ET with `scripts/macos-metal/launch-in-gui.command` (`UML_GPU_DISPLAY=native`, `--gpu-auto-resize=off`, `script(1)` pty) created an AppKit window titled **Darwin UML Virtio-GPU** (CGWindow id 135, 1920×956 at (0, 30) — not a display-resolution change). `screencapture -v -V 35 -l 135` recorded that window.
 
 Screenshots and video (box `/workspace/`, also `~/linux-ios-bakeoff/notes/macos-metal-desktop/` on the mini):
 
-- `kernarium-macos-metal-vnc.png` — XFCE up, 9:43 PM ET
+- `kernarium-macos-metal-vnc.png` — XFCE up over VNC, 9:43 PM ET
 - `kernarium-macos-metal-vnc-fps3.png` — renderer strings and 20.086 FPS sample, 9:50 PM ET
 - `kernarium-macos-metal-glxgears.png` / `kernarium-macos-metal-glxgears-fps.png` — visible gears, 91–120 FPS with `vblank_mode=0`
 - `kernarium-macos-metal-vkcube.png` — black Vkcube X11 window over Firefox
-- `kernarium-macos-metal-desktop.mp4` — 6.13 s / 8 fps timelapse of the 45 s demo (slow CPU conversion)
-- `kernarium-macos-metal-desktop-rt.mp4` — 20.90 s / 10 fps real-time RFB recording
+- `kernarium-macos-metal-desktop.mp4` — 6.13 s / 8 fps VNC timelapse
+- `kernarium-macos-metal-desktop-rt.mp4` — 20.90 s / 10 fps real-time VNC recording
+- `kernarium-macos-metal-native-window.png` — AppKit window at 10:01:35 PM ET, vkcube still up
+- `kernarium-macos-metal-native-desktop.png` / `kernarium-macos-metal-native-firefox.png` — frames from the official screencapture
+- `kernarium-macos-metal-native-window.mov` — 35.01 s `screencapture` of the Mac window (3840×1912 Retina, 12 fps)
+- `kernarium-macos-metal-native-session.log` — line-buffered serial with DESKTOP_READY, renderer strings, Firefox scroll
 
 ### Housekeeping in this same stretch
 
