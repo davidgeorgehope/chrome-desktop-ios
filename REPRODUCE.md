@@ -181,7 +181,7 @@ Guest scripts live in `scripts/desktop-guest/` (`start-desktop.sh`, `desktop-rea
 sessionless with `xfwm4 --compositor=off --vblank=off`, installs a bwrap passthrough so
 glycin is not stuck on a hung `bwrap --unshare-all` in UML, and hides glycin-loaders only
 until the window manager is up (then restores them). That cut XFCE `DESKTOP_READY` from ~26.8 s
-to ~8.7 s on the Metal/Zink path and ~7.4 s on llvmpipe. The default launch is now labwc (`start-desktop-labwc.sh`, ~2.5 s READY) because the remaining XFCE cost is ~5.9 s of xfwm4/GTK/Mesa JIT; `UML_DESKTOP=xfce` keeps the XFCE path. The previous startxfce4 path is
+to ~8.7 s on the Metal/Zink path and ~7.4 s on llvmpipe. The default launch is now labwc (`start-desktop-labwc.sh`, ~2.5 s READY) because the remaining XFCE cost is ~5.9 s of xfwm4/GTK/Mesa JIT; `UML_DESKTOP=xfce` keeps the XFCE path. labwc and windowed Firefox both composite on guest GLES/EGL `virtio_gpu` / `virgl (zink Vulkan 1.4(Apple M2 Pro (MESA_KOSMICKRISP)))` — real Metal, not pixman or llvmpipe. Firefox 151 still takes ~12 s after READY to paint example.com; that is libxul JIT plus a content process (a local `file://` page is on the same clock; DNS/wget are under a second). The labwc start script now uses a pre-created profile that skips the first-run and telemetry pages. No new Drive image (time-to-page was not cut by 2×). The previous startxfce4 path is
 kept only as `notes` history on the bakeoff mini, not in this tree. Do not force `MESA_LOADER_DRIVER_OVERRIDE=virtio_gpu`.
 Keep `LIBGL_ALWAYS_SOFTWARE=0` in the guest. The Simulator host still sets
 `LIBGL_ALWAYS_SOFTWARE` for its own software Virgl provider.

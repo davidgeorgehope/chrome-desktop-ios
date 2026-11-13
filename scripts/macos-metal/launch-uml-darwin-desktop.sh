@@ -31,6 +31,7 @@ if [ -f /Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-desktop-labwc
 fi
 READY="$FAST/desktop-ready.sh"
 BWRAP="$FAST/bwrap-passthrough.sh"
+FFPROF="$FAST/firefox-kernarium-profile.sh"
 DESKTOP="${UML_DESKTOP:-labwc}"
 if [ "$DESKTOP" = xfce ]; then
 	START="$FAST/start-desktop.sh"
@@ -59,6 +60,9 @@ args=(
 )
 if [ -x "$BWRAP" ]; then
 	args+=( --guest-file=/payload/usr/local/bin/bwrap-passthrough.sh="$BWRAP" )
+fi
+if [ -x "$FFPROF" ]; then
+	args+=( --guest-file=/payload/usr/local/bin/firefox-kernarium-profile.sh="$FFPROF" )
 fi
 if [ "$DISPLAY_MODE" = native ]; then
 	args+=( --gpu-auto-resize=off )

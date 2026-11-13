@@ -5,8 +5,12 @@
 # 13 Nov 2026: cpu-bound, drm_version + gly-global-exec + Mesa disk$0).
 # labwc reaches a usable compositor in ~1.3 s after dri is ready, for a
 # DESKTOP_READY of ~2.4–2.6 s on the official 4K uml-darwin GPU/Zink host.
-# Firefox is started immediately; a VNC capture showed the window by ~3 s
-# after READY and the example.com page painted by ~12 s after READY.
+# Firefox is started immediately with a pre-created profile that skips the
+# first-run/telemetry pages. A VNC capture showed the window by ~3–6 s
+# after READY and the page painted by ~12 s after READY. That ~12 s is
+# engine time (libxul JIT in the parent, then a content process), not
+# DNS/network: a local file:// page paints on the same clock, and wget
+# of example.com is 0.63 s.
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export HOME=/root
 export USER=root
@@ -67,6 +71,14 @@ chmod 666 /dev/dri/card0 /dev/dri/renderD128 2>/dev/null || true
 ts dri_ready
 echo "===DESKTOP_START=== $(date) uptime=$(cat /proc/uptime) dri=$(ls /dev/dri 2>/dev/null)" | tee /dev/ttyS0
 
+# Fault Firefox's large libraries into the page cache while labwc starts.
+# This is I/O only; it does not pre-JIT libxul for a later process.
+(
+  for f in /usr/lib/firefox/libxul.so /usr/lib/firefox/*.so; do
+    [ -f "$f" ] && cat "$f" >/dev/null 2>&1
+  done
+) &
+
 # Same bwrap stand-in as the XFCE path: glycin's sandbox hangs in UML.
 if [ ! -x /usr/local/bin/bwrap-passthrough.sh ] && [ -x /usr/bin/bwrap ]; then
   :
@@ -114,9 +126,19 @@ ts "labwc_socket j=$j WAYLAND_DISPLAY=$WAYLAND_DISPLAY"
 echo "===DESKTOP_READY=== $(date) uptime=$(cat /proc/uptime) display=$WAYLAND_DISPLAY labwc=1" | tee /dev/ttyS0
 READY_UP=$(up)
 
+if [ -x /usr/local/bin/firefox-kernarium-profile.sh ]; then
+  /usr/local/bin/firefox-kernarium-profile.sh
+  ts profile_ready
+fi
 if command -v firefox >/dev/null; then
   echo "===FIREFOX_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
-  MOZ_ENABLE_WAYLAND=1 firefox --new-instance "https://example.com" > /tmp/firefox.log 2>&1 &
+  ff_profile=""
+  if [ -d /root/.mozilla/firefox/kernarium ]; then
+    ff_profile="--profile /root/.mozilla/firefox/kernarium"
+  fi
+  MOZ_ENABLE_WAYLAND=1 MOZ_ACCELERATED=1 \
+    firefox $ff_profile --new-instance "https://example.com" \
+    > /tmp/firefox.log 2>&1 &
 fi
 if [ -x /usr/local/bin/desktop-ready.sh ]; then
   # desktop-ready is X11-oriented (xdotool / glxgears); skip it on Wayland.

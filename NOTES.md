@@ -338,3 +338,40 @@ A lighter stack was enough: no need to wait out xfwm's GTK/Mesa JIT. `scripts/de
 
 New Drive image, older ones kept: `alpine-3.24.2-desktop-labwc.ext4.gz` (994,819,499 bytes, sha256 `9471344de45d308d2f4bb4db20b076be906d431ba935f15f2d56e00d21901480`; uncompressed sha256 `0564698ccf4064b975e7998a471295d279d9b3542f2b95802c54aad41e5fdab3`). It bakes labwc as `/usr/local/bin/start-desktop.sh` and keeps the XFCE script as `start-desktop-xfce.sh`.
 
+## labwc renderer and Firefox time-to-page (13 Nov 2026, 2:47–3:15 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Official 4K `uml-darwin`, mem=4G, ncpus=8, 1920×1080 VNC. Image still `alpine-3.24.2-desktop.ext4` / the labwc-baked copy; no new Drive upload (Firefox time-to-page did not improve by 2×).
+
+### Renderer
+
+labwc is on **real Metal**, but the guest path is **wlroots GLES2/EGL**, not pixman and not in-guest Venus. labwc `-d` logs `render/egl.c`: EGL 1.5, vendor Mesa Project, EGL driver `virtio_gpu`, device `/dev/dri/card0`. Guest `eglinfo` reports OpenGL ES renderer `virgl (zink Vulkan 1.4(Apple M2 Pro (MESA_KOSMICKRISP)))`. The host log says `Virgl Zink/KosmicKrisp provider: hardware`. `vulkaninfo` also offers `Virtio-GPU Venus (Apple M2 Pro)` and llvmpipe; the compositor is not using those directly. `WLR_RENDERER` was left at the wlroots default (gles2). `WLR_RENDERER=vulkan` (in-guest Venus) was not needed and was not landed.
+
+Windowed Firefox 151.0.3 `about:support` (kiosk, `layout.css.devPixelsPerPx=0.38` so the Graphics table fit on a 1080p VNC shot) agrees: compositing is **WebRender**, EGL vendor **Mesa Project**, EGL 1.5, OpenGL ES 3.2 Mesa, GPU #1 renderer **`Mesa -- virgl (zink Vulkan 1.4 (Apple M2 Pro MESA_KOSMICKRISP))`**. Same guest-virgl → host-zink/KosmicKrisp Metal path as labwc, not software WebRender and not llvmpipe. Features also showed `GPU process: false`.
+
+glmark2 is not in the image. `es2gears_wayland` printed `EGL_VERSION = 1.5` and then segfaulted in `libwayland-client`. `vkgears` failed with `wl_seat.get_keyboard called when no keyboard capability has existed` (libdecor-cairo also failed to init). There is no virtio-input / evdev keyboard or pointer in the guest, so the wlroots seat has no keyboard capability. A VNC smoke test moved the host-side cursor to the click coordinates, but clicks and keypresses did not change the Firefox UI — the `--gpu-display=vnc` server is a framebuffer view and is not wired to a guest input device.
+
+### Firefox timing
+
+The ~12 s from READY to a painted example.com is **engine time, not network**. DNS was 0.09 s; `wget` of example.com was 0.63 s (577 bytes). A self-contained `file://` page (`LOCAL_PAINT_OK`, solid green) painted at **10–12 s after READY**, as soon as the `file:// Content` process appeared (~12.5 s). Breakdown of a typical cold start with the pre-created profile:
+
+| phase | after READY |
+| --- | ---: |
+| `FIREFOX_START` | 0.02–0.03 s |
+| parent only (libxul I/O + uml-darwin JIT) | until ~4.5–5.1 s |
+| first child (Socket Process / forkserver) | ~4.5–5.1 s |
+| RDD | ~7.7–8.5 s |
+| Web Content (brief) | ~10.0–11.0 s |
+| `file://` / Isolated Web Content | ~11–13 s |
+| window chrome | ~6 s (VNC) |
+| local page or first example.com text | ~10–12 s |
+| example.com fully painted (icon + translations) | ~12 s (baseline, sandbox on) |
+
+Attacks and results:
+
+- **Pre-created profile** (first-run / welcome / telemetry off): the `mozilla.org/privacy/firefox` tab is gone. This is landed. It does not cut the ~12 s engine clock.
+- **Content sandbox off** (`MOZ_DISABLE_*_SANDBOX=1`, `security.sandbox.content.level=0`): the Firefox `Chroot Helper` disappears (same class of UML namespace issue as glycin/`bwrap --unshare-all`). Time-to-page does **not** drop. A warning banner appears, and one `https://example.com` load reached English body text at 10 s but stayed on “Transferring data from example.com…” through 20 s (the baseline 94 KiB multilingual + icon paint did not finish). Sandbox-off is **not** the production default.
+- **`dom.ipc.processCount=1`**: Isolated Web Content still spawned. **`MOZ_FORCE_DISABLE_E10S`** is ignored on this Firefox 151 release build.
+- **Prefault of libxul** during labwc start: finished at ~1.24 s guest uptime (cheap). First child improved by at most ~0.6 s and is not a 2× lever.
+- **Same-boot warm start** after a clean `SIGTERM`: the profile was only 1.1 MiB (no `startupCache`). The second Firefox’s content process still appeared at 10.41 s vs 10.45 s cold. The tax is uml-darwin JIT of libxul in each new process, not Firefox’s JS startup cache.
+- No new Drive image: time-to-page is still about 12 s, not under 6 s. Older images were kept. `scripts/desktop-guest/start-desktop-labwc.sh` now installs the kernarium profile (and overlays `firefox-kernarium-profile.sh`) and prefaults libxul; the sandbox stays on.
+
