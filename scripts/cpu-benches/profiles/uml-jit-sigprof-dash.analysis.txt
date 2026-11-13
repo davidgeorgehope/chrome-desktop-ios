@@ -1,0 +1,17 @@
+SIGPROF dash loop (1.6M iterations, 99 Hz, process lifetime including boot)
+date: Fri Nov 13 00:40 ET
+samples=1411 dropped=0 unique=1092
+wall: real 14.46 user 14.41
+
+79.7% of samples are in JIT generated code (1124/1411), spread across 919 unique
+PCs. No single JIT cluster exceeds 2.5%.
+
+Host C++ / libc tops are almost entirely from boot: memset stayed at 27 samples
+from the early boot snapshot through the final dump, and the anonymous
+0x6000002ec0cc address stayed at 15. The dash loop itself is spent inside
+generated code, not in run_block / the dispatcher. jit_profile::enabled is
+0.8% (even with profiling off) but is not the 6.3x.
+
+Conclusion: the remaining 6.3x shell tax is codegen quality of the dash
+interpreter loop, not a clear, safe C++ hotspot. No execution-path fix landed
+from this profile.
