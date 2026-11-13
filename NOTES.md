@@ -1080,3 +1080,69 @@ Persist-off Chromium TTP, same method as the Firefox A/B table, alloc reuse `uml
 
 English body and the full multilingual page landed in the same 1-second watcher tick. Compare the same-session Firefox alloc baseline at flat sticky swap (t0 10:31:41 AM ET): chrome **16 s**, first English **23 s**, full multilingual **31 s**. This Chromium figure is a single persist-off run, not yet a persist run1/run2 pair; the window is the default first-run size (not maximized) and shows the `--no-sandbox` infobar. Persist run1/run2 for **both** Firefox and Chromium still waits on the redesigned cache (coverage / `host_callable` relocs first) and stays opt-in until that path is shown safe, including the D4iPad openssl 8192 hang.
 
+
+
+### SIGPROF of Firefox TTP (13 Nov, persist-v2 fix4) — where the time goes
+
+Same method as the 10:31 / 10:42 A/Bs: native Metal 1920×1080, mem=4G ncpus=8, 8G JIT budget, chromium labwc image, Firefox, `https://example.com`. Persist stayed opt-in. The fair A/B is one binary (`uml-darwin-persist-v2-20261113-fix4`, md5 `1d3441a63b548494b3f891e1c7024d04`) persist-off vs persist-on warm run2. Host SIGPROF is `ITIMER_PROF` at 999 Hz (process CPU, not wall). Blocked example.com wait is therefore undercounted and is taken from OCR (“Waiting for example.com…”). `persistent_content_hash` is reclassified into persist lookup (the analyzer had bucketed it as helpers). Chrome-window hists are usable (off unique 3337 / dropped 232; r2 unique 3733 / dropped 784); later full-run unique saturates at 4096.
+
+| Event | Persist-off (t0 11:30:08 AM ET) | Persist-on warm run2 (t0 11:32:15 AM ET, cache `/Volumes/KernariumCS/jit-cache/persist-v2-firefox`) |
+| --- | --- | --- |
+| READY / FIREFOX_START | **3 s** (guest 3.28 / 3.34) | **3 s** (guest 3.58 / 3.68) |
+| Isolated Web Content | 17.32 s up / 14.04 from_ready | 23.35 s up / 19.77 from_ready |
+| Chrome (New Tab) | **25 s** | **42 s** |
+| English + full (Example Domain) | **40 s** (waiting 32–37, transferring 39) | **69 s** (waiting 56–69, transferring 70) |
+| Exit persist | (off) insertions=1,538,646 | hits=1,269,293, stores=0, cap_rejected=230,053, entries=483130, data=1,073,741,608 (1 GiB cap full) |
+
+READY→chrome is the pre-network window that already loses. Off: wall 21 s, CPU 32.68 s (cpu/wall 1.56). R2: wall 39 s, CPU 57.22 s (cpu/wall 1.47).
+
+| Class | Off CPU-s (pct) | R2 CPU-s (pct) | Delta |
+| --- | ---: | ---: | ---: |
+| translate/compile | 2.79 (8.53%) | 1.60 (2.80%) | −1.19 (persist saved compile) |
+| cache lookup/materialize (as bucketed) | 3.40 (10.41%) | 5.98 (10.44%) | +2.58 |
+| + `persistent_content_hash` (reclassified from helpers) | ~0 | +1.54 | +1.54 |
+| executing translated code (`jit_generated`) | 1.78 (5.45%) | 2.17 (3.79%) | +0.39 |
+| helpers + executor (after moving content_hash) | 0.76 (2.31%) | ~1.60 | +~0.8 |
+| memcpy/alloc | 8.11 (24.83%) | 10.88 (19.01%) | +2.77 |
+| syscalls / kernel IO excluding `mach_msg2` | ~1.62 | ~2.56 | +0.94 |
+| `mach_msg2_trap` | 0.06 (61 samples) | **13.23** (13,218 samples, 23.12%) | **+13.17** |
+| locks/sync (`__ulock_wait`/`wake`, psynch) | **13.27 (40.59%)** | 16.48 (28.80%) | +3.21 |
+| display/gpu in-process | 0.65 (1.99%) | 0.57 (0.99%) | ~0 |
+| total CPU | 32.68 | 57.22 | +24.5 |
+| wall | 21 | 39 | +18 |
+
+Start→full (includes network wait after chrome): off 40 s wall, CPU ≈78.8 s, locks 52%; r2 72 s wall, CPU ≈131.7 s, locks 37%, `mach_msg2` 19%. After chrome, example.com wait is ~8 s off vs ~13 s r2 (OCR).
+
+**Is translation the dominant cost of TTP?** No. On persist-off READY→chrome, compile is only 8.53% (2.79 CPU-s) and `jit_generated` execution is 5.45% (1.78 CPU-s). The largest classes are locks/sync (40.59%) and memcpy/alloc (24.83%), then in-RAM shared-cache lookup (10.41%). Guest Isolated at 17.32 s and chrome at 25 s are Firefox bring-up, not page-body compile. A tiered baseline JIT or block chaining / inline caches is useful later, not the current bottleneck.
+
+**Why did 1.27M persist hits leave run2 slower than off?** Persist saved compile (−1.19 CPU-s) but added much more than it saved before New Tab appears (42 s vs 25 s). The extra ~24.5 CPU-s / 18 s wall in READY→chrome is: `mach_msg2_trap` +13.17 CPU-s (run2-only; consistent with file-backed mmap page-ins of the 1 GiB `data.jtc` on KernariumCS via the Mach pager); persist lookup + 4 KiB content hash +~4.0 CPU-s; locks +3.21; memcpy/alloc +2.77. cpu/wall is similar (1.47 vs 1.56), so run2 is not idle-waiting more in that window — it does more CPU work, then also waits longer on example.com. Looking up a stored translation from a cold mmap can cost more than recompiling.
+
+Top r2 READY→chrome symbols: `mach_msg2_trap` 13,218; `_platform_memmove` 5,951; `__ulock_wait` 5,311; `__ulock_wake` 4,549; `PersistentTranslationStore::lookup` 2,473; `jit_generated` 2,165; `persistent_content_hash` 1,534; shared find 1,201; `valid_shared_translation` 1,135. Off top: `__ulock_wait` 5,072; `__ulock_wake` 3,676; memmove 3,650; `Arm64Emitter::emit` 1,788; `jit_generated` 1,780; `SharedTranslationCache::find` 1,375.
+
+### Ranked plan for a full page under ~10 s
+
+1. **Make persist lookup cheaper than compile, or run2 cannot win.** The clear reason run2 is slower than off is the hit path: do not fault 1 GiB of `data.jtc` off KernariumCS on the TTP path (RAM-resident or a cache that does not share a volume with the guest rootfs), cache/elide the per-find 4 KiB `persistent_content_hash`, and raise the cap so Firefox UI translations actually stay stored. A 1 GiB cap overflowed in one cold Firefox session (`cap_rejected=230,053`).
+2. **Cut `__ulock_wait` / psynch contention** — the largest class on persist-off TTP (13.27 CPU-s in the 21 s chrome window). This is a first-launch win even with persist off, and is the top item for “off is already 25/40 vs <10 s.”
+3. **Cut memcpy/alloc of translations** (~25% of off READY→chrome).
+4. **Async/batched `remember()`** so run1 READY stays ~3 s (cold labwc socket was 12.7 s when remember/leftover-scan ran on the boot path).
+5. example.com wait is 8–13 s after chrome; a local/prefetched page would help measured TTP but is a methodology change.
+6. Tiered baseline JIT / block chaining / inline caches: compile 8.5% and `jit_generated` 5.5% — later, not the current bottleneck.
+
+### Follow-on implementation (not landed)
+
+0022 emit-in-place is disabled on the persist source (`compile_into_arena` is a passthrough so A/Bs isolate persist). Official `uml-darwin-official-c134a87` / `-20261113` md5 `91afb4a7fc3037c87b782081029fac21` inode 245391030 and alloc `uml-darwin-alloc` md5 `848b59fb6531ed6fa224e3973625c98a` inode 245395686 were not overwritten.
+
+What was tried, all as named side binaries, persist still opt-in:
+
+- Default cap 1 GiB → 4 GiB, used-size mmap (64 MiB aligned, grow on demand) so a 4 GiB `MAP_SHARED` is not taken at open.
+- In-process RAM prefetch of `data.jtc`, then a paced background-QoS prefetch, then prefetch disabled: a tight 1 GiB memcpy off KernariumCS during guest boot left READY at ~29–33 s (`seatd` 17–18 s vs ~2 s) and the Metal window stuck on the “Darwin UML Virtio-Gpu” console (no Isolated, no New Tab). Staging the same cache to `/var/tmp/persist-v2-firefox-local` (internal SSD, rsync --sparse 19.4 s *before* t0) did not restore READY once the new hit/store path was in the binary.
+- Async/batched `remember()` (writer thread + inflight) and a thread-local page-hash cache (including a later “only cache successful hashes” fix).
+
+**Bisect:** the same local cache, `uml-darwin-persist-v2-20261113-fix4`, READY **3.85 s**, Isolated 26.00 s, chrome **48 s**, English+full **73 s** (t0 11:57:54 AM ET; waiting 11:58:56, body 11:59:07). Exit: hits=1,304,101, stores=0, cap_rejected=220,019. The new binaries on that same cache stay at READY ~30 s: at `seatd`, both have ~54k persist hits, but fix4 reaches that at **1.95 s** and fix9/fix10 only at **~18 s**. The hit path is about 10× slower even after lookup/remember were put back on the simple fix4 shape (sync memcpy, no writer, no hash cache, cap-1G recheck still 32.8 s READY). That is not a clear win; it is not landed or pushed. The 10× regression vs fix4 on an otherwise identical cache is still unexplained at the symbol level and needs its own SIGPROF of fix10 vs fix4 before any further persist store changes.
+
+fix5 persist-off (0022 removed, t0 11:39:46 AM ET) held vs the 11:30 off baseline: READY 3.10 s, Isolated 14.92 s, chrome **21–22 s** (11:40:07), English+full **37–38 s** (11:40:23). That only confirms 0022-off did not regress persist-off TTP; it is not a persist win.
+
+Swap during this work stayed sticky (~1.3–1.4 GiB used, later 1218 MiB of a 2 GiB swap file); official/alloc md5s rechecked unchanged at 12:08 PM ET. A stale 4 GiB-cap copy of the Firefox persist cache is still at `/var/tmp/persist-v2-firefox-local` (~1.1 GiB allocated) on the internal Data volume (95% full); the KernariumCS copy is `/Volumes/KernariumCS/jit-cache/persist-v2-firefox`. Neither was emptied.
+
+D4iPad openssl 8192 persist-on, persist-on benches, and Chromium persist-on were not rerun and remain outstanding before any later land.
+
