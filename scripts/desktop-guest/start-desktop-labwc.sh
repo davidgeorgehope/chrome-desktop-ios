@@ -91,7 +91,10 @@ fi
 
 mkdir -p /tmp/labwc-cfg
 : > /tmp/labwc-cfg/autostart
-export WLR_BACKENDS="${WLR_BACKENDS:-drm}"
+# drm alone disables wlroots' libinput backend, so the VNC keyboard and
+# tablet (already registered by uml_vnc_input) never reach labwc.
+export WLR_BACKENDS="${WLR_BACKENDS:-drm,libinput}"
+chmod 666 /dev/input/event* /dev/input/mice /dev/input/mouse* 2>/dev/null || true
 ts labwc_exec
 labwc -C /tmp/labwc-cfg > /tmp/labwc.log 2>&1 &
 LBPID=$!
@@ -136,8 +139,10 @@ if command -v firefox >/dev/null; then
   if [ -d /root/.mozilla/firefox/kernarium ]; then
     ff_profile="--profile /root/.mozilla/firefox/kernarium"
   fi
+  ff_url="${FIREFOX_URL:-https://example.com}"
+  echo "===FIREFOX_URL=== $ff_url WLR_BACKENDS=$WLR_BACKENDS input=$(ls /dev/input 2>/dev/null)" | tee /dev/ttyS0
   MOZ_ENABLE_WAYLAND=1 MOZ_ACCELERATED=1 \
-    firefox $ff_profile --new-instance "https://example.com" \
+    firefox $ff_profile --new-instance "$ff_url" \
     > /tmp/firefox.log 2>&1 &
 fi
 if [ -x /usr/local/bin/desktop-ready.sh ]; then

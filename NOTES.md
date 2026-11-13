@@ -375,3 +375,23 @@ Attacks and results:
 - **Same-boot warm start** after a clean `SIGTERM`: the profile was only 1.1 MiB (no `startupCache`). The second Firefox’s content process still appeared at 10.41 s vs 10.45 s cold. The tax is uml-darwin JIT of libxul in each new process, not Firefox’s JS startup cache.
 - No new Drive image: time-to-page is still about 12 s, not under 6 s. Older images were kept. `scripts/desktop-guest/start-desktop-labwc.sh` now installs the kernarium profile (and overlays `firefox-kernarium-profile.sh`) and prefaults libxul; the sandbox stays on.
 
+## labwc VNC input (13 Nov 2026, 3:11–3:21 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Official 4K `uml-darwin`, mem=4G, ncpus=8, 1920×1080 VNC. No new Drive image (this is an overlay-script fix, not a baked image change).
+
+The host VNC path was already wired end-to-end: the display maps keys and the pointer to evdev-like events, the in-process GPU service sends them over a `SOCK_DGRAM` socketpair, the kernel command line carries `uml_vnc_input.fd=8`, and `uml_vnc_input` registers **Darwin UML VNC Keyboard** (`/dev/input/event0`) and **Darwin UML VNC Tablet** (`/dev/input/event1`, `INPUT_PROP_DIRECT` plus `BTN_TOUCH`). Every recent desktop boot already logged `uml_vnc_input: registered keyboard and tablet at fd=8`. Clicks and keys over VNC still did nothing because userspace never opened those devices.
+
+The production default was `WLR_BACKENDS=drm`. In wlroots, naming only `drm` disables the libinput backend, so labwc never created a keyboard or pointer seat. The fix is `WLR_BACKENDS=drm,libinput` (still overridable) plus a best-effort `chmod 666` of the evdev nodes so they are openable as soon as labwc starts, before udev retags them `root:input`. No new virtio-input device or uinput/evdev bridge was needed.
+
+Proof, via `vncdotool` against `127.0.0.1:5900`, with a distinctive local page (`INPUT_HOME`, yellow `CLICK_ME` link, plus `typed.html` / `clicked.html` targets). Screenshots are in `notes/desktop-input-proof/` (copies also under `/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/`):
+
+- `input-proof-home.png` — Firefox showing `INPUT_HOME` / `file:///tmp/ff-local/index.html`.
+- `input-proof-click-hover.png` — pointer over `CLICK_ME`; Firefox status tooltip `file:///tmp/ff-local/clicked.html`.
+- `input-proof-link-clicked.png` — green `LINK_CLICKED` page, “The VNC click reached Firefox.”
+- `input-proof-typed-urlbar.png` — URL bar contains `file:///tmp/ff-local/typed.html` (typed over VNC; autocomplete open).
+- `input-proof-typed-ok.png` — magenta `TYPED_OK` page after Enter, “The VNC keyboard reached the URL bar.”
+
+The same seat unblocks the gears clients that previously failed for lack of a keyboard capability. With `XDG_RUNTIME_DIR=/tmp/runtime-root` (labwc’s runtime dir) and `WAYLAND_DISPLAY=wayland-0`, `es2gears_wayland` printed `EGL_VERSION = 1.5` and stayed alive, and `vkgears` also stayed alive (it previously died with `wl_seat.get_keyboard called when no keyboard capability has existed`).
+
+`FIREFOX_URL` (default `https://example.com`) is now an optional override on the production labwc start script, used by the input-proof overlay.
+

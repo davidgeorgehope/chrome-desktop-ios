@@ -223,7 +223,7 @@ cmake --preset macos-integration \
 ```
 
 Launch scripts: `scripts/macos-metal/launch-uml-darwin-desktop.sh` and
-`launch-in-gui.command`. The CLI default display is VNC on `127.0.0.1:5900`.
+`launch-in-gui.command`. The CLI default display is VNC on `127.0.0.1:5900`. Keyboard and pointer events from that VNC server already reach guest evdev (`uml_vnc_input`); labwc must set `WLR_BACKENDS=drm,libinput` (the production default in `start-desktop-labwc.sh`) so wlroots opens those devices. Proof screenshots: `notes/desktop-input-proof/`.
 For an AppKit window (and `screencapture -v -l <windowid>`), open the
 `.command` from the Mac GUI so `UML_GPU_DISPLAY=native`. Keep the guest at
 1920×1080 (`--gpu-auto-resize=off`); do not change the Mac's 3840×2160
