@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.davidhope.d4ipad-0022</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/launch-d4ipad-0022.sh</string>
+    <string>PLACEHOLDER_TAG</string>
+    <string>PLACEHOLDER_ROOTFS</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>LimitLoadToSessionType</key>
+  <array>
+    <string>Aqua</string>
+  </array>
+  <key>StandardOutPath</key>
+  <string>/Users/davidhope/Library/Logs/d4ipad-0022-launch.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/davidhope/Library/Logs/d4ipad-0022-launch.stderr.log</string>
+</dict>
+</plist>

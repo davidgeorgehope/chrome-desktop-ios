@@ -1212,3 +1212,62 @@ Shots: `~/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-ab-c22-{ff,cr}
 ### Landing
 
 Landing bar met: compile within noise, TTP better, memory sane, unit tests no worse than base. Frozen copy already existed; new official named copy `uml-darwin-official-0022-20261113` (inode 245630846); live `uml-darwin` promoted at 2:46:31 PM ET; old official copies left frozen. Patch: `patches/0022-jit-exclusive-host-cas`.
+
+
+## Designed-for-iPad and Simulator, official 0022 (13 Nov 2026, 2:48–3:46 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3. Built from the clean worktree `Kernarium-0022-clean` (`ee2e467` + `9676ead`), not the dirty persist-v2 `src/Kernarium`. Persist stayed **off**. Nothing was installed on a phone. iPad (A16) stayed Shutdown. Display resolution, voxl, Screen Sharing, and Keychain were not changed. Official `uml-darwin` 0022 (md5 `6ea8180e05fc6736d32530811ba3c439`) was not overwritten.
+
+Kernel for these iOS builds is local2 (`6.18.60-g8246678b2d74`). Guest: 1920×1080, mem=4G, 8 vCPUs. Page is still `https://example.com`. TTP below is **seconds after DESKTOP_READY**, the same method as the published 0021 D4iPad/Sim table (chrome = first real window after the empty labwc desktop; English = “This domain is for use”; full = Example Domain title + body; Learn more noted when OCR’d). Boot-console OCR hits of “chromium” are ignored.
+
+### Build overlays (local, not pushed to Kernarium)
+
+The clean 0022 tree needed the same bakeoff overlays official 0014 / 0021 D4iPad used, copied in rather than taken from persist-v2: `darwin/memory/CMakeLists.txt` lists `mmu/user_map.cpp`; official 0014 `user_map.hpp` (37-line API header, no persist markers); Signing.xcconfig + gitignored Signing.local.xcconfig (team `4P2629648N`, bundle `com.davidhope.kernarium`) and pbxproj `PRODUCT_BUNDLE_IDENTIFIER=$(KERNARIUM_BUNDLE_IDENTIFIER)`; ContentView.swift honors `KERNARIUM_DISPLAY_WIDTH/HEIGHT` (1920×1080); `KernariumRuntime.mm` honors `KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET` / `UML_JIT_EXECUTOR_CACHE_BUDGET` and passes `--jit-executor-cache-budget=`. D4iPad: Aqua `gui/501` LaunchAgent + lldb `jit_serve` one-shot prepare (2 GiB cache / 128 MiB executor). Simulator: `CODE_SIGNING_ALLOWED=NO`, Peek iPhone 17 (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`), `-parallel-testing-enabled NO`, one destination, default 1 GiB cache / 256 MiB executor (same as 0021 Sim).
+
+Scripts (repointed at `Kernarium-0022-clean`): `scripts/macos-metal/build-d4ipad-0022.sh`, `build-sim-0022.sh`, `launch-d4ipad-0022.sh`, `bootstrap-d4ipad-0022.sh`, `com.davidhope.d4ipad-0022.plist`, `watch-d4ipad-0022-shots.sh`, `watch-sim-0022-shots.sh`, `launch-sim-0022-test.sh`. `package-ios-linux-device-and-simulator.sh` is `ROOT_DIR`-overridable (build scripts export `ROOT_DIR` to the clean tree; the default is still the dirty checkout). Mid-run SWAP_ABORT in `launch-sim-0022-test.sh` stays on even when `UML_ALLOW_HEAVY=1` is used to pass start-of-run preflight. Do not weaken `preflight-uml-darwin.sh` for uml-darwin. The 4G+2G headroom gate cannot pass on this 16 GB mini once Peek is Booted (~12 GiB RSS); Simulator runs used `UML_ALLOW_HEAVY=1` for start only.
+
+### Chromium work image
+
+uml-darwin always injects `start-desktop-labwc-persist.sh` via `--guest-file`. D4iPad/Sim have no guest-file injection, so the official installer image `alpine-3.24.2-desktop-labwc-chromium-20261113.ext4` runs `INSTALL_CHROMIUM` and poweroffs (ready=false). A baked work copy, `alpine-3.24.2-desktop-labwc-chromium-d4ipad-20261113.ext4`, has the real 7840-byte labwc `start-desktop.sh`, `desktop-browser=chromium`, and chromium-flags. After `switch_root`, guest-files live under `/usr/local/bin`, not `/payload`. Official 0022 was used only as a named copy for that fixup; live `uml-darwin` was not overwritten.
+
+### Designed-for-iPad
+
+Firefox (15:06:46–15:10:07 ET, stamp `20261113-150646`, TEST SUCCEEDED, exit 0). Preflight: headroom 7288M, need 6144M, swapouts_delta=0, start_swap 934.75M. JIT attach 15:07:25, detach/boot 15:07:33, DESKTOP_READY 15:07:36 ET, guest uptime **2.69 s**. Peak RSS 6.32 GiB (0021 5.45 GiB). Peak swap 1873.56M (Δ ~+939M; SWAP_ABORT limit start+2048M, not tripped).
+
+Chromium (15:27:06–15:29:58 ET, stamp `20261113-152706`, baked image, TEST SUCCEEDED, exit 0). READY 15:27:33 ET, uptime **4.20 s**. Peak RSS 6.62 GiB. Peak swap 1433.56M = start (Δ 0). No published 0021 D4iPad Chromium baseline. A first attempt on the official installer image (15:16:03) powered off after INSTALL_CHROMIUM and is not scored.
+
+| Event | 0021 D4iPad FF (9:51–9:55 AM ET) | 0022 D4iPad FF (3:06–3:10 PM ET) | 0022 D4iPad CR (3:27–3:29 PM ET) |
+| --- | ---: | ---: | ---: |
+| READY (guest uptime) | 2.82 s | **2.69 s** | 4.20 s |
+| Chrome (after READY) | 28 s size-jump | **26 s** size-jump (OCR New Tab 30 s) | 39 s Loading |
+| English (after READY) | 60 s | **37 s** | **43 s** |
+| Full title+body (after READY) | — | **38 s** | **43 s** |
+| Learn more (after READY) | 65 s | **44 s** | not OCR’d (no-sandbox banner) |
+| sh_loop | 1.00 s | **0.28 s** | **0.22 s** |
+| sha256 32 MiB | 0.48 s | **0.44 s** | **0.40 s** |
+| apk openssl | 5.25 s | 6.98 s | **3.02 s** |
+| Peak RSS | 5.45 GiB | 6.32 GiB | 6.62 GiB |
+
+Firefox window/page times improved clearly vs published 0021 (English 60→37, Learn more 65→44). The sh_loop 1.00 s figure on 0021 D4iPad recovered to 0.28 s. apk openssl was a bit slower on Firefox (6.98 vs 5.25); Chromium’s 3.02 s is a different image/session.
+
+### Simulator (Peek iPhone 17)
+
+Firefox (15:36:19–15:40:13 ET, stamp `20261113-153619`, TEST SUCCEEDED, exit 0). `UML_ALLOW_HEAVY=1` after preflight refused (headroom 6000M < 6144M with Peek already up). SWAP_ABORT stayed on; start_swap 1158.94M; peak swap = start (Δ 0). READY 15:37:36 ET, uptime **8.03 s**. Peak RSS 2.50 GiB. JIT 1G / 256M, same as 0021 Sim.
+
+Chromium (15:42:59–15:45:48 ET, stamp `20261113-154259`, baked image, TEST SUCCEEDED, exit 0). READY 15:43:16 ET, uptime **4.77 s**. Peak RSS 2.79 GiB. start_swap 1134.94M, Δ 0. No SWAP_ABORT. Peek was shut down at 15:46:51 ET after the run.
+
+| Event | 0021 Sim FF (10:11:43–10:14:59 AM ET) | 0022 Sim FF (3:36–3:40 PM ET) | 0022 Sim CR (3:42–3:45 PM ET) |
+| --- | ---: | ---: | ---: |
+| READY (guest uptime) | 4.39 s | 8.03 s | 4.77 s |
+| Chrome (after READY) | 28 s | 34 s size-jump (OCR 40 s) | **27 s** Loading |
+| English (after READY) | 64 s | **55 s** | **37 s** |
+| Full title+body (after READY) | — | **55 s** | **37 s** |
+| Learn more (after READY) | 72 s | not OCR’d (iPhone-sim crop of 1920×1080) | not OCR’d (banner + crop) |
+| sh_loop | 1.01 s | **0.25 s** | **0.20 s** |
+| sha256 32 MiB | 0.51 s | **0.41 s** | **0.38 s** |
+| apk openssl | 4.75 s | **3.51 s** | **2.16 s** |
+| Peak RSS | — | 2.50 GiB | 2.79 GiB |
+
+Simulator Firefox English/full and all CPU benches improved vs 0021. READY 8.03 s is slower than 0021’s 4.39 s and than this session’s Chromium 4.77 s on the same booted Peek; JIT budget matched 0021, so this is more likely first-guest-after-boot / residual ~1.1G swap pressure than a 0022 codegen regression. Chrome size-jump was also a bit later (34 vs 28). Learn more never appears in these iPhone-sim screenshots (page cropped); title+body is the scored full-page time.
+
+Logs and shots stay on the mini under `~/linux-ios-bakeoff/notes/macos-metal-desktop/` (`kernarium-{ipad,sim}-0022-*`, `persist-ttp-{d4ipad,sim}-0022-{ff,cr2,cr}-manual/`).

@@ -393,3 +393,31 @@ native Metal 1920×1080, `mem=4G ncpus=8`, `--jit-cache-budget=8G`, persist
 off, ABAB (alloc, 0022-clean, alloc, 0022-clean). Chrome / English / full
 are seconds after process start. Preflight gates on reclaimable headroom
 and swap-out rate, not stale swap used; mid-run SWAP_ABORT is start+2048M.
+
+
+## Designed-for-iPad and Simulator (official 0022, 13 Nov 2026)
+
+Build from `Kernarium-0022-clean`, not `src/Kernarium`. Export
+`ROOT_DIR` to that tree when packaging:
+
+```
+ROOT_DIR=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean \
+  scripts/macos-metal/package-ios-linux-device-and-simulator.sh
+```
+
+Then `scripts/macos-metal/build-d4ipad-0022.sh` and `build-sim-0022.sh`.
+D4iPad launch is the Aqua `gui/501` LaunchAgent
+(`bootstrap-d4ipad-0022.sh` / `com.davidhope.d4ipad-0022.plist`) plus
+lldb `jit_serve` (2 GiB cache / 128 MiB executor). Simulator:
+`launch-sim-0022-test.sh TAG ROOTFS` with
+`-parallel-testing-enabled NO` and one destination (Peek iPhone 17).
+`UML_ALLOW_HEAVY=1` is required on this 16 GB mini once Peek is Booted;
+SWAP_ABORT stays on (start+2048M). Persist off.
+
+Firefox image: `alpine-3.24.2-desktop-labwc.ext4`. Chromium must use the
+baked work copy `alpine-3.24.2-desktop-labwc-chromium-d4ipad-20261113.ext4`,
+not the official installer image (that image’s on-disk `start-desktop.sh`
+is INSTALL_CHROMIUM and poweroffs). Score TTP as seconds after
+`DESKTOP_READY`, same as the published 0021 D4iPad/Sim table. Watchers:
+`watch-d4ipad-0022-shots.sh` and `watch-sim-0022-shots.sh`. Leave iPad
+(A16) Shutdown. Do not overwrite official `uml-darwin`.
