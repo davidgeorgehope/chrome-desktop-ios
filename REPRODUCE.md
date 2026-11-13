@@ -104,17 +104,30 @@ Do not install on a physical iPhone until David agrees and a device build has be
 
 ## Large artifacts (Google Drive)
 
-Uploaded 6:39 PM ET Nov 12, 2026 to `gdrive:linux-ios-fast/artifacts/` (rclone on the box; verified with `rclone check`, 0 differences):
+Uploaded 6:39 PM ET Nov 12, 2026 to `gdrive:linux-ios-fast/artifacts/` (rclone on the box; verified with `rclone check`, 0 differences), then updated 9:19 PM ET with the Mesa+Falkon desktop image and the munmap-fix kernel:
 
 | File | SHA-256 |
 | --- | --- |
 | alpine-3.24.2-minimal.ext4.gz (8.0 MiB; uncompresses to the 115,687,424-byte slim-init ext4) | `2a5e3b79bab10d07a732e22e09a247702b28ce4a66e617185e21953a0f0d5e2d` |
-| alpine-3.24.2-desktop.ext4.gz (413 MiB; uncompresses to a 4 GiB XFCE ext4, sha256 `899fe3530c8dc6766efdf2ea4c6d82daf89a9cc55013e6a1e103d02f4ac93fde`) | `a00d03724b5f1c9e3115b0548f2966b6a0117c2543ea8e176ffe3e361de949d5` |
+| alpine-3.24.2-desktop.ext4.gz (991,029,687 bytes / 945 MiB; uncompresses to a 4 GiB XFCE+virgl Mesa ext4, sha256 `c7f65c84613ca27f22a634779ecc3b6ae7fac68ff5e367530280e7fac74e73ad`) | `0ecc51926f03b0ae5b0a1ff5fcd339b08d98e9a0a5cc21dfa7117a85b9a18599` |
 | kernel-mainline-6.18-arm64-4k-20261112-6.18.60-local1.tar.gz | `8ee291d44eb085466385b1f3e99bb79ab9c78a6a76378d97d27fa40712e117e2` |
+| kernel-mainline-6.18-arm64-4k-20261112-6.18.60-local2.tar.gz | `dc0431b2b5fda6d0cc79cad88b0b5f0dd24a3aaf04da09b66dbd8db473c72bbb` |
 | uml-boot-base-aarch64.cpio.gz (1,398,356 bytes) | `4160fae8bd7f98517767c35d6bbaa3818e6711bd96cf9e8c6b387e2a21e5360b` |
 | release-manifest.json | `7f5b687f2779047eb067ac4cb83e71685b40ca075f1181505765ea0f4a8b5f55` |
 
-The boot-base SHA-256 is of the cpio.gz itself (same as `accepted-aarch64.env`). A `SHA256SUMS` file sits next to these objects in Drive.
+The boot-base SHA-256 is of the cpio.gz itself (same as `accepted-aarch64.env`). A `SHA256SUMS` file sits next to these objects in Drive. The previous desktop image gz (`a00d0372…`, uncompressed `899fe353…`) is stale: it predates the virgl-capable Mesa, Falkon, and session-script updates.
+
+## Kernel local2 (native-window end alignment)
+
+Apply `patches/0003-um-darwin-align-native-window-end-to-the-host-page.patch` on the Darwin UML 6.18 tree after the existing series (it is also exported in Kernarium as `kernel/mainline-6.18/patches/series/um-darwin-align-native-window-end-to-the-host-page.patch`). Rebuild with `kernel/mainline-6.18/build/build-kernel.sh --slice arm64`, publish as `20261112-6.18.60-local2`, and point `kernel/mainline-6.18/artifacts/accepted-4k.env` at that artifact (a copy is `patches/accepted-4k.env.local2`):
+
+- release `6.18.60-g8246678b2d74`
+- final tree `9ae1a0b0ef88af94c633b1971bc15cf6083a3d73`
+- ABI version 26, fingerprint `0x1d7ce579d497fc37`
+
+Use Homebrew LLVM 23.1.5 + lld (`clang` and `ld.lld` on PATH; do not set `UML_KERNEL_LLVM=1` unless that is how the previous accepted kernel was built). After install, the boot log must contain `Darwin native window 0xd3fff4000-0xf80000000 (host-page aligned)` (the start address depends on the reservation; the end must be 16 KiB aligned and must match the host window).
+
+## Desktop image (Alpine XFCE, virgl Mesa)
 
 ## Simulator JIT (local fork)
 
@@ -151,13 +164,20 @@ service is skipped. `scripts/patch-alpine-benches.sh` plus a rewritten inittab
 is how the image is updated (copy off virtiofs onto Lima's disk, e2fsck,
 loop-mount, copy back, `chmod u+w`).
 
-## Desktop image (Alpine XFCE)
-
 The official KDE erofs is unpublished. The desktop guest is a 4 GiB Alpine 3.24.2
 ext4 grown from the slim-init image in Lima (copy off virtiofs, `resize2fs`,
-`apk add` XFCE / Xorg / Mesa / Firefox, copy back, `chmod u+w`). Guest scripts
-live in `scripts/desktop-guest/` (`start-desktop.sh`, `desktop-ready.sh`,
-`inittab`, `fstab` with `devpts`).
+`apk add` XFCE / Xorg / Firefox, copy back, `chmod u+w`). The stock Alpine
+`mesa-dri-gallium` 26.1.6 package lacks the virgl driver, so Mesa 26.1.6 was
+rebuilt in the musl chroot from `https://archive.mesa3d.org/mesa-26.1.6.tar.xz`
+with `-Dgallium-drivers=virgl,zink,llvmpipe,softpipe -Dvulkan-drivers=virtio,swrast`
+and installed over it. Also installed: Falkon, xdotool, vulkan-tools, fontconfig;
+xfwm compositing off; `desktop-ready.sh` drops the 2 s sleep and launches
+Firefox (then Falkon) against example.com.
+
+Guest scripts live in `scripts/desktop-guest/` (`start-desktop.sh`, `desktop-ready.sh`,
+`inittab`, `fstab` with `devpts`). Do not force `MESA_LOADER_DRIVER_OVERRIDE=virtio_gpu`.
+Keep `LIBGL_ALWAYS_SOFTWARE=0` in the guest. The Simulator host still sets
+`LIBGL_ALWAYS_SOFTWARE` for its own software Virgl provider.
 
 Launch on an iPad Simulator (larger view than the iPhone 17), after symlinking
 the ext4 into the app Documents container and deleting `tmp/kernarium-overlay.ext4`:
