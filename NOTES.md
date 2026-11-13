@@ -1271,3 +1271,135 @@ Chromium (15:42:59–15:45:48 ET, stamp `20261113-154259`, baked image, TEST SUC
 Simulator Firefox English/full and all CPU benches improved vs 0021. READY 8.03 s is slower than 0021’s 4.39 s and than this session’s Chromium 4.77 s on the same booted Peek; JIT budget matched 0021, so this is more likely first-guest-after-boot / residual ~1.1G swap pressure than a 0022 codegen regression. Chrome size-jump was also a bit later (34 vs 28). Learn more never appears in these iPhone-sim screenshots (page cropped); title+body is the scored full-page time.
 
 Logs and shots stay on the mini under `~/linux-ios-bakeoff/notes/macos-metal-desktop/` (`kernarium-{ipad,sim}-0022-*`, `persist-ttp-{d4ipad,sim}-0022-{ff,cr2,cr}-manual/`).
+
+
+## Fetch-view (guest RAM host_pointer) — measured, not landed (13 Nov 2026, 3:55–4:28 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Official 0022 was the A side.
+Persist off. Official `uml-darwin` / `uml-darwin-official-0022-20261113`
+(md5 `6ea8180e05fc6736d32530811ba3c439`, inode 245630846) was not
+overwritten. Display resolution, voxl, Screen Sharing, Keychain, and the
+physical iPad were not touched. Peek stayed Shutdown. No D4iPad/Sim port
+was started.
+
+### What changed
+
+Worktree `/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-fetch`,
+branch `exclusive/0022-fetch-view` from `9676ead` (Kernarium-0022-clean).
+Not pushed (origin is upstream `imxieyi/Kernarium`). Six files:
+`guest_address_space.hpp` grows a default `host_pointer(address, size,
+access)` that returns null; `StaticGuestMemory` returns the already
+translated host pointer when the range sits in one RAM page, else null
+(empty, page-crossing, MMIO, permission fault). `atomic_pointer` is the
+same path. A64 miss-path fetch, CAS lookahead, `tracked_store_function`,
+`fetch_instruction`, A32 `fetch_a32_bytes`, stale-validation, and
+`persistent_identity_for` use `host_pointer` + memcpy and fall back to
+`fetch` only when the view is unavailable. `make_packed` /
+`ExecutableArena::store` / `install_shared_translation` copies were left
+alone so the ABAB isolated the fetch view. The cheap
+`locations_mutex_` prefix check was also deferred.
+
+Named side binary `uml-darwin-0022-fetch-view-20261113` (inode 245695535,
+md5 `a96eb7d3700a9ebafcf499b391f4aa9b`), built 4:04:50 PM ET against
+kernel local2 (`6.18.60-g8246678b2d74`). Copies also sit next to official
+in the dirty tree’s `bin/` and in `notes/macos-metal-desktop/`.
+
+### Unit tests (4:05:25–4:05:28 PM ET)
+
+macos-unit exclusive suites: `publication_gate`, `exclusive_completion`,
+`a32-exclusive`, `exclusive-progress` PASS;
+`reservation_alias` and `exclusive-events` FAIL the same way they do on
+official 0022 (pre-existing). No worse.
+
+### CPU benches (mem=2G ncpus=8, persist off)
+
+Official 4:05:37–4:06:26 PM ET, fetch-view 4:06:34–4:07:25 PM ET. Swap
+delta 0 both. Peak RSS official 1704 MiB, fetch-view 2059 MiB (sampler;
+in the earlier official 0022 band).
+
+| Bench | Official 0022 | Fetch-view |
+| --- | ---: | ---: |
+| compile_tiny_sha cold | 2.19 s | 2.10 s (−4 %) |
+| compile_tiny_sha warm | 1.36 s | 1.33 s |
+| compile_native_loop | 0.27 s | 0.27 s |
+| native_loop | 0.57 s | 0.57 s |
+| sha256_32m | 0.38 s | 0.38 s |
+| apk_add_offline | 3.09 s | 3.13 s |
+
+Compile holds within noise.
+
+### Guest atomic-stress (8 × 200k, mem=2G)
+
+Both PASS, `atomics=1`, swap delta 0. Official 4:07:32–4:07:53 PM ET,
+peak RSS 1778 MiB. Fetch-view 4:07:59–4:08:20 PM ET, peak RSS 1805 MiB.
+
+### Firefox + Chromium TTP, ABAB, memory-pressure preflight (4:09:03–4:25:04 PM ET)
+
+Chromium labwc image for Chromium, default labwc image for Firefox,
+native Metal 1920×1080, mem=4G ncpus=8, 8G JIT, persist off. Seconds
+after process start (memory-sampler / launch time). Chrome = first
+visible browser window after the empty desktop (New Tab / Loading /
+example.com tab). Boot-console OCR ignored. English = “This domain is
+for use”; full = Example Domain title + body. SWAP_ABORT never tripped;
+swap used was flat or fell (1062.94M → 1006.94M over the ABAB). Peak
+RSS stayed in the 4.5–4.9 GiB band (no 12G / 6.4G leak).
+
+| Run | Window (ET) | READY | Chrome | English | Full | Learn more | Net | Peak RSS | Δ swap |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Firefox official r1 | 4:09:04–4:10:56 PM | 4 s | 20 s example.com/ | 21 s | 21 s | 24 s | 1 s | 4615 MiB | 0 |
+| Firefox fetch r1 | 4:11:06–4:12:58 PM | 3 s | 16 s example.com/ | 18 s | 18 s | **missing** | 2 s | 4794 MiB | 0 |
+| Firefox official r2 | 4:13:10–4:15:02 PM | 3 s | 16 s New Tab | 19 s | 19 s | 22 s | 3 s | 4468 MiB | 0 |
+| Firefox fetch r2 | 4:15:14–4:17:06 PM | 3 s | 17 s example.com/ | 18 s | 18 s | 20 s | 1 s | 4890 MiB | 0 |
+| Chromium official r1 | 4:17:16–4:19:09 PM | 4 s | 16 s Loading | 17 s | 17 s | 17 s | 1 s | 4917 MiB | 0 |
+| Chromium fetch r1 | 4:19:15–4:21:08 PM | 3 s | 19 s Loading | 20 s | 20 s | 20 s | 1 s | 4504 MiB | 0 |
+| Chromium official r2 | 4:21:19–4:23:12 PM | 3 s | 16 s Example Domain | 17 s | 17 s | 17 s | 1 s | 4708 MiB | 0 |
+| Chromium fetch r2 | 4:23:12–4:25:04 PM | 2 s | 14 s Loading | 17 s | 17 s | 17 s | 3 s | 4754 MiB | 0 |
+
+Firefox chrome mean 18 s → 16.5 s, English/full 20 s → 18 s. Chromium
+chrome 16 s → 16.5 s, English/full 17 s → 18.5 s. Fetch Firefox r1 took
+an RCU stall after the English body appeared and stayed on “Transferring
+data from example.com…” through the end of the run (16:11:24–16:12:56 PM
+ET); Learn more never arrived. Official runs had zero RCU stall reports.
+Fetch r2 completed normally.
+
+Shots and OCR: `~/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-ab-fv-{ff,cr}-{off,fv}-{1,2}-manual/`.
+Scores: `fv-ttp-scores-20261113.txt`. Logs: `session-ab-fv-*-20261113-*.log`.
+
+### Landing bar
+
+Not met. Compile is within noise and tests are no worse, and memory is
+sane, but TTP is not a clear win (Chromium is slightly worse; Firefox is
+a noisy 1–2 s and includes a hung run). Official was not promoted.
+linux-ios-fast is updated only to record the measurement, the pass-through
+design, and the interactive-metrics harness. The fetch-view worktree still
+holds the six-file diff; it is not on official 0022.
+
+## Near pass-through execution (design) and interactive metrics (13 Nov 2026, 4:28 PM ET)
+
+David’s goal is a usable desktop (snappy app launch, scrolling, typing),
+not just benchmarks. After the fetch-view work: design in
+`notes/near-pass-through-execution.md`. Copy guest ARM64 mostly verbatim,
+patch only SVC / system-register / exclusive instructions, and map guest
+user memory at identity host addresses so loads and stores need no
+checks (UML process address space). The document lists the iOS blockers
+(JIT W^X, address-space reservation, signals/page faults) and a rough
+prototype plan. It is a stronger follow-on than `DESIGN.md` (fixed-offset
+`guest_va + K` plus the existing translator); the 13 Nov
+`UML_JIT_USER_MAP` prototype is not this mode and stays not landed.
+
+The test harness now has interactive metrics, in addition to compile
+benches and time-to-example.com:
+
+- Guest page + CGI: `scripts/desktop-guest/interactive-metrics/`
+- Labwc opt-in: `scripts/desktop-guest/start-desktop-labwc.sh` when
+  `/usr/local/etc/interactive-metrics` is injected
+- Host launcher: `scripts/macos-metal/measure-interactive.sh`
+  Markers: `===INTERACTIVE_LAUNCH===` (first paint),
+  `===INTERACTIVE_SCROLL===` (`fps=`, `p95_frame_ms=` over a 2 s
+  programmatic scroll), `===INTERACTIVE_INPUT===` (real key/click to
+  the next rAF; `vncdotool` can poke after
+  `===INTERACTIVE_READY_FOR_INPUT===`)
+- TTP scorer: `scripts/macos-metal/score-ttp-shots.py`
+
+How to run them is in `REPRODUCE.md`. The pass-through prototype should
+not land on compile/TTP alone if these interactive numbers do not move.

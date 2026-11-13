@@ -200,6 +200,19 @@ EOJ
   fi
 fi
 ff_url="${BROWSER_URL:-${FIREFOX_URL:-https://example.com}}"
+# Opt-in interactive metrics (app launch, scroll fps, input latency).
+# Host enables this by dropping /usr/local/etc/interactive-metrics or
+# setting INTERACTIVE_METRICS=1 in the guest environment.
+if [ -f /usr/local/etc/interactive-metrics ] || [ "${INTERACTIVE_METRICS:-}" = 1 ]; then
+  if [ -x /usr/local/bin/interactive-metrics-start.sh ]; then
+    /usr/local/bin/interactive-metrics-start.sh
+  fi
+  # Only override the URL when the caller did not set one explicitly.
+  if [ -z "${BROWSER_URL:-}${FIREFOX_URL:-}" ]; then
+    ff_url="http://127.0.0.1:8765/"
+  fi
+  echo "===INTERACTIVE_ENABLED=== url=$ff_url" | tee /dev/ttyS0
+fi
 # Accelerated Wayland Firefox on a pixman compositor often never
 # paints; use software WebRender on the Simulator path only.
 ff_accel=1

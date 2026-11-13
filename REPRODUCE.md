@@ -421,3 +421,55 @@ is INSTALL_CHROMIUM and poweroffs). Score TTP as seconds after
 `DESKTOP_READY`, same as the published 0021 D4iPad/Sim table. Watchers:
 `watch-d4ipad-0022-shots.sh` and `watch-sim-0022-shots.sh`. Leave iPad
 (A16) Shutdown. Do not overwrite official `uml-darwin`.
+
+
+## Fetch-view experiment (not landed, 13 Nov 2026)
+
+`StaticGuestMemory::host_pointer` plus JIT fetch through a mapped guest
+RAM view, on branch `exclusive/0022-fetch-view` in the
+`Kernarium-0022-fetch` worktree (from `9676ead`). Side binary only:
+`uml-darwin-0022-fetch-view-20261113`. Official 0022 was not overwritten.
+The ABAB (compile benches, atomic-stress, Firefox + Chromium TTP ×2 at
+memory-pressure preflight) was not a clear win and was not landed. See
+`NOTES.md`.
+
+
+## Interactive metrics (app launch, scroll fps, input latency)
+
+The desktop goal is snappy launch, scrolling, and typing, not only
+compile benches and time-to-example.com.
+
+Guest: `scripts/desktop-guest/interactive-metrics/` (a local page plus a
+busybox-httpd CGI that writes `===INTERACTIVE_*===` markers to ttyS0)
+and `scripts/desktop-guest/interactive-metrics-start.sh`.
+`start-desktop-labwc.sh` opts in when `/usr/local/etc/interactive-metrics`
+is present or `INTERACTIVE_METRICS=1` is set, and then points the browser
+at `http://127.0.0.1:8765/` unless `BROWSER_URL` / `FIREFOX_URL` is
+already set.
+
+Host, on the Mac mini, against a named `uml-darwin` side binary:
+
+```
+scripts/macos-metal/measure-interactive.sh TAG /path/to/uml-darwin firefox
+scripts/macos-metal/measure-interactive.sh TAG /path/to/uml-darwin chromium
+```
+
+Look for `===INTERACTIVE_LAUNCH===` (first paint in the metrics page),
+`===INTERACTIVE_SCROLL===` (rAF frames during a 2 s programmatic
+scroll: `fps=` and `p95_frame_ms=`), and `===INTERACTIVE_INPUT===`
+(real keydown/mousedown to the next rAF; synthetic JS events are
+ignored). If `vncdotool` is on `PATH`, the launcher pokes a key and a
+click after `===INTERACTIVE_READY_FOR_INPUT===` (`UML_VNC_DISPLAY`,
+default `127.0.0.1:5900`). Persist off, memory-pressure preflight,
+SWAP_ABORT start+2048M, `mem=4G ncpus=8`, `--jit-cache-budget=8G`,
+native Metal 1920×1080, same labwc images as TTP.
+
+Time-to-example.com stays a separate measurement:
+`launch-ab-uml-darwin.sh` plus `scripts/macos-metal/score-ttp-shots.py`
+(`--memlog` / `--session` / `--ocr`) on the `persist-ttp-ab-TAG-manual`
+screenshot directory. Seconds after process start; boot-console OCR is
+ignored.
+
+The near pass-through design in `notes/near-pass-through-execution.md`
+uses these interactive metrics as a landing bar, not just the compile
+and TTP tables.

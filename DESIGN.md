@@ -379,3 +379,14 @@ The user-map prototype stays behind `UML_JIT_USER_MAP` in the Kernarium
 tree on the mini. It must beat 0.18 s dash and 1.15 s warm compile with
 the flag off (and must not regress the tight loop past 0.49 s) before it
 is committed as an opt-in experimental preset.
+
+## See also: near pass-through execution (13 Nov 2026)
+
+A stronger follow-on, still a design only, is in
+`notes/near-pass-through-execution.md`: copy guest ARM64 mostly verbatim,
+patch only SVC / system-register / exclusive instructions, and map guest
+user memory at identity host addresses so loads and stores need no
+checks. That document lists the iOS blockers (JIT W^X, address-space
+reservation, signals/page faults), a prototype plan, and the interactive
+metrics the existing `UML_JIT_USER_MAP` work did not measure. It does not
+replace this file or reland the user-map flag.
