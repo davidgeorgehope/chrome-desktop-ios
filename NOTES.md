@@ -1713,3 +1713,64 @@ noise, and still far from Firefox. Baked `chromium-flags` is unchanged.
 Experiment files (not used by the default start script) live next to
 the baked flags as `scripts/desktop-guest/chromium-flags-{raster1,raster2,raster8,nosmooth,novsync,novsync-vsynconly,novsync-frlonly,oop,nozerocopy,zerocopy,norasterlimit}`.
 Logs on the mini: `session-interactive-official0022-cr-scrollx-*`.
+
+## Near pass-through prototype (branch only, 13 Nov 2026, 5:36–5:38 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Worktree
+`/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-passthrough`,
+branch `exclusive/0022-near-pass-through` from official 0022 `9676ead`,
+commit `8cfda0a` (not pushed; Kernarium is not pushed from the mini).
+Official 0022 `uml-darwin-official-0022-20261113` md5 is still
+`6ea8180e05fc6736d32530811ba3c439`. The worktree has a unique
+`.build/presets` and did not write that binary. Peek and iPad (A16)
+stayed Shutdown. No `uml-darwin` run.
+
+The prototype is env-gated (`UML_JIT_NEAR_PASSTHROUGH=1`) and default
+off. On iOS the flag is ignored. `compile_once` tries a verbatim
+emit and falls back to today's translator if the block is refused;
+with the flag unset the hook is a no-op.
+
+What is in `8cfda0a`:
+
+- A conservative A64 classifier: GPR data-processing that does not use
+  SP or X18, NOP, DMB/DSB, intra-block `B` / `B.cond`, and a terminal
+  inter-block `B`. Refuse SVC/sysreg/exclusives, ADR/ADRP, literals,
+  BL, BR/RET, ISB, SIMD/FP/SME, SP, X18, mid-block leaving branches.
+- A load-all / spill-all ABI (custom 80-byte frame, guest X0–X30 in
+  host Xn except X18 and SP, NZCV load/spill, `Event::continued`,
+  `link_target_safe=false`). No mid-struct `JitChainState` field.
+- An identity probe at K = 0 (`VM_FLAGS_FIXED`, no bitmap).
+  `identity_ready()` stays false until an eager map hook and a fault
+  path exist, so raw loads/stores stay refused.
+
+Standalone unit tests (classifier, emit, identity) passed at 5:38:10
+PM ET (`/tmp/arm64-near-pass-through-tests`, guest page 4K). The
+`VM_FLAGS_FIXED` K = 0 try (then released) was:
+
+| Range | Size | Result |
+| --- | --- | --- |
+| `0x40000` | 16 MiB | fail kr=1 |
+| `0x40000000` | 1 GiB | fail kr=1 |
+| `0x100000000` | 1 GiB | fail kr=1 |
+| `0x550000000000` | 4 GiB | ok |
+| `0x7e0000000000` | 4 GiB | ok |
+| `0x7f0000000000` | 4 GiB | ok |
+| `0x7fc000000000` | 4 GiB | ok |
+| `0x7ffe00000000` | 1 GiB | ok |
+
+Low / first-4-GiB static images cannot be reserved on this host.
+Several musl-PIE-class high windows *can* be reserved at K = 0 (17 GiB
+if all five succeed). That is more encouraging than the 13 Nov
+user-map inventory, which did not get identity near `0x7fff…` and then
+used a wrap `K` plus a bitmap (and regressed dash/gcc). It is still
+not a working identity map: no `vm_remap` on guest map/unmap/protect
+and no fault installer. `compile_once` only inventories, and does not
+hold those 17 GiB, if the flag is on during a boot.
+
+No side `uml-darwin` was built, so there is no atomic-stress, static
+busybox/hello, desktop boot, CPU bench, TTP ABAB, or interactive
+comparison vs official 0022. Flag-on would only verbatim ALU-only
+blocks; most C frames use SP and would fall back. That is not a
+clear-win land candidate. The prototype stays on the branch; official
+0022 is unchanged. Full write-up:
+`notes/near-pass-through-prototype.md` in the Kernarium worktree.

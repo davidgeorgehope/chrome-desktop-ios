@@ -1,8 +1,10 @@
 # Near pass-through execution (design)
 
-Date: 13 Nov 2026, America/New_York. This is a design, not an implementation.
-Nothing here is landed. Official 0022 (`uml-darwin` md5
-`6ea8180e05fc6736d32530811ba3c439`) is unchanged.
+Date: 13 Nov 2026, America/New_York. This is the design. A smallest
+env-gated prototype was committed on `exclusive/0022-near-pass-through`
+`8cfda0a` (5:36–5:38 PM ET); it is not landed on official 0022
+(`uml-darwin` md5 `6ea8180e05fc6736d32530811ba3c439`). See NOTES.md
+and the worktree's `notes/near-pass-through-prototype.md`.
 
 The goal is a *usable desktop*: snappy app launch, scrolling, and typing.
 Compile benches and time-to-example.com are necessary, but they are not
