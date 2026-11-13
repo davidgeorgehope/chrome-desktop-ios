@@ -1814,3 +1814,69 @@ timeout before navigate). Scroll stays in the 39–42 fps band.
 
 Logs:
 `session-interactive-official0022-ff-input-{1,2}-20261113-174{028,101}.log`.
+
+## Near pass-through identity hook (branch only, 13 Nov 2026, 5:46–5:54 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Worktree
+`/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-passthrough`,
+branch `exclusive/0022-near-pass-through` (from official 0022 `9676ead`,
+prior commit `8cfda0a`). Official 0022
+`uml-darwin-official-0022-20261113` md5 stayed
+`6ea8180e05fc6736d32530811ba3c439` and was never overwritten. Kernel
+for the measured side binary is **local2** `6.18.60-g8246678b2d74`.
+persist off. Peek and iPad (A16) stayed Shutdown. Swap used stayed
+894.94M; no SWAP_ABORT. Kernarium is not pushed from the mini or to
+upstream.
+
+This pass pushed the ALU-only prototype toward something measurable:
+verbatim SP-relative and plain loads/stores, a high-window K = 0
+identity reservation with a `vm_remap` map hook and a SIGSEGV/SIGBUS
+retry path, a **side** `uml-darwin` only, then hello / atomic-stress.
+Land bar was a measured clear win vs official 0022 (compile within
+noise, TTP better, interactive no worse, memory sane, tests no worse).
+That bar was not met.
+
+Standalone unit tests (including new SP-relative classify cases)
+passed at **5:48:22 PM ET**. Default-off does not reserve and is a
+no-op in `compile_once`.
+
+Side binary (unique passthrough `.build/presets/macos-integration`,
+Ninja Release): first configure accidentally accepted **local1**;
+relinked to local2 at 5:50:50 PM ET before measurement. After adding a
+3.75 GiB Linux-stack window the named image md5 is
+`20ffc0653cf26e540c96afb4c2fd96a2`
+(`uml-darwin-0022-near-pt-20261113` under the worktree bin and
+`notes/macos-metal-desktop/`). Runtime reserved 4 GiB at
+`0x7f0000000000`, 4 GiB at `0x7fc000000000`, and 3.75 GiB at
+`0x7fff00000000` (a 4 GiB FIXED at that base fails: the last 256 MiB
+of the 47-bit space is rejected). Not the 17 GiB test inventory.
+
+| Run | Window (ET) | Flag | Result |
+| --- | --- | --- | --- |
+| hello (2×4 GiB windows only) | 5:51:19–5:51:20 PM | on | panic, status=6. Hook armed. FAR `0x7fffd369de90` (guest `/init` SP) was outside those windows. Host stack is at `0x16…`, not an alias. |
+| hello default-off control | 5:52:27–5:52:29 PM | off | **PASS** `===HELLO===` / `===HELLO_DONE===`, status=0, no reservation. |
+| hello + stack window | 5:53:17–5:53:18 PM | on | 3 windows reserved; still panics at initramfs `/init` before EXT4. FAR=`0x100` (write, esr=`0x92000046`), SP now in the stack window, X18=0, X1=0, X30=`0x4135d8`. status=6. |
+| atomic-stress + stack window | 5:53:54–5:53:55 PM | on | Same panic (FAR=`0x100`, X18=0), status=6. No `===ATOMIC_STRESS===`. |
+
+Official 0022 atomic-stress earlier today (4:07:32–4:07:53 PM ET) was
+`===ATOMIC_STRESS_DONE=== PASS` on the same kernel and rootfs.
+
+TTP and interactive vs official 0022 were not run: a desktop boot
+would hit the same initramfs `/init` panic.
+
+Why this stays on the branch:
+
+- Low 4 GiB cannot be reserved FIXED (kr=1). initramfs `/init` is a
+  low static image (`0x4135d8`). Verbatim loads/stores to its
+  data/.got cannot be identity-mapped. Structural blocker.
+- After covering the Linux user stack, the crash is a write to `0x100`
+  with X18 already 0 mid-body (Darwin may clobber the platform
+  register used as the SP-switch slot pointer).
+- 4K guest / 16K host still remaps only uniform 16 KiB spans.
+
+Default-off on this same side binary boots hello, so the regression is
+the armed hook. Official 0022 is unchanged. Full write-up:
+`notes/near-pass-through-prototype.md` in the Kernarium worktree.
+Logs under
+`/Users/davidhope/linux-ios-bakeoff/notes/jit-baseline/compile-alloc/hello-near-pt-*.log`
+and `atomic-stress-near-pt-on-stackwin-20261113-175354.log`.
