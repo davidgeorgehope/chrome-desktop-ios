@@ -1,0 +1,33 @@
+--- a/darwin/memory/mmu/user_map.cpp
++++ b/darwin/memory/mmu/user_map.cpp
+@@ -6,7 +6,7 @@
+ #include "address_layout.hpp"
+ 
+ #include <mach/mach.h>
+-#include <mach/mach_vm.h>
++#include <mach/vm_map.h>
+ 
+ #include <sys/mman.h>
+ #include <unistd.h>
+@@ -165,15 +165,17 @@
+ [[nodiscard]] std::vector<Hole> inventory_holes() noexcept
+ {
+ 	std::vector<Hole> holes;
+-	mach_vm_address_t cursor = 0;
++	// vm_region_64 is available in the iOS Simulator SDK; mach_vm_region
++	// is not (mach_vm.h is #error-unsupported on iPhoneSimulator).
++	vm_address_t cursor = 0;
+ 	const std::uint64_t cap = guest_limit;
+-	mach_vm_address_t prev_end = 0;
++	vm_address_t prev_end = 0;
+ 	for (;;) {
+-		mach_vm_size_t size = 0;
++		vm_size_t size = 0;
+ 		vm_region_basic_info_data_64_t info{};
+ 		mach_msg_type_number_t count = VM_REGION_BASIC_INFO_COUNT_64;
+ 		mach_port_t object = MACH_PORT_NULL;
+-		const kern_return_t kr = mach_vm_region(mach_task_self(), &cursor,
++		const kern_return_t kr = vm_region_64(mach_task_self(), &cursor,
+ 			&size, VM_REGION_BASIC_INFO_64,
+ 			reinterpret_cast<vm_region_info_t>(&info), &count, &object);
+ 		if (kr != KERN_SUCCESS) {

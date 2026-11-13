@@ -88,7 +88,9 @@ xcodebuild build \
   EXCLUDED_ARCHS=x86_64
 ```
 
-`scripts/rebuild-and-relaunch.sh` does cmake, slim packaging, xcodebuild, install, and a console-pty launch. Symlink the ext4 into the app Documents container as shown in NOTES.md. Delete `tmp/kernarium-overlay.ext4` after changing the base image.
+The reproducible Simulator rebuild is `scripts/build-kernarium-simulator.sh /path/to/Kernarium`. It copies the iOS-applicable JIT series (`patches/0013-jit-publish-arena/`, evict + packed publish + bump arena) and the Simulator `vm_region_64` fix (`patches/0014-simulator-vm-region-64/`) into the checkout, runs only `cmake --build --preset kernarium-ios-simulator`, packages `KRuntime_6_18_4K.xcframework`, and `xcodebuild`s a `Release-iphonesimulator` `Kernarium.app`. It does not build the `macos-integration` preset, does not touch the official `uml-darwin` identity, and does not install on a physical iPhone. `SKIP_PATCH=1` uses the checkout sources as they already stand. MesaEGL/MesaGallium xcframeworks are reused if they are already in `.build/kernarium-xcframeworks`.
+
+`scripts/rebuild-and-relaunch.sh` is an older wrapper that also installs onto Peek and launches. Symlink the ext4 into the app Documents container as shown in NOTES.md. Delete `tmp/kernarium-overlay.ext4` after changing the base image.
 
 If you see `UML: cannot reserve a ... native kernel window` and guest status -4, the window alignment patch is missing or the reservation is not 16 KiB aligned.
 
@@ -201,8 +203,20 @@ xcrun simctl launch --stdout=kernarium-desktop.log --stderr=kernarium-desktop.lo
   "$UDID" com.imxieyi.Kernarium
 ```
 
-Look for `Kernarium: fixed guest display 1920x1080`, `execution engine jit`,
-`===DESKTOP_START===`, `===DESKTOP_READY===`, and the glxgears FPS lines.
+The Simulator has no real Metal. labwc's default GLES/EGL virtio_gpu scanout
+reaches `DESKTOP_READY` there but never presents a CPU framebuffer, so
+`simctl io screenshot` stays black. `scripts/desktop-guest/start-desktop-labwc.sh`
+detects the software Virgl provider via guest EDID (`[drm] features: +virgl +edid`
+on the Simulator, `-edid` on the macOS Metal path) and sets `WLR_RENDERER=pixman`
+only in that case, so labwc scanouts a dumb buffer (the same present path XFCE
+already used). Firefox is launched with `MOZ_ACCELERATED=0 MOZ_WEBRENDER=0` on
+that path only. Leave `WLR_RENDERER` unset on Metal; callers can still export
+it to force a choice. A Simulator-only sibling of the production labwc image
+with that script installed was used for the painted screenshot; the production
+0444 / Drive labwc image is unchanged.
+
+Look for `software_display WLR_RENDERER=pixman`, `Kernarium: fixed guest display 1920x1080`,
+`execution engine jit`, `===DESKTOP_START===`, and `===DESKTOP_READY===`.
 The overlay is disposable; delete it after changing the base image.
 
 `patches/0002-kernarium-display-size-env.md` documents the ContentView change

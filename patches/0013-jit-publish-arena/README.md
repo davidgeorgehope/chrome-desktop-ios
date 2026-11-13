@@ -29,3 +29,13 @@ profilers off, same session as official and packed-publish):
 See NOTES.md for the compile-cold / apk add / Isolated Web Content table.
 The official identity was not bumped unless that table and a clean full
 CPU-suite comparison justified it.
+
+## iOS / Simulator apply
+
+These three files are the iOS-applicable series: evict-on-full (0011),
+packed publish (0012), and this bump arena, already folded together.
+Copy them over `darwin/cpu/arm64/jit/` as a set. The iPhoneSimulator
+26.5 SDK also needs `patches/0014-simulator-vm-region-64`. The
+reproducible apply and build is `scripts/build-kernarium-simulator.sh`.
+Do not install the resulting app on a physical iPhone. Do not rebuild
+the official macOS `uml-darwin` identity from the copied sources.
