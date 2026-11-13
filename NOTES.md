@@ -421,3 +421,52 @@ Before/after at the default 3 GiB cap, same first-boot workload:
 
 The official 4K binary and identity were left alone. The evict-on-full change and the optional stats dump are in `patches/0011-jit-shared-evict-on-full`. The official desktop launcher accepts `UML_JIT_CACHE_BUDGET` (for example `8G`) once a rebuilt uml-darwin is in use.
 
+## Official evict-on-full suite, and packed publication (13 Nov 2026, 3:34–3:55 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Official 4K identity unchanged (`identity.env` v26, fingerprint `0x1d7ce579d497fc37`). Official `uml-darwin` inode **244909018** (1:09 AM ET, 54280296 bytes) was not overwritten.
+
+### Evict-on-full vs official 4K, same-session official suite
+
+Full official CPU suite (mem=2G, ncpus=8, profilers off, ASLR on, `apks.tar`, minimal ext4). Evict side binary `uml-darwin-stats` inode 244932223. Official rerun immediately after.
+
+| bench | morning official 4K | same-session official 4K | evict-on-full |
+| --- | ---: | ---: | ---: |
+| dash / ash | 0.18 / 0.18 | 0.19 / 0.18 | 0.18 / 0.18 |
+| apk add | 2.80 s | 2.78 s | 2.82 s |
+| evp aes-256-cbc 16 KiB | 1,039,985.32k | 1,001,947.14k | 1,004,328.28k |
+| evp sha256 16 KiB | 1,790,006.61k | 1,780,831.21k | 1,780,290.90k |
+| compile-cold | 2.11 s | 2.00 s | 2.07 s |
+| compile-warm | 1.15 s | 1.14 s | 1.17 s |
+| tiny-sha | 1.171529 s / 81.94 MiB/s | 1.177390 s / 81.54 MiB/s | 1.189288 s / 80.72 MiB/s |
+| tight loop | 0.49 s | 0.49 s | 0.49 s |
+
+tiny-sha digest matched `bcb5fa62…` on all three. The morning AES figure is higher than *both* same-session binaries; evict vs the same-session official rerun is within noise (evict AES is slightly higher). Evict-on-full is a correctness/admission fix, not a suite wall-time win, so the official 4K binary and identity were not promoted.
+
+### Cold-translation SIGPROF (official 4K, 999 Hz)
+
+Guest script: offline `apk add` then one `compile_tiny_sha`. A 1.2 s pause at `COMPILE_COLD_START` let the 1 s SIGPROF flusher snapshot the cumulative histogram; subtracting that from the exit dump isolates the compile window (1632 samples, 2.08 s wall).
+
+| bucket | boot+apk | compile window |
+| --- | ---: | ---: |
+| JIT generated code | 56.0% | 12.0% (~0.25 s, near the 0.24 s host-native compile) |
+| host memmove/memset | 29.0% | 24.8% |
+| host malloc | 3.5% | **34.7%** |
+| shared-cache find / `valid_shared_translation_shape` | 0.8% | **11.5%** (shape walk 6.0%) |
+| decode + emit + `compile_once` | 0.2% | 3.7% |
+| link table + icache/W^X + arena | ~0.8% | ~5.6% |
+| insert lock | 0.03% | 0.1% |
+
+The 8.6× is not the translator's decoder or emitter. It is publication: four heap allocations and copies per `SharedTranslation`, plus a second shape walk and hash-map growth. Locks and a cheaper first-tier emit are the wrong levers. `maximum_block_instructions` cannot rise above 64 without widening the write mask.
+
+### Packed publication (`patches/0012-jit-publish-alloc`)
+
+A side `uml-darwin-fast` (inode 244934602, 3:49 AM ET) packs guest words, host words, and relocations into one payload, skips the duplicate `insert()` shape check, and pre-sizes the shard and location maps. Official binary left alone.
+
+| | official 4K | packed-publish |
+| --- | ---: | ---: |
+| compile-cold | 2.06 / 2.07 s | **1.96 / 1.98 s** (~5% ) |
+| apk add (same boots) | 2.80 / 2.81 s | 2.81 / 2.81 s |
+| Firefox Isolated Web Content after READY | 12.27 s | 11.93 s |
+
+Post-change compile-window SIGPROF: shape walk 6.0% → 0, malloc samples 566 → 466. example.com is still the production `FIREFOX_URL`; Isolated Web Content is the compile-bound content-process signal (light `ps` probe, production labwc start, sandbox on, `WLR_BACKENDS=drm,libinput`). Official identity was not bumped.
+
