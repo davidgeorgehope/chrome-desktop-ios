@@ -468,13 +468,21 @@ the next rAF (synthetic JS events are ignored). If `vncdotool` is on
 `PATH`, the launcher pokes a key and a click after
 `===INTERACTIVE_READY_FOR_INPUT===` (`UML_VNC_DISPLAY`, default
 `127.0.0.1:5900`). The guest also pokes evdev (`KEY_A` / tablet click)
-0.5 s after READY. On the 13 Nov official 0022 baseline those pokes did
-not produce trusted events (`key_n=0 click_n=0`, why=timeout); treat
-input as unresolved until a run reports non-zero `key_n` / `click_n`.
-Persist off, memory-pressure preflight, SWAP_ABORT start+2048M,
-`mem=4G ncpus=8`, `--jit-cache-budget=8G`, native Metal 1920×1080, same
-labwc images as TTP. Official 0022 numbers are in `NOTES.md` (4:42–4:47
-PM ET, 13 Nov 2026).
+0.5 s after READY. Guest evdev injection is
+`scripts/desktop-guest/interactive-metrics/evdev-poke.sh` (BTN_TOUCH plus
+BTN_LEFT at the VNC tablet’s 16-bit ABS midpoint, then KEY_A). Host
+`VNC_POKE` to TCP 5900 does not work on `--gpu-display=native` (RFB
+003.889, no None auth). After the 13 Nov Chromium compositor fix, a
+run should report non-zero `key_n` and `click_n` with `why=ok`.
+
+Chromium flags live in `scripts/desktop-guest/chromium-flags` and are
+injected as `/usr/local/etc/chromium-flags`. The official 0022 usable
+desktop needs `--disable-gpu-compositing --enable-gpu-rasterization`
+(default Wayland GPU compositing scrolls at ~1 fps). Override with
+`UML_CHROMIUM_FLAGS_FILE`. Persist off, memory-pressure preflight,
+SWAP_ABORT start+2048M, `mem=4G ncpus=8`, `--jit-cache-budget=8G`,
+native Metal 1920×1080, same labwc images as TTP. Official 0022 numbers
+are in `NOTES.md` (4:42–4:47 PM and 4:55–5:05 PM ET, 13 Nov 2026).
 
 Time-to-example.com stays a separate measurement:
 `launch-ab-uml-darwin.sh` plus `scripts/macos-metal/score-ttp-shots.py`

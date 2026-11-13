@@ -1,0 +1,10 @@
+--no-sandbox
+--password-store=basic
+--disable-background-timer-throttling
+--disable-renderer-backgrounding
+--disable-backgrounding-occluded-windows
+--use-gl=angle
+--use-angle=vulkan
+--enable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan
+--enable-gpu-rasterization
+--start-maximized

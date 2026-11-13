@@ -1,0 +1,9 @@
+--no-sandbox
+--password-store=basic
+--disable-background-timer-throttling
+--disable-renderer-backgrounding
+--disable-backgrounding-occluded-windows
+--in-process-gpu
+--use-gl=egl
+--enable-gpu-rasterization
+--start-maximized

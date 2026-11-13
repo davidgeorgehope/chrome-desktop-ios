@@ -1,0 +1,7 @@
+--no-sandbox
+--password-store=basic
+--disable-background-timer-throttling
+--disable-renderer-backgrounding
+--disable-backgrounding-occluded-windows
+--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling
+--start-maximized

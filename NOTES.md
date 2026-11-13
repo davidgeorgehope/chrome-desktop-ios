@@ -1483,3 +1483,121 @@ prototype in `notes/near-pass-through-execution.md`. That work starts
 from `9676ead` on a clean branch, env-gated and default off, and must
 not land on official 0022 unless compile, TTP, and these interactive
 numbers are a clear win with tests no worse.
+
+
+## Chromium scroll and input-latency on official 0022 (13 Nov 2026, 4:55–5:05 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host and official 0022
+`uml-darwin-official-0022-20261113` (md5 `6ea8180e05fc6736d32530811ba3c439`).
+Kernel local2, persist off, native Metal 1920×1080, `mem=4G` `ncpus=8`,
+`--jit-cache-budget=8G`, SWAP_ABORT on. The binary was not overwritten.
+Peek and iPad (A16) stayed Shutdown.
+
+The 4:42–4:47 PM ET usable-desktop baseline had Chromium programmatic
+scroll at ~1.1 fps (p95 2.6–3.1 s) versus Firefox 33–43 fps, and every
+input poke timed out. David prefers Chromium, so this pass diagnosed
+and fixed those two metrics on official 0022 before continuing the
+near pass-through prototype.
+
+### Diagnosis
+
+The metrics page was `visibilityState=visible` and not `document.hidden`
+during the 1 fps scrolls (`hasFocus` was 0 at first paint and 1 by the
+end of the scroll). This is not Chrome’s hidden-tab 1 fps rAF cap.
+Unthrottle flags alone (`--disable-background-timer-throttling`,
+`--disable-renderer-backgrounding`,
+`--disable-backgrounding-occluded-windows`) stayed at 1.13 fps.
+
+The GPU process was alive (`--type=gpu-process --gpu-recent-crash-count=0`,
+`--render-node-override=/dev/dri/renderD128`). There was no SwiftShader
+fallback line and no crashpad GPU abort. `vaInitialize failed: unknown
+libva error` is a harmless missing VA-API. Alpine Chromium is 156.0.8078.79
+with a wrapper that already passes `--ozone-platform-hint=auto`.
+
+Allowed GL implementations are only `egl-angle` + `opengl` / `opengles` /
+`vulkan`. `--use-gl=egl` is rejected (`egl-gles2,angle=none` not allowed)
+and the GPU process restarts with `--use-gl=disabled`. Explicit
+`--use-angle=vulkan` logs `'--ozone-platform=wayland' is not compatible
+with Vulkan` and `Failed to create vulkan surface`.
+`--disable-features=Vulkan,VulkanFromANGLE,DefaultANGLEVulkan` (keeping
+default GPU compositing) still scrolled at 0.78 fps, so the stall is
+the default Wayland GPU compositor path itself, not a silent Vulkan
+choice.
+
+`--disable-gpu` jumped to 9.17 fps (p95 354 ms).
+`--disable-gpu-compositing` plus `--enable-gpu-rasterization` is the
+winning combination: software compositing, GPU raster kept, no GL
+retry tax on first paint.
+
+| Flags (one diagnostic run, 8 s input timeout) | Scroll fps | frames | p95_frame_ms | first_paint_ms |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline (`--no-sandbox --password-store=basic` only) | 0.56 | 2 | 3283.20 | 582.7 |
+| Unthrottle only | 1.13 | 3 | 2283.30 | 681.8 |
+| `--disable-features=Vulkan,...` (GPU compositing on) | 0.78 | 2 | 2566.50 | 619.7 |
+| `--disable-gpu` | 9.17 | 19 | 354.00 | 541.4 |
+| `--use-gl=egl` (rejected → `--use-gl=disabled`) | 12.54 | 26 | 96.50 | 1452.4 |
+| `--use-gl=angle --use-angle=opengles` (same fallback) | 12.96 | 26 | 182.90 | 1542.5 |
+| `--use-gl=angle --use-angle=opengl` (same fallback) | 12.14 | 25 | 220.06 | 1673.9 |
+| `--use-angle=vulkan` (Wayland-incompatible) | 6.46 | 14 | 583.30 | 491.8 |
+| **`--disable-gpu-compositing --enable-gpu-rasterization`** | **10.41** | 21 | **211.00** | **480.2** |
+
+The 12 fps rows paid a 1.0–1.5 s first-paint tax while GL init failed.
+The baked flags take the reliable compositor-off path.
+
+### Input path
+
+Guest writes to the Darwin UML VNC evdev nodes do work on
+`--gpu-display=native`. Host `VNC_POKE` to `127.0.0.1:5900` does not
+(the listener speaks RFB 003.889 with no None auth). The earlier
+timeouts were a bad poke: KEY_A before focus, `BTN_LEFT` without
+`BTN_TOUCH`, and ABS coordinates 960×540 as if the tablet were
+0..1919×0..1079. The tablet is `INPUT_PROP_DIRECT` with a 16-bit ABS
+range (`PROP=2`, `ABS=3`). A mid-range `BTN_TOUCH`+`BTN_LEFT` at
+(32767, 32767), then KEY_A, produces trusted events.
+
+`scripts/desktop-guest/interactive-metrics/evdev-poke.sh` is that
+helper. The metrics page now records `vis=` / `hasFocus=` and finishes
+the input metric once it has one key and one click.
+
+### Official confirmation (winning flags baked)
+
+`scripts/desktop-guest/chromium-flags` (also copied to the mini FAST
+overlay) is now:
+
+```
+--no-sandbox --password-store=basic
+--disable-background-timer-throttling
+--disable-renderer-backgrounding
+--disable-backgrounding-occluded-windows
+--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling
+--disable-gpu-compositing --enable-gpu-rasterization
+--num-raster-threads=4 --start-maximized
+```
+
+`start-desktop-labwc.sh` still adds `--ozone-platform=wayland`. Verbose
+Chromium logging is opt-in (`CHROMIUM_ENABLE_LOGGING=1`).
+
+| Run | Window (ET) | Launch from process / from CHROMIUM_START (guest Δup) | first_paint_ms | Scroll fps | frames | p95_frame_ms | Input | Peak RSS | Swap |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- | --- |
+| Baseline r1 | 4:44:43–4:45:47 PM | 12 s / 8 s (7.52 s) | 595.6 | 1.10 | 4 | 3149.80 | timeout, 0/0 | 4991 MiB | 934.94→934.94M |
+| Baseline r2 | 4:45:47–4:46:51 PM | 12 s / 8 s (7.96 s) | 24.8 | 1.09 | 3 | 2649.90 | timeout, 0/0 | 4671 MiB | 934.94→934.94M |
+| Fix r1 | 5:02:10–5:03:14 PM | 11 s / 7 s (7.48 s) | 496.0 | 7.93 | 16 | 633.40 | timeout, key 23.75 ms (n=4), click missed (ABS 960,540) | 4193 MiB | 926.94→926.94M |
+| Fix r2 | 5:03:14–5:04:18 PM | 10 s / 7 s (7.21 s) | 435.5 | 7.27 | 15 | 583.30 | timeout, key 8.53 ms (n=4), click missed | 4397 MiB | 926.94→926.94M |
+| Input confirm (16-bit ABS mid) | 5:04:38–5:05:12 PM | ~11 s / ~7 s (7.52 s) | 388.4 | 9.41 | 19 | 366.70 | **ok, key 12.30 ms, click 20.30 ms** | 4420 MiB | 926.94→926.94M |
+
+Chromium scroll is about 7–10 fps (p95 0.37–0.63 s) versus the ~1.1 fps
+(p95 2.6–3.1 s) baseline, still short of Firefox’s 33–43 fps. Launch
+stays in the same ~7 s-after-browser-start band. Input latency is now
+a valid metric once the poke uses the 16-bit tablet mid (fix r1/r2
+used the old 1920×1080 mid and only got keys). No SWAP_ABORT. Swap
+used was flat. Official 0022 is unchanged.
+
+Logs stay on the mini under `~/linux-ios-bakeoff/notes/macos-metal-desktop/`
+(`session-interactive-official0022-cr-diag-*` and
+`session-interactive-official0022-cr-fix-*`).
+
+The near pass-through worktree
+`/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-passthrough`
+(branch `exclusive/0022-near-pass-through` from `9676ead`) is in place
+with shared `.build/{dependencies,kernel,rootfs}` symlinks. Prototype
+code has not been written yet; that is the next step.

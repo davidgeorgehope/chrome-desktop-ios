@@ -117,6 +117,7 @@ args=(
   --guest-file=/payload/usr/local/share/interactive-metrics/index.html="$METRICS_ROOT/index.html"
   --guest-file=/payload/usr/local/share/interactive-metrics/cgi-bin/report="$METRICS_ROOT/cgi-bin/report"
   --guest-file=/payload/usr/local/share/interactive-metrics/metrics-httpd="$METRICS_ROOT/metrics-httpd"
+  --guest-file=/payload/usr/local/share/interactive-metrics/evdev-poke.sh="$METRICS_ROOT/evdev-poke.sh"
   mem=4G
   ncpus=8
   ubd0c="$SOURCE"
@@ -139,8 +140,29 @@ fi
 BROWSER_FILE=$(mktemp)
 printf '%s\n' "$BROWSER" > "$BROWSER_FILE"
 args+=( --guest-file=/payload/usr/local/etc/desktop-browser="$BROWSER_FILE" )
-if [ -f "$FAST/chromium-flags" ]; then
-  args+=( --guest-file=/payload/usr/local/etc/chromium-flags="$FAST/chromium-flags" )
+if [ -n "${UML_INTERACTIVE_INPUT_TIMEOUT_MS:-}" ]; then
+  TIMEOUT_FILE=$(mktemp)
+  printf '%s\n' "$UML_INTERACTIVE_INPUT_TIMEOUT_MS" > "$TIMEOUT_FILE"
+  args+=( --guest-file=/payload/usr/local/etc/interactive-input-timeout-ms="$TIMEOUT_FILE" )
+  echo "input_timeout_ms=$UML_INTERACTIVE_INPUT_TIMEOUT_MS"
+fi
+CHROMIUM_FLAGS_SRC=""
+if [ -n "${UML_CHROMIUM_FLAGS:-}" ]; then
+  CHROMIUM_FLAGS_SRC=$(mktemp)
+  printf '%s
+' $UML_CHROMIUM_FLAGS > "$CHROMIUM_FLAGS_SRC"
+  echo "chromium-flags from UML_CHROMIUM_FLAGS=$UML_CHROMIUM_FLAGS"
+elif [ -f "${UML_CHROMIUM_FLAGS_FILE:-}" ]; then
+  CHROMIUM_FLAGS_SRC=$UML_CHROMIUM_FLAGS_FILE
+  echo "chromium-flags from $CHROMIUM_FLAGS_SRC"
+elif [ -f "$HERE/desktop-guest/chromium-flags" ]; then
+  CHROMIUM_FLAGS_SRC="$HERE/desktop-guest/chromium-flags"
+elif [ -f "$FAST/chromium-flags" ]; then
+  CHROMIUM_FLAGS_SRC="$FAST/chromium-flags"
+fi
+if [ -n "$CHROMIUM_FLAGS_SRC" ]; then
+  args+=( --guest-file=/payload/usr/local/etc/chromium-flags="$CHROMIUM_FLAGS_SRC" )
+  echo "chromium-flags=$(tr '\n' ' ' < "$CHROMIUM_FLAGS_SRC")"
 fi
 args+=( --jit-cache-budget="${UML_JIT_CACHE_BUDGET}" )
 

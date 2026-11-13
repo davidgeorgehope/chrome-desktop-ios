@@ -56,61 +56,24 @@ fi
 
 # After the page arms, inject a real key and a click via the UML VNC
 # evdev nodes so input latency is measurable without a host VNC client.
-evdev_poke() {
-  evdev_le16() { printf "\\$(printf '%03o' $(($1 & 255)))\\$(printf '%03o' $((($1 >> 8) & 255)))"; }
-  evdev_le32() {
-    printf "\\$(printf '%03o' $(($1 & 255)))\\$(printf '%03o' $((($1 >> 8) & 255)))"
-    printf "\\$(printf '%03o' $((($1 >> 16) & 255)))\\$(printf '%03o' $((($1 >> 24) & 255)))"
-  }
-  evdev_event() {
-    # 16-byte timeval + type u16 + code u16 + value i32 (aarch64/x86_64)
-    printf '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0'
-    evdev_le16 "$1"
-    evdev_le16 "$2"
-    evdev_le32 "$3"
-  }
-  kbd=""
-  tablet=""
-  if [ -f /proc/bus/input/devices ]; then
-    kbd=$(awk '
-      BEGIN { FS="\n"; RS=""; }
-      /VNC Keyboard|Name=".*[Kk]eyboard/ { for (i=1;i<=NF;i++) if ($i ~ /event[0-9]+/) {
-        if (match($i, /event[0-9]+/)) { print "/dev/input/" substr($i, RSTART, RLENGTH); exit }
-      }}
-    ' /proc/bus/input/devices)
-    tablet=$(awk '
-      BEGIN { FS="\n"; RS=""; }
-      /VNC Tablet|Name=".*[Tt]ablet/ { for (i=1;i<=NF;i++) if ($i ~ /event[0-9]+/) {
-        if (match($i, /event[0-9]+/)) { print "/dev/input/" substr($i, RSTART, RLENGTH); exit }
-      }}
-    ' /proc/bus/input/devices)
-  fi
-  [ -z "$kbd" ] && [ -e /dev/input/event0 ] && kbd=/dev/input/event0
-  [ -z "$tablet" ] && [ -e /dev/input/event1 ] && tablet=/dev/input/event1
-  echo "===INTERACTIVE_EVDEV_POKE=== kbd=$kbd tablet=$tablet" | tee /dev/ttyS0
-  if [ -n "$kbd" ] && [ -w "$kbd" ]; then
-    # KEY_A=30 down, syn, up, syn
-    { evdev_event 1 30 1; evdev_event 0 0 0; evdev_event 1 30 0; evdev_event 0 0 0; } >"$kbd"
-    sleep 0.3
-    { evdev_event 1 30 1; evdev_event 0 0 0; evdev_event 1 30 0; evdev_event 0 0 0; } >"$kbd"
-  fi
-  if [ -n "$tablet" ] && [ -w "$tablet" ]; then
-    # ABS_X/ABS_Y mid-window-ish, BTN_LEFT=272 down/up (units depend on the
-    # tablet abs range; 960,400 is a reasonable 1920x1080 guess, also try
-    # abs max midpoints if 0..65535).
-    { evdev_event 3 0 960; evdev_event 3 1 400; evdev_event 0 0 0
-      evdev_event 1 272 1; evdev_event 0 0 0
-      evdev_event 1 272 0; evdev_event 0 0 0
-    } >"$tablet" || true
-  fi
-}
-
 (
   i=0
   while [ "$i" -lt 250 ]; do
     if grep -q "INTERACTIVE_READY_FOR_INPUT" /tmp/interactive-metrics.log 2>/dev/null; then
       sleep 0.5
-      evdev_poke
+      poke=""
+      for c in \
+        /usr/local/share/interactive-metrics/evdev-poke.sh \
+        /usr/local/bin/evdev-poke.sh
+      do
+        [ -x "$c" ] && poke=$c && break
+      done
+      if [ -n "$poke" ]; then
+        chmod +x "$poke" 2>/dev/null || true
+        sh "$poke"
+      else
+        echo "===INTERACTIVE_EVDEV_POKE=== why=no_helper" | tee /dev/ttyS0
+      fi
       exit 0
     fi
     i=$((i + 1))

@@ -46,9 +46,12 @@
     if (launchPosted) return;
     launchPosted = true;
     const paint = firstPaint === null ? (performance.now() - t0) : firstPaint;
+    const vis = (document.visibilityState || "na") +
+      " hidden=" + (document.hidden ? "1" : "0") +
+      " hasFocus=" + (document.hasFocus() ? "1" : "0");
     const line = "===INTERACTIVE_LAUNCH=== first_paint_ms=" + paint.toFixed(1) +
       " nav=" + performance.timing.toString() +
-      " title=Kernarium interactive metrics";
+      " title=Kernarium interactive metrics vis=" + vis;
     document.getElementById("status").textContent = line;
     post(line);
   }
@@ -79,9 +82,12 @@
         const fps = frames / (elapsed / 1000);
         deltas.sort(function (a, b) { return a - b; });
         const p95 = deltas.length ? deltas[Math.min(deltas.length - 1, Math.floor(deltas.length * 0.95))] : 0;
+        const vis = (document.visibilityState || "na") +
+          " hidden=" + (document.hidden ? "1" : "0") +
+          " hasFocus=" + (document.hasFocus() ? "1" : "0");
         const line = "===INTERACTIVE_SCROLL=== fps=" + fps.toFixed(2) +
           " frames=" + frames + " duration_ms=" + elapsed.toFixed(1) +
-          " p95_frame_ms=" + p95.toFixed(2);
+          " p95_frame_ms=" + p95.toFixed(2) + " vis=" + vis;
         document.getElementById("status").textContent = line;
         post(line).then(function () { armInput(); });
       }
@@ -93,12 +99,17 @@
     const target = document.getElementById("target");
     target.className = "armed";
     target.textContent = "click or type now";
+    target.tabIndex = 0;
+    try { target.focus(); } catch (e) {}
+    try { window.focus(); } catch (e) {}
     document.getElementById("status").textContent =
       "armed for real keydown/mousedown (synthetic events ignored for the metric)";
     let keySamples = [];
     let clickSamples = [];
     let done = false;
-    const deadline = setTimeout(function () { finish("timeout"); }, 20000);
+    const params = new URLSearchParams(location.search);
+    const inputTimeout = parseInt(params.get("input_timeout_ms") || "20000", 10);
+    const deadline = setTimeout(function () { finish("timeout"); }, isFinite(inputTimeout) ? inputTimeout : 20000);
 
     function measure(kind, ev) {
       if (done) return;
@@ -111,7 +122,7 @@
         const line = "===INTERACTIVE_INPUT_SAMPLE=== kind=" + kind +
           " raf_ms=" + dt.toFixed(2) + " trusted=1";
         post(line);
-        if (keySamples.length + clickSamples.length >= 2) finish("ok");
+        if (keySamples.length >= 1 && clickSamples.length >= 1) finish("ok");
       });
     }
 
@@ -124,10 +135,14 @@
       if (done) return;
       done = true;
       clearTimeout(deadline);
+      const vis = (document.visibilityState || "na") +
+        " hidden=" + (document.hidden ? "1" : "0") +
+        " hasFocus=" + (document.hasFocus() ? "1" : "0");
       const line = "===INTERACTIVE_INPUT=== why=" + why +
         " key_raf_ms=" + (avg(keySamples) || "na") +
         " click_raf_ms=" + (avg(clickSamples) || "na") +
-        " key_n=" + keySamples.length + " click_n=" + clickSamples.length;
+        " key_n=" + keySamples.length + " click_n=" + clickSamples.length +
+        " vis=" + vis;
       document.getElementById("status").textContent = line;
       post(line).then(function () { post("===INTERACTIVE_DONE=== why=" + why); });
     }

@@ -210,6 +210,10 @@ if [ -f /usr/local/etc/interactive-metrics ] || [ "${INTERACTIVE_METRICS:-}" = 1
   # Only override the URL when the caller did not set one explicitly.
   if [ -z "${BROWSER_URL:-}${FIREFOX_URL:-}" ]; then
     ff_url="http://127.0.0.1:8765/"
+    if [ -f /usr/local/etc/interactive-input-timeout-ms ]; then
+      ms=$(tr -d ' \n' < /usr/local/etc/interactive-input-timeout-ms)
+      [ -n "$ms" ] && ff_url="${ff_url}?input_timeout_ms=${ms}"
+    fi
   fi
   echo "===INTERACTIVE_ENABLED=== url=$ff_url" | tee /dev/ttyS0
   # Content-process sandbox can block loopback http to the metrics CGI.
@@ -250,6 +254,9 @@ if [ "$browser" = chromium ]; then
     if [ -f /usr/local/etc/chromium-flags ]; then
       extra=$(tr '\n' ' ' < /usr/local/etc/chromium-flags)
     fi
+    if [ -f /usr/local/etc/interactive-metrics ] && [ "${CHROMIUM_ENABLE_LOGGING:-}" = 1 ]; then
+      extra="$extra --enable-logging=stderr"
+    fi
     # shellcheck disable=SC2086
     ozone_platform=wayland \
       $chromium_bin --ozone-platform=wayland \
@@ -257,6 +264,30 @@ if [ "$browser" = chromium ]; then
       --user-data-dir="$chromium_dir" \
       $extra \
       "$ff_url" > /tmp/chromium.log 2>&1 &
+    chrom_pid=$!
+    echo "===CHROMIUM_FLAGS=== ozone=wayland extra=$extra url=$ff_url pid=$chrom_pid" | tee /dev/ttyS0
+    if [ -f /usr/local/etc/interactive-metrics ]; then
+      (
+        i=0
+        while [ "$i" -lt 80 ]; do
+          if grep -q "INTERACTIVE_SCROLL" /tmp/interactive-metrics.log 2>/dev/null; then
+            break
+          fi
+          i=$((i + 1))
+          sleep 0.5
+        done
+        echo "===CHROMIUM_PS===" | tee /dev/ttyS0
+        ps -o pid,ppid,args 2>/dev/null | grep -i '[c]hrom' | tee /dev/ttyS0 || true
+        echo "===CHROMIUM_LOG_GPU===" | tee /dev/ttyS0
+        if [ -f /tmp/chromium.log ]; then
+          grep -Ei 'gpu process|GL_RENDERER|GL_VENDOR|GL_VERSION|vulkan|angle|swiftshader|llvmpipe|virgl|zink|fallback|compositor|raster|ozone|ERROR|FATAL| viz |crashed|in-process' /tmp/chromium.log | tail -200 | tee /dev/ttyS0 || true
+          echo "===CHROMIUM_LOG_TAIL===" | tee /dev/ttyS0
+          tail -60 /tmp/chromium.log | tee /dev/ttyS0 || true
+        else
+          echo "===CHROMIUM_LOG_GPU=== missing /tmp/chromium.log" | tee /dev/ttyS0
+        fi
+      ) >/tmp/chromium-diag.log 2>&1 &
+    fi
   else
     echo "===CHROMIUM_MISSING=== desktop-browser=chromium but no binary" | tee /dev/ttyS0
   fi
