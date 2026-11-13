@@ -1880,3 +1880,32 @@ the armed hook. Official 0022 is unchanged. Full write-up:
 Logs under
 `/Users/davidhope/linux-ios-bakeoff/notes/jit-baseline/compile-alloc/hello-near-pt-*.log`
 and `atomic-stress-near-pt-on-stackwin-20261113-175354.log`.
+
+## Near pass-through /init fix and defer variant (branch only, 13 Nov 2026, 6:07–6:48 PM ET)
+
+Kernarium `exclusive/0022-near-pass-through` @ `ee5dc0f` (code) and
+`895e750` (notes), local only, not pushed. Side binary md5
+`f0b8cdf916f721c621523383315212a2`. Official 0022 (`6ea8180e…`) not
+touched.
+
+Root cause of the `/init` write to `0x100`: it was not X18. A patched
+terminal `B` branched over the spill-all, so x15 still held guest X15
+(0) when the exit stored `CpuState::pc` (offset 0x100). With that
+fixed, the next fault (`0xcd0`) came from the 80-byte frame not saving
+host x22–x28, which load-all clobbers; moved to the official 128-byte
+extended frame. The mid-block software-MMU fallback then returned
+`Event::fatal` (no handler for some forms), so memory and SP-relative
+blocks now go to the normal translator per block, and only ALU-only
+blocks run verbatim.
+
+Flag on: hello PASS 6:14:44 PM ET, atomic-stress PASS 6:14:55–6:15:18
+PM ET; default-off hello PASS 6:15:26 PM ET.
+
+Vs official 0022 (ABAB, labwc Metal 1920×1080, 4G/8 CPU, 8G JIT,
+persist off), example.com full TTP in seconds: Firefox 32/23 vs 18/18,
+Chromium 16/14 vs 13/11; DESKTOP_READY ~+1 s. Interactive: Firefox
+scroll 24.5/36.8 fps vs 39.9 (same session), Chromium 12.2/7.3 vs 8.7,
+input latency about the same. Clearly worse on TTP, so not landed.
+Likely cause: verbatim blocks give up block linking and do a full
+register load/spill on every entry. Details are in
+`notes/near-pass-through-prototype.md`.
