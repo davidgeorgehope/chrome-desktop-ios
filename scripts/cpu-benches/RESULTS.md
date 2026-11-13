@@ -9,7 +9,9 @@ Times are America/New_York (UTC-5). Host baseline started 10:05:51 PM ET on 12 N
 
 | Bench | Host native | Guest JIT | Guest / host |
 | --- | --- | --- | --- |
-| `sh` loop 20k | 0.03 s (`/bin/dash`) | 0.26 s (Alpine ash) | 8.7× |
+| `sh` loop 20k, dash | 0.03 s (macOS `/bin/dash`) | 0.24 s (Alpine dash 0.5.13.1) | **8.0×** |
+| `sh` loop 20k, ash | — (Linux busybox cannot run on macOS) | 0.26 s (Alpine busybox ash) | not like-for-like |
+| native-loop 200M `++`, gcc `-O2` | 0.39 s (Homebrew gcc-16) | 0.57 s (Alpine gcc 15.2) | **1.46×** |
 | `sha256sum` 32 MiB | 0.02 s (macOS coreutils, HW) | 0.38 s (busybox, software) | 19×, not a fair 1× comparison |
 | openssl evp sha256, 16 KiB | 2,647,014.75k (~2,585 MB/s), OpenSSL 4.1.0, `OPENSSL_armcap=0x987d` | 1,731,317.55k (~1,691 MB/s), OpenSSL 3.5.9, `OPENSSL_armcap=0x8fd` | 1.53× |
 | openssl evp aes-256-cbc, 16 KiB | 1,326,698.62k (~1,296 MB/s) | 880,214.02k (~860 MB/s) | 1.51× |
@@ -21,7 +23,7 @@ Times are America/New_York (UTC-5). Host baseline started 10:05:51 PM ET on 12 N
 
 Digests matched: `sha256sum` of the 32 MiB buffer is `83ee4724…`; tiny-sha digest is `bcb5fa62…` on both sides.
 
-Fair 1× columns are openssl evp (both use ARMv8 crypto; the JIT already advertises `sha2`/`aes` and lowers them) and tiny-sha compiled with gcc. `sha256sum` on the host is hardware; Alpine busybox is software, so 19× is not a JIT tax. The shell-loop shells also differ (`dash` vs `ash`) but both are simple POSIX `while` arithmetic; 8.7× is still a real gap. Only the shell loop and the gcc compile were re-timed after the 12 Nov 2026 link/IC change; evp and tiny-sha-run numbers are still the 10:11 PM ET baseline.
+Fair 1× columns are openssl evp (both use ARMv8 crypto), tiny-sha compiled with gcc, the gcc-built native loop, and the 20k loop run with dash on both sides. `sha256sum` on the host is hardware; Alpine busybox is software, so 19× is not a JIT tax. Host `/bin/sh` is bash 3.2 (0.07 s on the same loop) and cannot be compared to Alpine ash; Linux busybox cannot run on macOS, so ash is guest-only. evp and tiny-sha-run numbers are still the 10:11 PM ET baseline; dash, ash, and the native loop were timed at 11:14–11:18 PM ET on 12 Nov 2026.
 
 ## Increments tried after the baseline (all reverted)
 
@@ -97,7 +99,7 @@ Timing with the profiler off, two clean boots (11:07 and 11:08 PM ET):
 | `sh` loop 20k | 0.31 s (10.3×) | **0.25 s / 0.26 s** (**8.3× / 8.7×**) |
 | compile tiny-sha, gcc `-O2` | 2.78 s (11.6×) | 2.90 s / 2.94 s (12.1× / 12.3×) |
 
-The table at the top uses the conservative 0.26 s / 2.92 s pair. The shell is a verified gain. The compile is slightly slower: new-block translation is still ~1.31 s (45% of wall), and always-on publication + FP setup is paid on every chain entry. A first attempt at (1) without (2) hung the guest in `grep`/`sort` with `rcu_sched` stalls and was not landed on its own.
+The table at the top uses isolated dash 0.24 s (fair) and compile 2.92 s. The ash-loop cut from 0.31 s to 0.26 s is a verified gain; the like-for-like dash figure is 8.0×. The compile is slightly slower: new-block translation is still ~1.31 s (45% of wall), and always-on publication + FP setup is paid on every chain entry. A first attempt at (1) without (2) hung the guest in `grep`/`sort` with `rcu_sched` stalls and was not landed on its own.
 
 ### `sh` loop 20k after the change (0.26 s wall with the profiler on)
 
@@ -143,9 +145,35 @@ Raw: `scripts/cpu-benches/profiles/profile-sh_loop-links.txt`. Retired ~308M gue
 
 Raw: `scripts/cpu-benches/profiles/profile-compile-links.txt`. Execution exits dropped sharply, but this bench still spends 1.31 s compiling ~629k new blocks with no shared-cache reuse across `gcc`/`cc1`/`as`, so wall time does not improve.
 
+## Fair shell and a tight C loop (12 Nov 2026, 11:14–11:18 PM ET)
+
+The 8.7× shell figure compared host `/bin/dash` to guest busybox ash. Isolated timings with the same dash on both sides, profiler off, three runs, no toolchain pack first (raw: `scripts/cpu-benches/profiles/fair-timings.txt`):
+
+| Side | dash 20k | ash 20k |
+| --- | ---: | ---: |
+| Host (macOS) | 0.03 s, 0.03 s, 0.03 s | n/a |
+| Guest JIT, isolated | **0.24 s, 0.24 s, 0.24 s** | 0.26 s, 0.27 s, 0.25 s |
+
+Like-for-like dash is **8.0×**, not 8.7×. Guest dash is slightly faster than guest ash; the earlier comparison was a little unfair *against* the JIT. After a full `apk add` of the toolchain the same loops were 0.42 s / 0.40 s — not used in the table; the extra packages pollute the translation cache.
+
+A tight C loop (`volatile unsigned long i = 0; while (i < 200000000UL) ++i;`, gcc `-O2`) is the better "pure JIT" ratio, because it is the same source compiled on each side:
+
+| Compiler | Host | Guest JIT | Ratio |
+| --- | ---: | ---: | ---: |
+| gcc (`gcc-16` vs Alpine gcc 15.2) | 0.39 s | 0.57 s | **1.46×** |
+| clang `-O2` on the host only | 0.06 s | — | not a fair pair (guest has gcc) |
+
+1.46× sits with openssl evp (~1.5×) and gcc-built tiny-sha (1.88×). The remaining shell gap is therefore not "the JIT is 8× on ordinary integer code." Block entries already dropped 12× and only moved the ash loop from 0.31 s to 0.26 s; a tight compiled loop is already near the memory-tax band. What is still slow is the shell interpreter itself (very branchy, lots of non-link and reservation-split exits) rather than C++ block dispatch.
+
+## Shared translations, not landed (12 Nov 2026, 11:17 PM ET)
+
+DESIGN.md step 4 was tried: allow the process-wide shared cache to publish with a single live executor (it already keeps unused entries after an executor exits, evicting only under budget). Guest ASLR was turned off (`randomize_va_space=0`) so a PC+words key could hit across `gcc` → `cc1` → `as` and on a second compile.
+
+It did not help. `compile_tiny_sha` was 3.10 s cold and 3.04 s warm (slightly *worse* than the landed 2.92 s). A profiler snapshot of both compiles showed `shared.insertions=58`, `shared.reuses=694`, `shared.misses=1,696,147`, `compile_ms=3,116`. Almost every new block is still compiled privately: `publish_shared_translation` refuses a translation whose literal-pool link pointer had to fall back to a host-baked MOV-wide (`!compiled.relocatable`), so the cache never sees the ~1.5M compiles. The two-executor gate was not the binding constraint. The change was reverted and not committed. File+offset / content-hash keys plus a slide of baked guest PCs, and making link literals stay relocatable, are still required before a warm `cc1` can go toward zero compile time.
+
 ## Next costs
 
-- Shell (~8.7×): direct links and the A64 indirect table already removed the 59%/41% C++-exit mix. Leftover continued exits are reservation splits, non-link cuts (ISB / helpers), and fairness. A return-address stack and a deeper per-site IC may still help a little; they are not the main leftover.
-- Compile (~12.2×): still dominated by cold translation (1.31 s, 45% of wall; 636k uncompiled continued exits). Persist or share translations across `fork`/`exec` of the same file, keyed by file+offset (or a fixed guest-user mapping so PCs are stable), and allow the shared cache to publish when only one executor is live. Indirect misses are down to 202k (20%) but are secondary to compile time.
+- Shell (fair dash **8.0×**): a tight gcc loop is already 1.46×, so this is not a general integer-JIT tax. Leftover ash/dash time is the interpreter itself (reservation splits, non-link cuts, fairness). A return-address stack and a deeper per-site IC may still help a little; they were not done in this pass.
+- Compile (~12.2×): still dominated by cold translation. Opening the one-executor publish gate was not enough: almost no block is `relocatable`, so the shared cache does not see the compiles. Next is to keep link literals relocatable (no host-baked MOV-wide fallback), then key by file+offset or content hash and slide guest PCs at materialisation so a warm `cc1`/`as` hits under ASLR too.
 - Software CPU (~1.88×): left alone for now. A correct hoist of `LDP`/`STP` and signed/post-index still needs a unit test first (the naive run hung `/init`); a multi-entry last-page cache must not tax the miss path.
 - A fixed host offset for guest user memory (the Darwin native window and `direct-root` already map guest physical RAM) was not implemented; it needs a conflict-free VA plan on 16 KiB host pages. A design is in `DESIGN.md`.

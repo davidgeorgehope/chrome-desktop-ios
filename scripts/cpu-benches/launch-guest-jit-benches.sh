@@ -20,6 +20,7 @@ exec /usr/bin/caffeinate -i "$BIN" \
   --guest-file=/payload/usr/local/bin/run-benches.sh="$PACK/guest-run-benches.sh" \
   --guest-file=/payload/usr/local/share/cpu-benches/run-cpu-benches.sh="$PACK/run-cpu-benches.sh" \
   --guest-file=/payload/usr/local/share/cpu-benches/tiny-sha/Makefile="$PACK/tiny-sha/Makefile" \
+  --guest-file=/payload/usr/local/share/cpu-benches/native-loop/loop.c="$PACK/native-loop/loop.c" \
   --guest-file=/payload/usr/local/share/cpu-benches/tiny-sha/main.c="$PACK/tiny-sha/main.c" \
   --guest-file=/payload/usr/local/share/cpu-benches/tiny-sha/sha256.c="$PACK/tiny-sha/sha256.c" \
   --guest-file=/payload/usr/local/share/cpu-benches/tiny-sha/sha256.h="$PACK/tiny-sha/sha256.h" \

@@ -56,12 +56,42 @@ time_run() {
   ${CC:-cc} --version 2>/dev/null | head -1 || true
 
   run uname uname -a
+  # Install dash alone, early, so the 20k loop can be timed with the same
+  # shell family as macOS /bin/dash. The full toolchain pack stays in the
+  # compile section. Isolated sh_loop profiles skip this so their reset
+  # window is still just the ash loop.
+  if [ "$CPU_BENCH_ONLY" != sh_loop ] && ! command -v dash >/dev/null 2>&1; then
+    DASHAPK=""
+    if ls "$HERE"/apks/dash-*.apk >/dev/null 2>&1; then
+      DASHAPK=$(ls "$HERE"/apks/dash-*.apk | head -1)
+    elif [ -f "$HERE/apks.tar" ]; then
+      mkdir -p /tmp/cpu-benches-apks
+      tar -C /tmp/cpu-benches-apks -xf "$HERE/apks.tar" ./dash-0.5.13.1-r2.apk 2>/dev/null ||         tar -C /tmp/cpu-benches-apks -xf "$HERE/apks.tar" dash-0.5.13.1-r2.apk 2>/dev/null || true
+      if ls /tmp/cpu-benches-apks/dash-*.apk >/dev/null 2>&1; then
+        DASHAPK=$(ls /tmp/cpu-benches-apks/dash-*.apk | head -1)
+      fi
+    fi
+    if [ -n "$DASHAPK" ] && command -v apk >/dev/null 2>&1; then
+      echo "======== install_dash ========"
+      apk add --allow-untrusted --force-non-repository --no-network "$DASHAPK" || true
+    fi
+  fi
+  if command -v dash >/dev/null 2>&1; then
+    echo "DASH: $(command -v dash)"
+    dash -c 'echo DASH_VERSION_OK'
+  else
+    echo "DASH: missing"
+  fi
   if [ -z "$CPU_BENCH_ONLY" ] || [ "$CPU_BENCH_ONLY" = sh_loop ]; then
   if [ "$CPU_BENCH_ONLY" = sh_loop ]; then
     echo ===UML_JIT_PROFILE_RESET===
     sleep 1
   fi
-  time_run sh_loop "$SH_FOR_LOOP" -c 'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done'
+  echo "SHELL_FOR_ASH_LOOP: $SH_FOR_LOOP"
+  time_run sh_loop_ash "$SH_FOR_LOOP" -c 'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done'
+  if command -v dash >/dev/null 2>&1 && [ "$CPU_BENCH_ONLY" != sh_loop ]; then
+    time_run sh_loop_dash dash -c 'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done'
+  fi
   if [ "$CPU_BENCH_ONLY" = sh_loop ]; then
     echo ===UML_JIT_PROFILE_DUMP===
     sleep 1
@@ -107,7 +137,18 @@ time_run() {
     echo "======== apk_skipped (no apk on this host) ========"
   fi
 
+  if [ -w /proc/sys/kernel/randomize_va_space ]; then
+    echo "ASLR_BEFORE: $(cat /proc/sys/kernel/randomize_va_space)"
+    echo 0 >/proc/sys/kernel/randomize_va_space
+    echo "ASLR_AFTER: $(cat /proc/sys/kernel/randomize_va_space)"
+  else
+    echo "ASLR_UNAVAILABLE"
+  fi
   if [ "$CPU_BENCH_ONLY" = compile ]; then
+    if command -v dash >/dev/null 2>&1; then
+      time_run sh_loop_dash dash -c 'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done'
+    fi
+    time_run sh_loop_ash "$SH_FOR_LOOP" -c 'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done'
     echo ===UML_JIT_PROFILE_RESET===
     sleep 1
   fi
@@ -139,6 +180,32 @@ time_run() {
       fi
     else
       echo "tiny-sha binary missing"
+    fi
+    # Warm-cache second compile: same tree, make clean && make, after the
+    # first gcc/cc1/as translations have been published.
+    echo
+    echo "======== compile_tiny_sha_warm ========"
+    if command -v /usr/bin/time >/dev/null 2>&1; then
+      /usr/bin/time -p sh -c "cd "$work" && make clean && make CC=$CC CFLAGS='-O2 -std=c11'"
+    else
+      sh -c "cd "$work" && make clean && make CC=$CC CFLAGS='-O2 -std=c11'"
+    fi
+    echo "COMPILE_WARM_EXIT:$?"
+    LOOP="$HERE/native-loop/loop.c"
+    if [ -f "$LOOP" ] && command -v "${CC:-cc}" >/dev/null 2>&1; then
+      echo
+      echo "======== compile_native_loop ========"
+      if command -v /usr/bin/time >/dev/null 2>&1; then
+        /usr/bin/time -p sh -c "${CC:-cc} -O2 -std=c11 -o /tmp/native-loop "$LOOP""
+      else
+        ${CC:-cc} -O2 -std=c11 -o /tmp/native-loop "$LOOP"
+      fi
+      echo "COMPILE_NATIVE_LOOP_EXIT:$?"
+      if [ -x /tmp/native-loop ]; then
+        time_run native_loop /tmp/native-loop
+      fi
+    else
+      echo "native-loop skipped (no source or compiler)"
     fi
     if [ "$CPU_BENCH_ONLY" = compile ]; then
       echo ===UML_JIT_PROFILE_DUMP===

@@ -254,7 +254,8 @@ Guest `/proc/cpuinfo` already advertises `aes pmull sha1 sha2 sha3 sha512 crc32 
 
 | Bench | Host | Guest JIT | Ratio |
 | --- | --- | --- | --- |
-| sh loop 20k | 0.03 s (dash) | 0.26 s (ash) | 8.7× |
+| sh loop 20k, dash | 0.03 s (macOS dash) | 0.24 s (Alpine dash) | 8.0× |
+| native-loop 200M, gcc -O2 | 0.39 s (gcc-16) | 0.57 s (gcc 15.2) | 1.46× |
 | sha256sum 32 MiB | 0.02 s (HW) | 0.38 s (busybox SW) | 19×, unfair |
 | openssl evp sha256 16 KiB | 2,585 MB/s (OpenSSL 4.1.0) | 1,691 MB/s (OpenSSL 3.5.9) | 1.53× |
 | openssl evp aes-256-cbc 16 KiB | 1,296 MB/s | 860 MB/s | 1.51× |
@@ -276,6 +277,10 @@ The shell at ~10× was 3.26 million translated-block entries in 0.37 s, split 59
 
 `patches/0006-jit-direct-and-indirect-links.patch`. Chains now enter with a live store publication and a full link selector (unless a reservation is held on a no-store entry), so compiled direct successors actually get jumped to. A `SUBS` fairness check stops the remaining-instruction counter wrapping, which had hung `grep|sort` with RCU stalls once those links started succeeding. A64 `BR`/`BLR`/`RET` also consult an 8192-entry in-JIT hash behind the 2-cell IC. Isolated profiles: `scripts/cpu-benches/profiles/profile-sh_loop-links.txt` and `profile-compile-links.txt`. Full write-up: `scripts/cpu-benches/RESULTS.md`.
 
-The shell dropped from 0.31 s (10.3×) to 0.25–0.26 s (8.3–8.7×) with the profiler off; `run_blocks` fell from 3.26M to 259k, selector mismatches to ~0, and indirect misses from 1.34M to 1,378. The gcc compile went from 2.78 s (11.6×) to 2.90–2.94 s (12.1–12.3×): execution exits fell (5.54M → 1.02M run_blocks, indirect 2.57M → 202k) but 1.31 s (45%) is still cold translation of ~629k new blocks with no shared reuse, so wall time did not improve. A return-address stack and a deeper per-site IC were not added. Next cost for compile is sharing translations across exec, keyed by file+offset.
+The shell dropped from 0.31 s (10.3×) to 0.25–0.26 s (8.3–8.7×) with the profiler off; `run_blocks` fell from 3.26M to 259k, selector mismatches to ~0, and indirect misses from 1.34M to 1,378. The gcc compile went from 2.78 s (11.6×) to 2.90–2.94 s (12.1–12.3×): execution exits fell (5.54M → 1.02M run_blocks, indirect 2.57M → 202k) but 1.31 s (45%) is still cold translation of ~629k new blocks with no shared reuse, so wall time did not improve. A return-address stack and a deeper per-site IC were not added.
+
+## Fair shell and native-loop (12 Nov 2026, 11:14–11:18 PM ET)
+
+Like-for-like dash on both sides is 0.24 s guest vs 0.03 s host (**8.0×**), slightly kinder than the old ash-vs-dash 8.7×. A tight gcc `-O2` 200M increment loop is **1.46×** (0.57 s guest / 0.39 s host gcc-16), in the same band as evp and tiny-sha, so the remaining shell gap is the interpreter, not ordinary integer JIT. Shared-translation publication with one executor and ASLR off did not warm a second compile (3.10 s then 3.04 s; only 58 shared insertions of 1.5M compiles, almost all `!relocatable`) and was not landed. Full write-up: `scripts/cpu-benches/RESULTS.md`. Raw: `scripts/cpu-benches/profiles/fair-timings.txt`.
 
 A design for a fixed-offset guest user memory mapping (and for sharing translations across exec) is in `DESIGN.md`. It is not implemented.
