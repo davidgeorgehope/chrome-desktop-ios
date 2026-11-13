@@ -239,7 +239,7 @@ for the fixed display size.
 
 ## macOS Metal (uml-darwin + KosmicKrisp)
 
-The bakeoff mini is on macOS Tahoe 26.7.3 (25G342) as of 13 Nov 2026, 6:37 AM ET (upgraded from 26.3.1 / 25D2128; 27.x was not installed). Xcode 26.6 now lists `My Mac` as `platform=macOS,variant=Designed for [iPad,iPhone]`. `cmake --preset kernarium-ios-device -DUML_IOS_DEBUGGER_JIT=OFF` plus the Linux-only packager `~/linux-ios-bakeoff/notes/package-ios-linux-device.sh` and an unsigned `xcodebuild` Release build for that destination succeed. Launching still needs a development signature for `com.imxieyi.Kernarium` (wildcard team profiles lack the kernel entitlements and this Mac). Do not install on a paired phone. Until signing is fixed, use the official macOS CLI:
+The bakeoff mini is on macOS Tahoe 26.7.3 (25G342) as of 13 Nov 2026, 6:37 AM ET (upgraded from 26.3.1 / 25D2128; 27.x was not installed). Xcode 26.6 lists `My Mac` as `platform=macOS,variant=Designed for [iPad,iPhone]`. `cmake --preset kernarium-ios-device -DUML_IOS_DEBUGGER_JIT=OFF` plus the Linux-only packager `~/linux-ios-bakeoff/notes/package-ios-linux-device.sh` builds the ios-device slice. Launch on My Mac with a unique bundle ID on David's team (`patches/0016-designed-for-ipad-bundle-id`, gitignored `Signing.local.xcconfig`, official IDs remain the default). Xcode automatic signing registers `com.davidhope.kernarium`, includes this Mac, and enables Extended Virtual Addressing and Increased Memory Limit. Sign and `xcodebuild test` from the Aqua/gui session (`errSecInternalComponent` from SSH). Capture guest serial with `patches/0017-kernarium-serial-log` (`KERNARIUM_SERIAL_LOG`, `KERNARIUM_GUEST_SESSION`). Metal/KosmicKrisp works on this destination; MAP_JIT does not, because `allow-jit` cannot go in the iOS team profile, so CPU benches fall back to the gadget engine. See NOTES.md. Do not install on a paired phone. The official macOS CLI path remains:
 
 
 ```sh
@@ -270,8 +270,12 @@ expected when the per-run initrd is used.
 
 `patches/0004-map-jit-designed-for-ipad.patch` lets an iphoneos / Designed-for-iPad
 build compile the MAP_JIT publication path (`-DUML_IOS_DEBUGGER_JIT=OFF`).
-The default on ios remains the debugger-prepared region. Do not install that
-build on a physical iPhone.
+On a personal-team iOS profile that path still cannot publish: `allow-jit` is
+stripped at sign time, and the runtime falls back to gadgets. The default on
+ios remains the debugger-prepared region (`UML_IOS_DEBUGGER_JIT=ON`) when a
+debugger is attached. Do not install that build on a physical iPhone.
+Bundle-ID overrides: `patches/0016-designed-for-ipad-bundle-id`.
+Serial capture without simctl: `patches/0017-kernarium-serial-log`.
 
 Look for `Virgl Zink/KosmicKrisp provider: hardware`, cap set id 4 (Venus),
 `Darwin native window … (host-page aligned)`, and guest strings containing

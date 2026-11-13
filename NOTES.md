@@ -686,4 +686,54 @@ Launch is still blocked on signing, so there are no Designed-for-iPad READY or C
 - Ad-hoc (`codesign -s -`) is not allowed with the iOS 26.5 SDK, and the entitlements require a development certificate.
 - `devicectl` does not list the host Mac. Do not install on Silver or Yellow.
 
-To actually run the iPad-on-Mac build, either sign as the team that already owns `com.imxieyi.Kernarium` (register this Mac, keep the kernel entitlements) or use a unique bundle ID on a team that can enable those capabilities. The unsigned Release product is on disk if that signing is fixed. Until then, real Metal on this Mac remains the `uml-darwin` CLI path.
+That signing blocker was lifted later the same morning with a unique bundle ID on David's team. See the next section for launch, Metal, READY, and CPU benches.
+
+## Designed-for-iPad launch, Metal, and gadget benches (13 Nov 2026, 6:50–7:17 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Host: Mac mini (M2 Pro, 16 GB) on macOS Tahoe 26.7.3 (25G342), Xcode 26.6 (17F113). Destination: `platform=macOS,variant=Designed for iPad` (`My Mac`, UDID `00006020-0009715A216B401E`) only. Nothing was installed on Silver, Yellow, or any other phone.
+
+### Signing
+
+`patches/0016-designed-for-ipad-bundle-id` makes the official IDs overridable. Official defaults stay `com.imxieyi.Kernarium` (and the Tests / UITests / Automation IDs). A checkout sets its own IDs and `DEVELOPMENT_TEAM` in the gitignored `Signing.local.xcconfig`. The bakeoff mini uses team `4P2629648N` (the same team Voxl Pocket uses) and `com.davidhope.kernarium`.
+
+Xcode automatic signing registered that App ID and issued `iOS Team Provisioning Profile: com.davidhope.kernarium` (`15037936-0469-4427-9395-41245e88b070`), identity `Apple Development: email.djhope@gmail.com (M9KY49FP5F)`. The profile includes this Mac and the kernel capabilities. The signed app entitlements are:
+
+- `com.apple.developer.kernel.extended-virtual-addressing`
+- `com.apple.developer.kernel.increased-memory-limit`
+- `get-task-allow`
+
+`com.apple.security.cs.allow-jit` is still in `Kernarium.entitlements` but is stripped at sign time (it is not in the iOS team profile). Forcing it back with a post-sign `codesign` yields `0xe8008015` (profile no longer matches). An SSH-session `codesign` failed with `errSecInternalComponent`; the Release and test builds were run from a one-shot LaunchAgent in `gui/501` so they could use the already-unlocked Aqua login keychain. The Keychain `security` CLI was not used to unlock anything.
+
+Signed `xcodebuild` **BUILD SUCCEEDED** at **6:56:57 AM ET**. `HostGraphicsStackTests` **TEST SUCCEEDED** at **7:07:14 AM ET** on `My Mac - Kernarium`. A first guest session ran 7:08:49–7:09:21 AM ET; a second (with `apk add openssl`) ran 7:15:53–7:17:04 AM ET.
+
+### Metal / GPU
+
+Metal is usable on this destination. It is the same KosmicKrisp path as `uml-darwin`, not the Simulator llvmpipe/pixman stack.
+
+- `HostGraphicsStackTests`: `host GL provider: Mesa | zink Vulkan 1.4(Apple M2 Pro (MESA_KOSMICKRISP)) | 4.6 (Core Profile) Mesa 26.2.6`. Vulkan ICD entry points are packaged. A surfaceless desktop context initialized on the host GPU.
+- Guest session host log: `Virgl Zink/KosmicKrisp provider: hardware`, `Native Metal display: 1920x1080`.
+- Guest drm: `features: +virgl +edid +resource_blob +host_visible`, cap set id 4 (Venus).
+- Increased Memory Limit is in effect: `GPU budget 11451 MiB of a 16384 MiB limit`. Guest was `mem=4096M ncpus=8` at 160 DPI.
+
+### JIT blocker
+
+The ios-device runtime was built with `UML_IOS_DEBUGGER_JIT=OFF` (MAP_JIT publication, `patches/0004-map-jit-designed-for-ipad.patch`). `use_jit=1` was set, but the runtime logged `running on gadgets, not the JIT: this runtime cannot make executable memory` (`JitMemoryStatus::unsupported`: `mmap(MAP_JIT)` / publication probe failed without `allow-jit`). CPU benches below are therefore the gadget-engine column, not the Simulator or `uml-darwin` JIT column.
+
+`get-task-allow` is present, so a rebuild with `UML_IOS_DEBUGGER_JIT=ON` could use the debugger-prepared region while `xcodebuild test` has a debugger attached. That runtime was not rebuilt in this pass. A physical iPhone still cannot use MAP_JIT without the entitlement or StikDebug; do not install this build on a phone.
+
+### Desktop READY and CPU benches
+
+Image: production `alpine-3.24.2-desktop-labwc.ext4` on KernariumCS (inode 248509, journal-clean, 0444; copied into the new `com.davidhope.kernarium` container, not modified in place). Serial was captured with `patches/0017-kernarium-serial-log` (`KERNARIUM_SERIAL_LOG=guest-serial.log`, `KERNARIUM_GUEST_SESSION=1`).
+
+| Event / bench | Designed-for-iPad (My Mac, gadgets, labwc) | Simulator gadgets | Simulator JIT (labwc / slim) | uml-darwin Metal (JIT, labwc) |
+| --- | --- | --- | --- | --- |
+| `DESKTOP_READY` (guest uptime, labwc Wayland) | **2.26 s** then **2.14 s** (`display=wayland-0 labwc=1`; `DESKTOP_START` 1.11 / 1.06 s) | 3.83–6.55 s (pixman present path); 3.96–5.97 s on the earlier production image (black surface until pixman) | same Simulator boots; older XFCE was 28.60 s | 2.40 / 2.56 / 2.61 s; clean image 2.94 s; later 2.98–3.51 s |
+| `sh` loop, 20,000 increments | **0.74 s** (both runs) | 0.79 s | 0.20–0.34 s | (CPU pack, not this desktop image) |
+| `sha256sum` of 32 MiB | **1.43 s** / **1.50 s** | 1.45 s | 0.37–0.38 s | |
+| `apk add --no-cache openssl` | **3.19 s** (second run) | 2.51 s | 1.58 s | |
+| `openssl speed -evp` at 16 KiB | aes **153.6 MB/s**; sha256 **573.5 MB/s** (OpenSSL 3.5.9) | aes 164.0; sha256 594.9 | aes 875.1–984.1; sha256 1658–1696 | evp aes ~1000–1040 MB/s; sha256 ~1780–1790 MB/s |
+
+READY matches `uml-darwin` labwc (real Metal) and is clearly faster than the Simulator labwc/pixman boots. The CPU numbers sit on the gadget column (sh 0.74 vs 0.79 s, sha256 1.43–1.50 vs 1.45 s, evp close to 164 / 595). The second-run evp figures are a little lower; Metal shader compilation messages landed in the log during `openssl speed`. Guest identity: `Linux alpine 6.18.60-g8246678b2d74`, Alpine 3.24.2, 4 GiB RAM, 8 vCPUs, 1920×1080.
+
+Logs on the mini: `~/linux-ios-bakeoff/notes/macos-metal-desktop/kernarium-ipad-mac-guest-session-20261113.log` (and `-serial-`, `-openssl-` siblings), plus `~/Library/Logs/kernarium-ipad-mac-gui-build.log`, `kernarium-ipad-mac-launch.log`, and the guest-session xcodebuild logs. Display resolution and voxl were not changed.
+
