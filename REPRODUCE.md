@@ -277,14 +277,24 @@ debugger is attached. Do not install that build on a physical iPhone.
 Bundle-ID overrides: `patches/0016-designed-for-ipad-bundle-id`.
 Serial capture without simctl: `patches/0017-kernarium-serial-log`.
 Debugger-prepared JIT on My Mac (Designed for iPad): rebuild with
-`-DUML_IOS_DEBUGGER_JIT=ON`, apply `patches/0018-debugger-jit-wait`, and
-attach host `lldb` running `tests/integration/support/ios_jit_debugger.py`
-(`jit_serve`) after `TEST_RUNNER_KERNARIUM_WAIT_FOR_DEBUGGER=1`.
-`xcodebuild test` alone does not ptrace this destination; a bare
-`lldb -o continue` stops on `brk #0xf00d` and never blesses the pages.
-This is the same protocol Henge / StikDebug uses on a device; do not
-install that helper or this build on a physical iPhone. Look for
-`execution engine jit (cache budget …)` and not `running on gadgets`.
+`-DUML_IOS_DEBUGGER_JIT=ON`, apply `patches/0018-debugger-jit-wait` and
+`patches/0019-debugger-jit-cache-budget`, and attach host `lldb` running
+`tests/integration/support/ios_jit_debugger.py` (`jit_serve`) after
+`TEST_RUNNER_KERNARIUM_WAIT_FOR_DEBUGGER=1`. Pass SIGUSR1/SIGUSR2/SIGALRM
+through in `lldb` (UML uses them as IPIs). `xcodebuild test` alone does
+not ptrace this destination; a bare `lldb -o continue` stops on
+`brk #0xf00d` and never blesses the pages. This is the same protocol
+Henge / StikDebug uses on a device; do not install that helper or this
+build on a physical iPhone. Look for
+`execution engine jit (cache budget …, executor cap …)` and not
+`running on gadgets`.
+On My Mac pass `TEST_RUNNER_KERNARIUM_JIT_CACHE_BUDGET=2G` and
+`TEST_RUNNER_KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET=128M` so 8 vCPUs leave
+~1 GiB for the shared translation cache; a 2 GiB budget with the default
+256 MiB L1 cap still starves that tier and used to exceed the 1 GiB
+debugger-region limit. Optional
+`TEST_RUNNER_KERNARIUM_GUEST_SESSION_NET_PROBE=1` times DNS/HTTP after
+READY. Do not use a 4 GiB budget on the 16 GiB mini.
 
 Look for `Virgl Zink/KosmicKrisp provider: hardware`, cap set id 4 (Venus),
 `Darwin native window … (host-page aligned)`, and guest strings containing

@@ -774,3 +774,46 @@ Firefox TTP on this Metal desktop was much slower than `uml-darwin` (~12 s) and 
 
 Logs on the mini: `~/linux-ios-bakeoff/notes/macos-metal-desktop/kernarium-ipad-mac-debugger-jit-session-20261113.log`, `-serial-`, `-guest-session-`, and `kernarium-ipad-jit-serve-20261113.log`. The attach recipe is in `patches/0018-debugger-jit-wait/README.md` and REPRODUCE.md.
 
+## Designed-for-iPad 2 GiB JIT budget / 128 MiB L1 (13 Nov 2026, 7:43–7:52 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host and destination as the 272 MiB JIT pass: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3, Xcode 26.6, Designed for iPad on My Mac only. Nothing was installed on a phone. Display resolution and voxl were not changed.
+
+### Why 272 MiB evicted so hard
+
+The logged 272 MiB budget was the gadget cache cap at 8 vCPUs (`gadget_cache_cap_mib`), applied because the process has a memory limit, not 1/4 of the 4 GiB guest. Private L1s consumed almost all of it, leaving a ~105 KiB shared translation cache (`max≈105792`). `UML_JIT_SHARED_STATS=1` showed evictions≈insertions and millions of rejects.
+
+A 2 GiB whole-process budget with the default 256 MiB L1 cap still leaves no shared tier (8×256 MiB = 2 GiB) and overshoots the old 1 GiB debugger-region limit: a 7:43:20 AM ET attempt logged `the executable memory could not be prepared` and fell back to gadgets, with no `brk #0xf00d` request. `patches/0019-debugger-jit-cache-budget` raises that limit to 2 GiB and honors `KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET` / `UML_JIT_EXECUTOR_CACHE_BUDGET`.
+
+### Runtime and attach
+
+ios-device runtime rebuilt with `UML_IOS_DEBUGGER_JIT=ON` at **7:48:28–7:49:08 AM ET** (package **7:49:08–7:49:16 AM ET**). Aqua session with `TEST_RUNNER_KERNARIUM_JIT_CACHE_BUDGET=2G` and `TEST_RUNNER_KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET=128M` started **7:49:24 AM ET**. `lldb` + `jit_serve` attached at **7:50:02 AM ET**, with SIGUSR1/SIGUSR2/SIGALRM passed through (UML IPIs; a first 2 GiB attempt that stayed attached without that pass-through flooded the serve log with stops). Prepared **39912 pages (623.6 MiB) in 2.9 s** at **7:50:06–7:50:09 AM ET**, then detached. Log:
+
+`Kernarium: execution engine jit (cache budget 2147483648 bytes, executor cap 134217728 bytes)`
+
+That is a 2 GiB whole-process budget, 128 MiB private L1 cap (8×128 MiB = 1 GiB), and ~1 GiB left for the shared tier. Guest `mem=4096M ncpus=8`, 1920×1080, 160 DPI. Metal unchanged. Kernarium RSS peaked around 5.24 GiB; `vm.swapusage` stayed **0.00M used**; system-wide memory was about 47% free. No swap.
+
+`===JIT_SHARED_STATS===` at start: `accounted=65536 max=1073847616` (~1 GiB cap). At atexit: matches=11,933,213, reuses=11,932,894, misses=2,403,841, insertions=2,385,102, evictions=2,041,478, **rejected=11,242**, payload≈720 MiB, accounted≈1 GiB. Evict-on-full is working; this is no longer a reject storm.
+
+### Networking
+
+Guest NAT/DNS was not the earlier 131 s Firefox stall. After READY, `KERNARIUM_GUEST_SESSION_NET_PROBE=1` recorded: `resolv` nameserver 10.0.2.3, default route via 10.0.2.2, `nslookup example.com` **0.01 s** (A + AAAA), ping 10.0.2.2 **0.2–1.0 ms** (0% loss), `wget http://example.com` **0.13 s**, HTTP 200 (Cloudflare EWR HIT). No slirp/DNS code change was made. (A probe during the failed gadgets+lldb run was slower — nslookup 0.31 s, ping 32–79 ms, wget 0.50 s — because lldb was stopping on SIGUSR.)
+
+### Desktop READY, CPU benches, and Firefox TTP
+
+`TEST SUCCEEDED` at **7:52:50 AM ET**.
+
+| Event / bench | D4iPad JIT **2G/128M L1** | D4iPad JIT 272 MiB (no shared) | D4iPad gadgets | Sim gadgets | Sim JIT | uml-darwin Metal JIT |
+| --- | --- | --- | --- | --- | --- | --- |
+| `DESKTOP_READY` (guest uptime) | **3.04 s** (`DESKTOP_START` 1.38 s; labwc socket 3.02 s) at **7:50:13 AM ET** | 3.92 s (START 1.98 s) | 2.26 s then 2.14 s | 3.83–6.55 s pixman | same sim boots | 2.40–3.51 s |
+| `sh` loop, 20,000 increments | **0.68 s** | 0.49 s | 0.74 s | 0.79 s | 0.20–0.34 s | — |
+| `sha256sum` of 32 MiB | **0.64 s** | 0.41 s | 1.43 / 1.50 s | 1.45 s | 0.37–0.38 s | — |
+| `apk add --no-cache openssl` | **13.39 s** (network; not a CPU figure) | 2.91 s | 3.19 s | 2.51 s | 1.58 s | — |
+| `openssl speed -evp` at 16 KiB | aes **701.5 MB/s**; sha256 **708.5 MB/s** (OpenSSL 3.5.9) | aes 370.0; sha256 82.1 (8192-byte sha256 302.8) | aes 153.6; sha256 573.5 | 164.0 / 594.9 | 875–984 / 1658–1696 | ~1000–1040 / ~1780–1790 |
+| Firefox TTP (`https://example.com`, after `FIREFOX_START` at READY+0.00 s / **7:50:13 AM ET**) | Black labwc at **7:50:40 AM ET** (27 s). **Chrome (New Tab) at 7:50:44 AM ET (31 s)**. example.com tab still blank, "Waiting…" at **7:51:18 AM ET** (65 s). **Example Domain body painted at 7:51:23 AM ET (70 s)**. | Chrome still New Tab at 80 s; body painted at 131 s | (not measured) | chrome ~31–43 s, full page ~75–80 s | | ~12 s after READY |
+
+evp AES at 16 KiB nearly doubled vs the 272 MiB JIT (370→701.5 MB/s) and evp SHA-256 recovered from the 82.1 MB/s regression to **708.5 MB/s** (above the gadget 573.5, still short of Simulator / uml-darwin JIT). `sh` and busybox `sha256sum` were a little slower than the 272 MiB JIT run (0.68 / 0.64 vs 0.49 / 0.41); they remain faster than gadgets. `apk` is network-bound.
+
+Firefox TTP improved (chrome 80 s→**31 s**, body 131 s→**70 s**) but is still far from uml-darwin's ~12 s. Guest wget of example.com was 0.13 s, so the remaining delay is Firefox process/content startup, not NAT/DNS. Shots: `~/linux-ios-bakeoff/screenshots/kernarium-ipad-jit-2g-ttp/manual/` (`t-075040-w138.png` black, `t-075044-w138.png` chrome, `t-075118-w138.png` waiting, `t-075123-w138.png` painted).
+
+Logs on the mini: `~/linux-ios-bakeoff/notes/macos-metal-desktop/kernarium-ipad-mac-debugger-jit-2g-session-20261113.log`, `-serial-`, `-guest-session-`, `kernarium-ipad-jit-serve-2g-20261113.log`, and `kernarium-ipad-jit-2g-memory-20261113.log`. The failed 2 GiB/default-L1 attempt is archived as `kernarium-ipad-mac-2g-oversize-region-failed-20261113.log`.
+
