@@ -137,7 +137,75 @@ Screenshots and video (box `/workspace/`, also `~/linux-ios-bakeoff/screenshots/
 - `kernarium-desktop-native-end-firefox.png` — example.com at 9:04 PM ET
 - `kernarium-desktop-native-end.log` — serial log with renderer strings and the aligned native window
 
-Feel: the shell and panel were already fine; Firefox now paints a real page and the guest no longer dies under a DOM Worker munmap. 3D is still host llvmpipe (~28 FPS gears). Metal/KosmicKrisp on the Mac (Designed for iPad) or a device build is the remaining GPU path.
+Feel: the shell and panel were already fine; Firefox now paints a real page and the guest no longer dies under a DOM Worker munmap. 3D in the Simulator is still host llvmpipe (~28 FPS gears). Real Metal is on the native macOS `uml-darwin` CLI (next section); Designed-for-iPad is blocked on this Mac by an Xcode/host OS mismatch.
+
+## Real Metal on the Mac (uml-darwin + KosmicKrisp)
+
+Date: Thu Nov 12, 2026, 9:19–9:58 PM ET (America/New_York). Host: Mac mini, Apple M2 Pro (10 cores, 16 GB, 16 KiB pages, display left at 3840×2160). Guest: same Alpine XFCE ext4 and kernel `6.18.60-g8246678b2d74` (local2), `mem=4G`, `ncpus=8`, JIT, virtio-gpu 1920×1080.
+
+### Why not Designed for iPad / Catalyst
+
+The official Kernarium path is `scripts/run-ios-mac.sh` (destination `platform=macOS,variant=Designed for iPad`, cmake preset `kernarium-ios-device`, team `4P2629648N`). Xcode 26.6 / iOS 26.5 SDK refuses that destination: "Xcode doesn’t support My Mac’s macOS 26.3.1 (25D2128)." Available destinations include the paired phones (Silver, Yellow); those were not used. macOS was not upgraded. Catalyst would need macabi slices of KosmicKrisp, which the official prefix does not publish. A minos 27.0 hello-world does run on 26.3.1, so the framework minos is not the blocker — Xcode's Designed-for-iPad destination is.
+
+Device-side work that did land, uninstalled: ios-device runtime with `UML_IOS_DEBUGGER_JIT=OFF` and `UML_GPU_SOFTWARE_RENDERER=FALSE`, packaged Linux-only XCFrameworks (the official `--runtimes all` packager wants a missing Android kernel artifact), MAP_JIT publication for iphoneos / Designed for iPad (`patches/0004-map-jit-designed-for-ipad.patch`), entitlements already contain `com.apple.security.cs.allow-jit`. A pending Keychain prompt on the mini is *not* this build: it is "xcodebuild wants to use your confidential information stored in github.com" and was left untouched.
+
+### Official macOS CLI path (what actually ran)
+
+`dependencies/build-apple-gpu.sh --platform macos` published KosmicKrisp / MesaEGL / MesaGallium under `.build/dependencies/apple-gpu-vulkan-experiment/macos-arm64/` (minos 27.0, sdk 26.5). cmake `--preset macos-integration` produced `.build/presets/macos-integration/bin/uml-darwin`. Default CLI display is VNC (`127.0.0.1:5900`); `--gpu-display=native` is required for an AppKit window (see `scripts/macos-metal/`). Launch used `--execution-engine=jit --gpu-width=1920 --gpu-height=1080`, `--guest-file` for `/boot.env` and the Zink-first session scripts, `mem=4G ncpus=8`, ext4 root. The `init=/uml-per-run-initramfs-did-not-run` token on the kernel command line is the official canary; a 1.4 MiB per-run initrd was written and loaded (`Freeing initrd memory: 1376K`). Host log:
+
+- `Virgl Zink/KosmicKrisp provider: hardware`
+- `VNC display: 127.0.0.1:5900 (1920x1080)` and later `VNC display: asynchronous native Metal readback`
+- `UML: reserved native kernel window 0x600000000000-0x60024000c000 (… host page 16384)` / `Darwin native window … (host-page aligned)`
+- virtio-gpu cap sets 1, 2, and **4 (Venus)**
+- 8 vCPUs, kernel `6.18.60-g8246678b2d74`
+
+### Renderer strings (guest, 9:46–9:50 PM ET)
+
+Default GLX (no loader override), i.e. guest virgl → host Virglrenderer → Zink → KosmicKrisp → Apple GPU:
+
+- `OpenGL renderer string: virgl (zink Vulkan 1.4(Apple M2 Pro (MESA KOSMICKRISP)))`
+- `OpenGL version string: 4.6 (Compatibility Profile) Mesa 26.1.6`
+
+Guest Zink over Venus ( `MESA_LOADER_DRIVER_OVERRIDE=zink` ):
+
+- `OpenGL renderer string: zink Vulkan 1.4 (Virtio-GPU Venus (Apple M2 Pro) (MESA KOSMICKRISP))`
+
+`vulkaninfo --summary`:
+
+- `deviceName = Virtio-GPU Venus (Apple M2 Pro)`, `deviceType = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU`, `driverName = venus`, `driverInfo = Mesa 26.1.6`, `vendorID = 0x106b`
+- also a CPU device: `llvmpipe (LLVM 22.1.3, 128 bits)`
+
+`vkcube` selected `GPU 0: Virtio-GPU Venus (Apple M2 Pro), type: IntegratedGpu`, WSI `xcb`. The visible `Vkcube X11` window stayed black in this session (stderr showed MESA errors); FPS for vkcube was not captured.
+
+### Measurements
+
+| Event | Simulator virgl → host llvmpipe (9:00–9:04 PM ET) | macOS uml-darwin → KosmicKrisp (9:42–9:53 PM ET) |
+| --- | --- | --- |
+| Boot to desktop | DESKTOP_READY **28.60 s** | VNC server up 9:42:19 PM ET; XFCE already painted in the first framebuffer grab at 9:43:27 PM ET (**≤68 s** wall; serial was block-buffered, so no DESKTOP_READY line yet) |
+| GLX renderer | `virgl (LLVMPIPE (LLVM 22.1.8, 128 bits))` | `virgl (zink Vulkan 1.4(Apple M2 Pro (MESA KOSMICKRISP)))` |
+| Guest Zink / Venus | not offered | `zink Vulkan 1.4 (Virtio-GPU Venus (Apple M2 Pro) (MESA KOSMICKRISP))` |
+| glxgears (default vsync) | **27.4–28.0 FPS** | 20.086 FPS (one 5 s sample; vsync / compositor) |
+| glxgears (`vblank_mode=0`) | not measured | **91.5 FPS** first 5 s, then **119.6–119.8 FPS** steady |
+| xfce4-terminal | visible | visible |
+| Firefox 151 | example.com painted | example.com painted (and stayed up) |
+| vkcube | swrast segfault (no Venus) | selects Apple M2 Pro / Venus; window was black |
+
+A precise DESKTOP_READY and a `screencapture -v` of the AppKit window need a GUI relaunch with `--gpu-display=native` and a pty (`scripts/macos-metal/launch-in-gui.command`). This session was started from SSH, so only VNC existed. `Screen Sharing.app` on `vnc://127.0.0.1:5900` failed with "You cannot control your own screen" (it special-cases localhost). Videos below were recorded from the RFB framebuffer.
+
+Screenshots and video (box `/workspace/`, also `~/linux-ios-bakeoff/notes/macos-metal-desktop/` on the mini):
+
+- `kernarium-macos-metal-vnc.png` — XFCE up, 9:43 PM ET
+- `kernarium-macos-metal-vnc-fps3.png` — renderer strings and 20.086 FPS sample, 9:50 PM ET
+- `kernarium-macos-metal-glxgears.png` / `kernarium-macos-metal-glxgears-fps.png` — visible gears, 91–120 FPS with `vblank_mode=0`
+- `kernarium-macos-metal-vkcube.png` — black Vkcube X11 window over Firefox
+- `kernarium-macos-metal-desktop.mp4` — 6.13 s / 8 fps timelapse of the 45 s demo (slow CPU conversion)
+- `kernarium-macos-metal-desktop-rt.mp4` — 20.90 s / 10 fps real-time RFB recording
+
+### Housekeeping in this same stretch
+
+`davidgeorgehope/linux-ios-fast` `f76d75b` (NOTES/REPRODUCE, kernel patch series, desktop-ready). Drive `gdrive:linux-ios-fast/artifacts/`: `alpine-3.24.2-desktop.ext4.gz` sha256 `0ecc51926f03b0ae5b0a1ff5fcd339b08d98e9a0a5cc21dfa7117a85b9a18599`, `kernel-mainline-6.18-arm64-4k-20261112-6.18.60-local2.tar.gz` sha256 `dc0431b2b5fda6d0cc79cad88b0b5f0dd24a3aaf04da09b66dbd8db473c72bbb`. `rclone check --checksum --one-way` reported 0 differences.
+
+The mini's `linux-ios-bakeoff/linux-ios-fast` clone had no remotes and was at `2eb3561`. It was fast-forwarded to `f76d75b` from a bundle built on the box (the mini cannot fetch GitHub over HTTPS without auth; the mini's `gh` login was not changed). Push URL on that clone is set to `DISABLED`. A stash of superseded local drafts remains: `stash@{0}: mini-local-before-ff-to-github-main-20261112-215641`. Do not push linux-ios-fast from the mini. The Kernarium tree stays a local fork of `imxieyi/Kernarium` @ `ce0fa86` and is not pushed.
 
 ## Phone
 
@@ -170,4 +238,4 @@ Large artifacts: `gdrive:linux-ios-fast/artifacts/` (see REPRODUCE.md for SHA-25
 
 Do not put anything on the iPhone yet.
 
-In the Simulator, Kernarium with the JIT and a slim init is clearly faster than LinuxRunner on the agreed benches (about 3× the shell loop, 4× sha256sum, 2× apk wall-clock, 4–5× OpenSSL evp) and boots to a payload in about one guest second. That JIT path is a local fork that uses macOS MAP_JIT in the Simulator. On a real iPhone, without StikDebug, Kernarium stays on the gadget engine (the ~1.3× column). A device build still needs signing, official iphoneos packaging (KosmicKrisp / Metal 4), a check of the 16 KiB UML window, and David's agreement before any install.
+In the Simulator, Kernarium with the JIT and a slim init is clearly faster than LinuxRunner on the agreed benches (about 3× the shell loop, 4× sha256sum, 2× apk wall-clock, 4–5× OpenSSL evp) and boots to a payload in about one guest second. That JIT path is a local fork that uses macOS MAP_JIT in the Simulator. On a real iPhone, without StikDebug, Kernarium stays on the gadget engine (the ~1.3× column). A device / Designed-for-iPad build still needs a newer Xcode-to-host-OS pairing (or David's agreement to install on a phone), official iphoneos packaging, and a check of MAP_JIT plus the 16 KiB UML window. Real Metal already runs on this Mac through the official `uml-darwin` CLI and KosmicKrisp (see above): guest virgl or Zink/Venus, Apple M2 Pro in the renderer string, ~120 FPS glxgears with vsync off. Do not install on the iPhone until David agrees.

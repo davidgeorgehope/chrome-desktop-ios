@@ -198,3 +198,44 @@ The overlay is disposable; delete it after changing the base image.
 
 `patches/0002-kernarium-display-size-env.md` documents the ContentView change
 for the fixed display size.
+
+## macOS Metal (uml-darwin + KosmicKrisp)
+
+Designed-for-iPad (`Kernarium/scripts/run-ios-mac.sh`, team `4P2629648N`) is blocked on the bakeoff mini: Xcode 26.6 does not support macOS 26.3.1 as a "My Mac (Designed for iPad)" destination. Do not upgrade macOS and do not install on a paired phone.
+
+Use the official macOS CLI instead:
+
+```sh
+# In the Kernarium tree, after the macos Apple GPU prefix and
+# dependencies/prepare.sh --product macos && dependencies/build.sh:
+cmake --preset macos-integration \
+  -DUML_BUILD_INTEGRATION_TESTS=OFF \
+  -DUML_INTEGRATION_ROOTFS= \
+  -DUML_MAINLINE_618_KERNEL_ARTIFACT_DIR="$ARTIFACT"
+# then build uml-darwin and stage KosmicKrisp / MesaEGL / MesaGallium.
+```
+
+Launch scripts: `scripts/macos-metal/launch-uml-darwin-desktop.sh` and
+`launch-in-gui.command`. The CLI default display is VNC on `127.0.0.1:5900`.
+For an AppKit window (and `screencapture -v -l <windowid>`), open the
+`.command` from the Mac GUI so `UML_GPU_DISPLAY=native`. Keep the guest at
+1920×1080 (`--gpu-auto-resize=off`); do not change the Mac's 3840×2160
+display or voxl resize. Use `mem=4G` on the 16 GB mini (the CLI default is
+`mem=8G`). `script(1)` in the `.command` gives the guest a pty so
+`===DESKTOP_READY===` is line-buffered into `session.log`.
+
+Guest session scripts in `scripts/desktop-guest/` now probe Zink first when
+Venus is present, then fall back to virgl. Inject them with `--guest-file`
+into `/payload/usr/local/bin/` plus a `/boot.env` with
+`UML_BOOT_ROOT_TYPE=ext4` and `UML_BOOT_UPPER=tmpfs`. The kernel command-line
+token `init=/uml-per-run-initramfs-did-not-run` is the official canary; it is
+expected when the per-run initrd is used.
+
+`patches/0004-map-jit-designed-for-ipad.patch` lets an iphoneos / Designed-for-iPad
+build compile the MAP_JIT publication path (`-DUML_IOS_DEBUGGER_JIT=OFF`).
+The default on ios remains the debugger-prepared region. Do not install that
+build on a physical iPhone.
+
+Look for `Virgl Zink/KosmicKrisp provider: hardware`, cap set id 4 (Venus),
+`Darwin native window … (host-page aligned)`, and guest strings containing
+`Apple M2 Pro` and `MESA KOSMICKRISP`.
