@@ -440,12 +440,16 @@ The desktop goal is snappy launch, scrolling, and typing, not only
 compile benches and time-to-example.com.
 
 Guest: `scripts/desktop-guest/interactive-metrics/` (a local page plus a
-busybox-httpd CGI that writes `===INTERACTIVE_*===` markers to ttyS0)
-and `scripts/desktop-guest/interactive-metrics-start.sh`.
+static aarch64 Linux Go server, `metrics-httpd` / `metrics-httpd.go`,
+that writes `===INTERACTIVE_*===` markers to ttyS0, prefixed with UTC
+time and `up=` from `/proc/uptime`). Alpine’s labwc busybox has no
+`httpd` applet; do not rely on busybox httpd. The start script is
+`scripts/desktop-guest/interactive-metrics-start.sh`.
 `start-desktop-labwc.sh` opts in when `/usr/local/etc/interactive-metrics`
 is present or `INTERACTIVE_METRICS=1` is set, and then points the browser
 at `http://127.0.0.1:8765/` unless `BROWSER_URL` / `FIREFOX_URL` is
-already set.
+already set. Rebuild the guest server with
+`CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o metrics-httpd metrics-httpd.go`.
 
 Host, on the Mac mini, against a named `uml-darwin` side binary:
 
@@ -454,15 +458,23 @@ scripts/macos-metal/measure-interactive.sh TAG /path/to/uml-darwin firefox
 scripts/macos-metal/measure-interactive.sh TAG /path/to/uml-darwin chromium
 ```
 
-Look for `===INTERACTIVE_LAUNCH===` (first paint in the metrics page),
-`===INTERACTIVE_SCROLL===` (rAF frames during a 2 s programmatic
-scroll: `fps=` and `p95_frame_ms=`), and `===INTERACTIVE_INPUT===`
-(real keydown/mousedown to the next rAF; synthetic JS events are
-ignored). If `vncdotool` is on `PATH`, the launcher pokes a key and a
-click after `===INTERACTIVE_READY_FOR_INPUT===` (`UML_VNC_DISPLAY`,
-default `127.0.0.1:5900`). Persist off, memory-pressure preflight,
-SWAP_ABORT start+2048M, `mem=4G ncpus=8`, `--jit-cache-budget=8G`,
-native Metal 1920×1080, same labwc images as TTP.
+Look for `===INTERACTIVE_LAUNCH===`. `first_paint_ms` is an in-page rAF
+after the metrics JS starts, not app-launch wall time. Report host wall
+clock from process start and from `FIREFOX_START` / `CHROMIUM_START` to
+that marker, and the guest `up=` delta. `===INTERACTIVE_SCROLL===` is
+rAF frames during a 2 s programmatic scroll (`fps=` and
+`p95_frame_ms=`). `===INTERACTIVE_INPUT===` is real keydown/mousedown to
+the next rAF (synthetic JS events are ignored). If `vncdotool` is on
+`PATH`, the launcher pokes a key and a click after
+`===INTERACTIVE_READY_FOR_INPUT===` (`UML_VNC_DISPLAY`, default
+`127.0.0.1:5900`). The guest also pokes evdev (`KEY_A` / tablet click)
+0.5 s after READY. On the 13 Nov official 0022 baseline those pokes did
+not produce trusted events (`key_n=0 click_n=0`, why=timeout); treat
+input as unresolved until a run reports non-zero `key_n` / `click_n`.
+Persist off, memory-pressure preflight, SWAP_ABORT start+2048M,
+`mem=4G ncpus=8`, `--jit-cache-budget=8G`, native Metal 1920×1080, same
+labwc images as TTP. Official 0022 numbers are in `NOTES.md` (4:42–4:47
+PM ET, 13 Nov 2026).
 
 Time-to-example.com stays a separate measurement:
 `launch-ab-uml-darwin.sh` plus `scripts/macos-metal/score-ttp-shots.py`

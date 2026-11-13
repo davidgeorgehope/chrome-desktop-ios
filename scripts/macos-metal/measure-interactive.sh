@@ -116,6 +116,7 @@ args=(
   --guest-file=/payload/usr/local/bin/interactive-metrics-start.sh="$HERE/desktop-guest/interactive-metrics-start.sh"
   --guest-file=/payload/usr/local/share/interactive-metrics/index.html="$METRICS_ROOT/index.html"
   --guest-file=/payload/usr/local/share/interactive-metrics/cgi-bin/report="$METRICS_ROOT/cgi-bin/report"
+  --guest-file=/payload/usr/local/share/interactive-metrics/metrics-httpd="$METRICS_ROOT/metrics-httpd"
   mem=4G
   ncpus=8
   ubd0c="$SOURCE"
@@ -152,12 +153,24 @@ VNC=${UML_VNC_DISPLAY:-127.0.0.1:5900}
 vnc_poked=0
 for i in $(seq 1 110); do
   if ! kill -0 "$UPID" 2>/dev/null; then break; fi
-  if [ "$vnc_poked" -eq 0 ] && command -v vncdotool >/dev/null 2>&1; then
-    if /usr/bin/grep -q "INTERACTIVE_READY_FOR_INPUT" "$LOG" 2>/dev/null; then
-      echo "VNC_POKE $(date) display=$VNC" | tee -a "$LOG"
+  if [ "$vnc_poked" -eq 0 ] && /usr/bin/grep -q "INTERACTIVE_READY_FOR_INPUT" "$LOG" 2>/dev/null; then
+    echo "VNC_POKE $(date) display=$VNC" | tee -a "$LOG"
+    if command -v vncdotool >/dev/null 2>&1; then
       vncdotool -s "$VNC" key a pause 0.3 click 1 || true
-      vnc_poked=1
+    else
+      rfb=""
+      for c in         "$HERE/macos-metal/vnc_rfb.py"         /Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/vnc_rfb.py         /Users/davidhope/linux-ios-bakeoff/notes/interactive-pack/scripts/macos-metal/vnc_rfb.py
+      do
+        [ -f "$c" ] && rfb=$c && break
+      done
+      if [ -n "$rfb" ]; then
+        host=${VNC%:*}; port=${VNC##*:}
+        python3 "$rfb" --host "$host" --port "$port" --key a --sleep 0.3 --click 960 400           >>"$LOG" 2>&1 || true
+      else
+        echo "VNC_POKE_SKIP no vncdotool or vnc_rfb.py" | tee -a "$LOG"
+      fi
     fi
+    vnc_poked=1
   fi
   if /usr/bin/grep -q "INTERACTIVE_DONE" "$LOG" 2>/dev/null; then
     # Give the serial a moment, then stop.

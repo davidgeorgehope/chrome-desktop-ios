@@ -1403,3 +1403,83 @@ benches and time-to-example.com:
 
 How to run them is in `REPRODUCE.md`. The pass-through prototype should
 not land on compile/TTP alone if these interactive numbers do not move.
+
+
+## Official 0022 usable-desktop interactive baseline (13 Nov 2026, 4:42–4:47 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host: Mac mini (M2 Pro,
+16 GB), macOS Tahoe 26.7.3. Official 0022 exclusive-scope-removal
+`uml-darwin-official-0022-20261113` (inode 245630846, md5
+`6ea8180e05fc6736d32530811ba3c439`, 54,302,536 bytes) and live
+`uml-darwin` (same md5) were not overwritten. Kernel local2
+(`6.18.60-g8246678b2d74`). Persist off. Native Metal 1920×1080, `mem=4G`
+`ncpus=8`, `--jit-cache-budget=8G`. Memory-pressure preflight and
+SWAP_ABORT (start+2048M) on. No leftover `uml-darwin`. Peek and iPad
+(A16) stayed Shutdown. Nothing was installed on a phone. Display
+resolution, voxl, Screen Sharing, and Keychain were not changed.
+
+Fetch-view was dropped after the not-land decision. Worktree
+`Kernarium-0022-fetch` and branch `exclusive/0022-fetch-view` were
+deleted (unique `.build/presets` was about 2.7G). The named side binary
+`uml-darwin-0022-fetch-view-20261113` (md5
+`a96eb7d3700a9ebafcf499b391f4aa9b`) is kept under the dirty tree’s
+macos-integration bin and as a copy in `notes/macos-metal-desktop/`.
+
+Harness fixes used for this baseline (this commit): Alpine’s labwc
+busybox has no `httpd` applet, so a static aarch64 Linux Go server
+`scripts/desktop-guest/interactive-metrics/metrics-httpd` (source
+`metrics-httpd.go`, `CGO_ENABLED=0 GOOS=linux GOARCH=arm64`) is injected
+via `--guest-file` and started by `interactive-metrics-start.sh`. Each
+marker is prefixed with UTC `HH:MM:SS` and `up=` from `/proc/uptime`.
+Input listeners are registered before `===INTERACTIVE_READY_FOR_INPUT===`
+is posted; the guest evdev poke waits 0.5 s after READY. `vnc_rfb.py` is
+an untracked host helper and is not in this tree (`vncdotool` is not
+installed on the mini).
+
+`first_paint_ms` is the in-page rAF after the metrics JS starts (a few
+milliseconds once the page is running), not app-launch wall time. The
+useful launch number is host wall clock from process start (log stamp)
+and from `FIREFOX_START` / `CHROMIUM_START` until
+`===INTERACTIVE_LAUNCH===`, also reported as the guest `up=` delta.
+
+Two earlier Firefox probes (16:34:38 and 16:37:52 ET) failed before
+`metrics-httpd` was in place and are not baseline. A 16:40:38 ET Firefox
+run already had launch+scroll (fps=35.73, p95=149.66 ms) but no `up=`
+stamps; Firefox r1 was rerun at 16:42:35 ET with the timestamped server.
+
+| Run | Window (ET) | Browser start (guest up) | Launch from process start / from browser start (guest Δup) | first_paint_ms | Scroll fps | frames | duration_ms | p95_frame_ms | Input | Peak RSS | Swap start→end |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Firefox r1 | 4:42:35–4:43:39 PM | 4:42:39 PM, up=2.96 s | 19 s / 15 s (15.65 s) | 3.0 | 32.72 | 68 | 2077.9 | 149.50 | timeout, key_n=0 click_n=0 | 4528 MiB | 942.94→942.94M |
+| Firefox r2 | 4:43:39–4:44:43 PM | 4:43:42 PM, up=2.83 s | 18 s / 15 s (15.79 s) | 30.0 | 42.80 | 86 | 2009.5 | 17.42 | timeout, key_n=0 click_n=0 | 5185 MiB | 942.94→934.94M |
+| Chromium r1 | 4:44:43–4:45:47 PM | 4:44:47 PM, up=3.48 s | 12 s / 8 s (7.52 s) | 595.6 | 1.10 | 4 | 3646.9 | 3149.80 | timeout, key_n=0 click_n=0 | 4991 MiB | 934.94→934.94M |
+| Chromium r2 | 4:45:47–4:46:51 PM | 4:45:51 PM, up=2.94 s | 12 s / 8 s (7.96 s) | 24.8 | 1.09 | 3 | 2762.1 | 2649.90 | timeout, key_n=0 click_n=0 | 4671 MiB | 934.94→934.94M |
+
+Firefox scroll is in a usable band (~33–43 fps over a 2 s programmatic
+scroll). p95 is noisy: r1 had a long frame (149.50 ms), r2 was smooth
+(17.42 ms). Chromium reaches the metrics page faster than Firefox
+(~8 s after browser start vs ~15 s) but its programmatic scroll is
+effectively stalled (~1.1 fps, 3–4 frames, p95 2.6–3.1 s). That is the
+official 0022 usable-desktop baseline, not a harness failure: the same
+page and scroll script produced tens of Firefox frames in the same
+session window.
+
+Input is not yet a valid metric. After the listener-order fix, all four
+runs still posted `===INTERACTIVE_INPUT=== why=timeout key_n=0 click_n=0`.
+The guest evdev poke (`KEY_A` on `/dev/input/event0`, tablet
+click on `/dev/input/event1`) and a host `VNC_POKE` to `127.0.0.1:5900`
+both ran after READY (VNC_POKE at 4:43:06, 4:44:10, 4:45:13, and
+4:46:18 PM ET). Trusted keydown/mousedown never reached the page.
+Launch and scroll are the baseline; input latency is unresolved
+(focus, evdev format, or native Metal not exposing TCP 5900 the way
+the poke expects).
+
+No SWAP_ABORT. Swap used was flat or slightly down. Logs stay on the
+mini under `~/linux-ios-bakeoff/notes/macos-metal-desktop/`
+(`session-interactive-official0022-{ff,cr}-{1,2}-20261113-16{42,43,44,45}*.log`
+and matching `persist-memory-interactive-*`).
+
+This baseline is the A side for the macOS-first near pass-through
+prototype in `notes/near-pass-through-execution.md`. That work starts
+from `9676ead` on a clean branch, env-gated and default off, and must
+not land on official 0022 unless compile, TTP, and these interactive
+numbers are a clear win with tests no worse.

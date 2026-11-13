@@ -93,7 +93,6 @@
     const target = document.getElementById("target");
     target.className = "armed";
     target.textContent = "click or type now";
-    post("===INTERACTIVE_READY_FOR_INPUT===");
     document.getElementById("status").textContent =
       "armed for real keydown/mousedown (synthetic events ignored for the metric)";
     let keySamples = [];
@@ -133,8 +132,11 @@
       post(line).then(function () { post("===INTERACTIVE_DONE=== why=" + why); });
     }
 
-    window.addEventListener("keydown", function (ev) { measure("key", ev); });
-    target.addEventListener("mousedown", function (ev) { measure("click", ev); });
+    window.addEventListener("keydown", function (ev) { measure("key", ev); }, true);
+    window.addEventListener("keypress", function (ev) { measure("key", ev); }, true);
+    target.addEventListener("mousedown", function (ev) { measure("click", ev); }, true);
+    window.addEventListener("mousedown", function (ev) { measure("click", ev); }, true);
+    post("===INTERACTIVE_READY_FOR_INPUT===");
   }
 })();
 </script>

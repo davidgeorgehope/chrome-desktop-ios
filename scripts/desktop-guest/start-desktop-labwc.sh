@@ -212,6 +212,9 @@ if [ -f /usr/local/etc/interactive-metrics ] || [ "${INTERACTIVE_METRICS:-}" = 1
     ff_url="http://127.0.0.1:8765/"
   fi
   echo "===INTERACTIVE_ENABLED=== url=$ff_url" | tee /dev/ttyS0
+  # Content-process sandbox can block loopback http to the metrics CGI.
+  export MOZ_DISABLE_CONTENT_SANDBOX=1
+  export MOZ_DISABLE_GMP_SANDBOX=1
 fi
 # Accelerated Wayland Firefox on a pixman compositor often never
 # paints; use software WebRender on the Simulator path only.
