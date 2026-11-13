@@ -470,3 +470,44 @@ A side `uml-darwin-fast` (inode 244934602, 3:49 AM ET) packs guest words, host w
 
 Post-change compile-window SIGPROF: shape walk 6.0% → 0, malloc samples 566 → 466. example.com is still the production `FIREFOX_URL`; Isolated Web Content is the compile-bound content-process signal (light `ps` probe, production labwc start, sandbox on, `WLR_BACKENDS=drm,libinput`). Official identity was not bumped.
 
+
+## labwc image journal and publish arena (13 Nov 2026, 3:56–4:24 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York.
+
+### labwc Drive image
+
+The production file `alpine-3.24.2-desktop-labwc.ext4` (and the sibling `alpine-3.24.2-desktop-fast.ext4`) was not failing only because it was mode 0444. Both baked images had a dirty ext4 journal (`INCOMPAT_RECOVER`, incompat 0x2c6). The production overlay mounts the image read-only as `/lower` (`UML_BOOT_UPPER=tmpfs`), so the kernel cannot replay the journal and panics with `EXT4-fs: write access unavailable, cannot proceed` / `UML_BOOT_ERROR:cannot mount /dev/ubda`. The earlier XFCE `alpine-3.24.2-desktop.ext4` is clean (incompat 0x2c2) and already booted at 0444 with `ubd0c`.
+
+Repair: APFS-clone to a writable `*.rw.ext4`, boot official 4K `uml-darwin` once with `UML_BOOT_UPPER=none` (rw mount), remount ro, poweroff. Journal replay completed in ~1.6 s (`EXT4-fs: recovery complete`). Dirty originals were kept as `*.ext4.dirty-journal-20261113`. Clean 0444 clones were installed at the production names.
+
+A production-launcher boot of the clean 0444 labwc image (03:59:57 AM ET, official inode 244909018 unchanged): **DESKTOP_READY at guest uptime 2.94 s**, Firefox started immediately, example.com painted, VNC pointer clicked “Learn more” (navigated to `www.iana.org/help/example-domains`), and the URL bar accepted the typed string `input-ok`. Screenshots: `notes/macos-metal-desktop/labwc-clean-shots/`. `WLR_BACKENDS=drm,libinput` as before.
+
+`scripts/macos-metal/launch-uml-darwin-desktop.sh` now:
+
+- Refuses a dirty-journal image with an explicit message (does not boot into the overlay panic).
+- Copies a clean but read-only image to a writable sibling `*.rw.ext4` (`cp -c` APFS clone when possible, otherwise a full copy) and reuses that copy when it is up to date; if the copy cannot be made, it refuses clearly.
+- Accepts `UML_ROOTFS` as an override.
+- If VNC port 5900 is already in use (macOS Screen Sharing after a reboot holds it on launchd), falls back to `--gpu-vnc-port=5901` and says so. Screen Sharing is not disabled.
+
+Clean labwc image SHA-256 (uncompressed) `02a13eb21a63956f625f1f1789ae979ba0c4fbf2c0010f429ed4c867fe8b0617`. Local gzip `-1` of that image is `alpine-3.24.2-desktop-labwc-clean-20261113.ext4.gz` (1,091,534,974 bytes, sha256 `2a219e5409a7e3a52a197a624d6edd5862270edd95014bc57d241347d208a7eb`). The previous Drive object `alpine-3.24.2-desktop-labwc.ext4.gz` (994,819,499 bytes, sha256 `9471344de45d308d2f4bb4db20b076be906d431ba935f15f2d56e00d21901480`, uncompressed `0564698…`) was kept and not overwritten. A 1 GiB upload from this session was not completed after the mini rebooted at 4:15:34 AM ET (unexpected; KernariumCS sparse image was remounted; official inode unchanged). The new gz remains on the volume next to the old one.
+
+The same journal repair was applied to `alpine-3.24.2-desktop-fast.ext4`; its dirty original was also parked.
+
+### Publish arena (`patches/0013-jit-publish-arena`)
+
+A side `uml-darwin-arena` (inode 244936914, 4:06–4:07 AM ET) puts the `SharedTranslation` object and packed payload in one process-wide bump arena of recycled 1 MiB chunks (thread-local bump, bulk free on evict). Official 4K inode 244909018 left alone. Same-session compile-cold / apk add (mem=2G, ncpus=8, profilers off, interleaving official / packed-publish / arena):
+
+| | official 4K | packed-publish | publish-arena |
+| --- | ---: | ---: | ---: |
+| compile-cold (two runs) | 1.99 / 2.08 s | 1.94 / 1.94 s | **1.91 / 1.94 s** |
+| apk add (same boots) | 2.86 / 2.80 s | 2.80 / 2.82 s | 2.80 / 2.83 s |
+
+Firefox Isolated Web Content after READY, same session after the 4:15 AM reboot (production labwc start, light `FF_SNAP` probe, sandbox on, `WLR_BACKENDS=drm,libinput`, VNC on 5901 because Screen Sharing held 5900):
+
+| | official 4K | packed-publish | publish-arena |
+| --- | ---: | ---: | ---: |
+| DESKTOP_READY | 3.51 s | 2.98 s | 2.98 s |
+| Isolated Web Content after READY | 15.68 s | 14.40 s | **14.15 s** |
+
+Those Firefox numbers are slower than the earlier 3:53 AM ET same-machine figures (official 12.27 s, packed 11.93 s) because the session was post-reboot and cold. Within this session, arena is tied with packed-publish on compile-cold and slightly ahead on Isolated Web Content. Evict-on-full plus packed publish plus the arena is a verified compile-cold improvement of about 5–8% versus official 4K, not a clean full-suite wall-time win, so the official identity was **not** bumped (still v26 / `0x1d7ce579d497fc37`). The official binary was kept as the fallback.
