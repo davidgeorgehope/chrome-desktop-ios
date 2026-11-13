@@ -1,0 +1,34 @@
+--- a/darwin/runtime/context.cpp
++++ b/darwin/runtime/context.cpp
+@@ -14,6 +14,7 @@
+ 
+ #include <algorithm>
+ #include <cerrno>
++#include <cstdlib>
+ #include <cstdint>
+ #include <memory>
+ #include <new>
+@@ -565,6 +566,23 @@
+ std::size_t jit_cache_budget_for(std::size_t guest_memory_bytes,
+ 	unsigned executors) noexcept
+ {
++	/* Optional override so the Simulator can fund a real shared
++	 * translation cache. The default is one quarter of guest RAM
++	 * (1 GiB at mem=4G). With 8 vCPUs that entire 1 GiB is consumed
++	 * by 128 MiB private L1s and the shared tier is left at 64 KiB,
++	 * so Firefox content processes cannot reuse the parent's libxul
++	 * translations. Honor KERNARIUM_JIT_CACHE_BUDGET, then
++	 * UML_JIT_CACHE_BUDGET (K/M/G suffix). Official uml-darwin is
++	 * not rebuilt from this source. */
++	for (const char *name :
++		{"KERNARIUM_JIT_CACHE_BUDGET", "UML_JIT_CACHE_BUDGET"}) {
++		if (const char *text = std::getenv(name)) {
++			const auto parsed =
++				parse_translation_cache_quantity(text);
++			if (parsed != 0)
++				return parsed;
++		}
++	}
+ 	return gadget_cache_budget_for(guest_memory_bytes, 0, executors);
+ }
+ 

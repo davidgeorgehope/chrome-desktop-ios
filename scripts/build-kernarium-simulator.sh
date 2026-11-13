@@ -1,7 +1,8 @@
 #!/bin/bash
 # Rebuild Kernarium for the iOS Simulator from a Kernarium checkout, with the
-# iOS-applicable JIT series (0013 = evict + packed publish + bump arena) and
-# the Simulator SDK vm_region_64 fix (0014).
+# iOS-applicable JIT series (0013 = evict + packed publish + bump arena),
+# the Simulator SDK vm_region_64 fix (0014), and the optional
+# KERNARIUM_JIT_CACHE_BUDGET override (0015).
 #
 # This script does not build the macos-integration preset, does not touch the
 # official uml-darwin identity, and does not install anything on a physical
@@ -59,6 +60,17 @@ if [ "${SKIP_PATCH:-0}" != 1 ]; then
     exit 2
   fi
   cp -f "$src14" "$KERNARIUM/darwin/memory/mmu/user_map.cpp"
+  echo "---- apply 0015 KERNARIUM_JIT_CACHE_BUDGET ----"
+  src15=$HERE/patches/0015-kernarium-jit-cache-budget/jit_cache_budget_for.patch
+  if [ ! -f "$src15" ]; then
+    echo "missing $src15" >&2
+    exit 2
+  fi
+  if grep -q KERNARIUM_JIT_CACHE_BUDGET "$KERNARIUM/darwin/runtime/context.cpp"; then
+    echo "0015 already present in context.cpp"
+  else
+    patch -p1 -d "$KERNARIUM" --forward < "$src15"
+  fi
   echo "PATCH_OK $(date)"
 else
   echo "---- SKIP_PATCH=1; using checkout sources as-is ----"
