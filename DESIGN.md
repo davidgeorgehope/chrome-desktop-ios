@@ -1,7 +1,9 @@
 # Fixed-offset guest user memory mapping
 
-This is a design only. It has not been implemented. It is the memory-side
-follow-on to the 12 Nov 2026 JIT CPU profile (`scripts/cpu-benches/RESULTS.md`).
+This is a design. A first env-gated prototype was tried on macOS uml-darwin
+on 13 Nov 2026 and is **not landed** (see "Prototype status" below). It is
+the memory-side follow-on to the 12 Nov 2026 JIT CPU profile
+(`scripts/cpu-benches/RESULTS.md`).
 The memory tax on already-translated software (openssl evp ~1.5×, gcc-built
 tiny-sha ~1.88×) is smaller than the shell and compile multipliers, but a
 fixed-offset map is also what would make translations reusable across `exec`.
@@ -208,5 +210,70 @@ then stay on the guest's own addressing until the mapping changes.
 
 ## Shared-translation budget (landed 12 Nov 2026)
 
-`patches/0007-jit-shared-translations`. The process-wide shared cache is charged against the leftover of the whole-process JIT budget after every vCPU's private L1 (capped at 256 MiB). The previous default of `guest_memory/2` left almost no leftover at `mem=2G` `ncpus=8`, so publication rejected ~1.7M admits. The default total is now `guest/2 + 256 MiB * ncpus + 1 GiB` (4 GiB at the usual 2 GiB/8 vCPU launch): private L1s fill to the 256 MiB cap and the shared cache gets a 2 GiB leftover. Out-of-range relocatable link pointers use a nearby literal island rather than a host-baked MOV-wide stub, publication is allowed with one live executor, and a translation may carry up to `maximum_block_instructions` link relocations (the previous cap of 2 rejected ~145k unique gcc blocks). Entries were keyed by guest PC + instruction words until `patches/0009-jit-file-offset-aslr`, which also indexes by the host code-page stamp plus page offset and slides baked guest PCs (`store_pc`, ADR/ADRP, BL return, link keys) so a warm `cc1` hits under ASLR.
+`patches/0007-jit-shared-translations`. The process-wide shared cache is charged against the leftover of the whole-process JIT budget after every vCPU's private L1 (capped at 256 MiB). The previous default of `guest_memory/2` left almost no leftover at `mem=2G` `ncpus=8`, so publication rejected ~1.7M admits. The default total is now `guest/2 + 256 MiB * ncpus + 1 GiB` (4 GiB at the usual 2 GiB/8 vCPU launch): private L1s fill to the 256 MiB cap and the shared cache gets a 2 GiB leftover. Out-of-range relocatable link pointers use a nearby literal island rather than a host-baked MOV-wide stub, publication is allowed with one live executor, and a translation may carry relocatable slots. The cap was first raised from 2 to `maximum_block_instructions` (64), then, in `patches/0010-jit-reloc-cap`, to `maximum_block_instructions * 2 + 4` (132) because guest-PC literals from 0009 made a 64-instruction block overflow 64 slots and rejected 8,909 unique gcc publications. Entries were keyed by guest PC + instruction words until `patches/0009-jit-file-offset-aslr`, which also indexes by the host code-page stamp plus page offset and slides baked guest PCs (`store_pc`, ADR/ADRP, BL return, link keys) so a warm `cc1` hits under ASLR.
 
+
+## Prototype status (13 Nov 2026) — not landed
+
+An env-gated prototype (`UML_JIT_USER_MAP=1`) was built on macOS uml-darwin.
+It reserved per-mm slots, mirrored uniform 16 KiB guest spans with `vm_remap`
+of the existing native-window backing, bound `K` and an installed-page bitmap
+into `JitChainState`, and used a flag-free `guest_va + K` fast path in
+`emit_translate` (exclusives, atomics, and 4 KiB-straddling accesses stayed
+on the software TLB). Faults in the reserved region retried after a
+map-and-install in the SIGSEGV/SIGBUS handler.
+
+It booted, ran apk, dash, and a gcc compile (cold and warm exit 0). It
+**regressed** the walls we care about, so it was not committed:
+
+- `sh_loop_dash` 0.18 s → 0.29–0.30 s
+- compile cold 2.07 s → 2.44–2.48 s
+- compile warm 1.16 s → 1.46 s
+
+The extra bounds+bitmap checks on every load/store, with the TLB path still
+taken when a 16 KiB span is not uniformly remappable, are the likely tax.
+A process-wide mutex on every `run_block` bind was removed (lock-free
+publish of `K` and the bitmap pointer); the regression remained.
+
+### Blockers
+
+- **UML native window layout.** The process already reserves the physical
+  RAM window at `0x600000000000-0x60014000c000` (5.4 GiB, 16 KiB host pages,
+  `direct-root=yes`). `mach_vm_region` at startup showed a ~96 TiB hole
+  below it (`0x7000000000-0x600000000000`) and a ~32 TiB hole above it
+  (`0x60014000c000-0x800000000000`, the 47-bit guest limit). Those holes
+  are not all mmapable: `MAP_NORESERVE` of 8 TiB at `0x780000000000` and of
+  1 TiB at `0x7f0000000000` both failed with `ENOMEM`. A compact pack of 32
+  slots × 32 GiB at `0x600800000000` did reserve. A contiguous TASK_SIZE
+  (2^39–2^48) alias does not fit beside the native window, the MAP_JIT
+  arena, and ordinary host allocations, and Darwin will not hand over the
+  whole inventoried hole.
+- **47-bit host vs high musl PIE.** Guest user VAs under ASLR sit near
+  `0x7fff...`, just below `DARWIN_UML_GUEST_ADDRESS_LIMIT` (2^47). The
+  working reservation used a process-wide guest window of the top 32 GiB
+  (`0x7ff800000000-0x800000000000`) and a per-mm `K` (slot 0's `K` was
+  `0xffffe01000000000`, a wrap, not identity). Heap or mmap below that
+  window stays on the software TLB. Identity (`K=0`) at the PIE addresses
+  themselves was not mmapable at the sizes we tried.
+- **16 KiB host pages vs 4 KiB guest pages.** A host mapping is 16 KiB, so
+  only a 16 KiB-aligned guest span whose four 4 KiB pages share one
+  protection and are physically contiguous in the native window can be
+  remapped as `guest_va + K`. Mixed or sparse 16 KiB spans stay on the TLB;
+  a blanket `add K` without a bitmap would SIGSEGV or incorrectly expose
+  an unmapped 4 KiB neighbour. That bitmap+fallback is what the prototype
+  emitted, and it cost more than it saved on dash and gcc.
+- **Per-mm slots, not a process-global identity map.** Two tasks can map
+  the same guest VA differently. The prototype carved 32 slots from the
+  reserved pack, one per live mm, with `K` in `JitChainState` so
+  translations stay shareable. 32 concurrent mm's is a practical cap, not
+  a TASK_SIZE solution.
+- **No cheap way to complete a guest fault from SIGSEGV** when the fast
+  path has already rewritten the address to `guest + K` and the page is
+  legitimately unmapped or mixed. The bitmap is what keeps those accesses
+  on the TLB path so the existing fault label can fire.
+
+A later attempt should either map only proven-uniform 16 KiB spans *and*
+avoid a per-access bitmap (for example a same-page run that already hoists
+translation), or find a way to install every 4 KiB user page without
+breaking 16 KiB host isolation. It must beat 0.18 s dash and 1.16 s warm
+compile with the flag off, not just boot.

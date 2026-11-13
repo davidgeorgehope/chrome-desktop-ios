@@ -254,9 +254,42 @@ blocks carry extra guest-PC slots; the cap is still `maximum_block_instructions`
 That leftover, plus leaving ASLR on, is why warm wall is 1.22 s rather than
 1.09 s. vkcube / Venus was not diagnosed in this pass.
 
+### Relocation cap raised above 64 (`patches/0010-jit-reloc-cap`)
+
+Guest-PC literals from 0009 made a 64-instruction block need more than 64
+relocatable slots. The cap is now `maximum_block_instructions * 2 + 4`
+(132). A profiled compile dropped `shared.malformed.reloc_count` from
+8,909 to 0 and `compile_ms` from 814 to 683. Raw official-like numbers,
+profiler off, ASLR left on:
+`scripts/cpu-benches/profiles/reloc-cap-timings.txt`.
+
+| Bench | 0010 (ASLR on) | 0009 (ASLR on) | 12 Nov official (ASLR off) | Host native (prior) | Ratio vs native |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `sh_loop_dash` (20k) | 0.18 s | 0.18 s | 0.19 s | 0.03 s | **6.0×** |
+| `compile_tiny_sha` cold | 2.07 s | 2.12 s | 1.87 s | 0.24 s | **8.6×** |
+| `compile_tiny_sha` warm | 1.16 s | 1.22 s | 1.09 s | 0.24 s | **4.8×** |
+| `native_loop` (tight gcc loop) | 0.49 s | not re-run | 0.49 s | ~0.39 s | **1.26×** |
+| run tiny-sha 3×32 MiB, gcc `-O2` | 1.182 s / 81.22 MiB/s | not re-run | 1.179 s / 81.42 MiB/s | 0.628 s / 152.90 MiB/s | **1.88×** |
+| openssl evp sha256, 16 KiB | 1,777,931.61k | not re-run | 1,731,317.55k | 2,647,014.75k | **1.49×** |
+| openssl evp aes-256-cbc, 16 KiB | 1,029,865.47k | not re-run | 880,214.02k | 1,326,698.62k | **1.29×** |
+
+Compile rows are from an isolated official-like boot (dash + compile only),
+the same protocol as 0009. The tight loop, tiny-sha-run, and evp numbers
+are from a full official-like suite on the same binary, ASLR on, OpenSSL
+3.5.9 `OPENSSL_armcap=0x8fd`. evp aes-256-cbc is faster than the earlier
+10:11 PM ET baseline; tiny-sha-run and the tight loop are within noise of
+that baseline. The cap raise itself is the modest warm-compile win
+(1.22 s → 1.16 s).
+
+A first `UML_JIT_USER_MAP=1` prototype of the `DESIGN.md` fixed-offset
+guest user mapping reserved 32 × 32 GiB slots, booted, and ran apk, dash,
+and gcc, but regressed dash to 0.29 s and warm compile to 1.46 s. It was
+not committed. Blockers (native window layout, 47-bit host vs high PIE,
+16 KiB vs 4 KiB pages) are in `DESIGN.md`.
+
 ## Next costs
 
-- Shell (fair dash **6.0–6.3×**): SIGPROF on a 1.6M-iteration loop put 80% of samples in generated JIT code, with no single C++ hotspot worth a safe fix. The leftover is codegen quality of the dash interpreter (non-link cuts, reservation splits, fairness), not the dispatcher. A return-address stack and a deeper per-site IC were not added.
-- Compile is **8.8×** cold and **5.1×** warm with ASLR on, after file+offset keys and a slide of baked guest PCs (`patches/0009-jit-file-offset-aslr`). Warm wall is close to the earlier 1.09 s ASLR-off figure (mostly execution). 8,909 unique blocks still miss the shared cache because they now exceed the 64-relocation cap (`shared.malformed.reloc_count`). Raising that cap, or a cheaper first-tier compile for the remaining 0.55–0.8 s of cold translation, was not tried.
-- Software CPU (~1.88× tiny-sha run, not re-timed): left alone. A correct hoist of `LDP`/`STP` and signed/post-index still needs a unit test first; a multi-entry last-page cache must not tax the miss path.
-- A fixed host offset for guest user memory was not implemented; a design is in `DESIGN.md`.
+- Shell (fair dash still **6.0×**): SIGPROF on a 1.6M-iteration loop put 80% of samples in generated JIT code, with no single C++ hotspot. The leftover is still the per-load/store translation sequences in generated code, plus interpreter control flow (non-link cuts, reservation splits, fairness). The first fixed-offset mapping prototype booted but regressed this number; see `DESIGN.md`.
+- Compile is **8.6×** cold and **4.8×** warm with ASLR on, after raising the reloc cap so the 8,909 overflowing blocks publish (`patches/0010-jit-reloc-cap`). Warm wall is 1.16 s, closer to the 1.09 s ASLR-off figure, and is still mostly execution. A cheaper first-tier compile for the remaining cold translation was not tried.
+- Software CPU is unchanged in substance: tight loop **1.26×**, evp sha256 **1.49×**, tiny-sha-run **1.88×**. evp aes-256-cbc re-timed at **1.29×** (was 1.51× on the earlier baseline; treat as a re-measurement, not a cap-raise claim). A correct hoist of `LDP`/`STP` and signed/post-index still needs a unit test first.
+- A fixed host offset for guest user memory remains the lever for the 1.5–1.9× memory tax and much of the shell gap, but the first prototype is not that win yet.
