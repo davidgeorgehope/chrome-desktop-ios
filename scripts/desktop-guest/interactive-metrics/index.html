@@ -144,7 +144,11 @@
         " key_n=" + keySamples.length + " click_n=" + clickSamples.length +
         " vis=" + vis;
       document.getElementById("status").textContent = line;
-      post(line).then(function () { post("===INTERACTIVE_DONE=== why=" + why); });
+      post(line).then(function () {
+        post("===INTERACTIVE_WARM_NAV=== from=" + location.pathname + " to=/warm.html").then(function () {
+          location.assign("/warm.html");
+        });
+      });
     }
 
     window.addEventListener("keydown", function (ev) { measure("key", ev); }, true);

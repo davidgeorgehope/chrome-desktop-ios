@@ -41,11 +41,17 @@ func main() {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" && r.URL.Path != "/index.html" {
+		name := ""
+		switch r.URL.Path {
+		case "/", "/index.html":
+			name = "index.html"
+		case "/warm.html":
+			name = "warm.html"
+		default:
 			http.NotFound(w, r)
 			return
 		}
-		http.ServeFile(w, r, filepath.Join(root, "index.html"))
+		http.ServeFile(w, r, filepath.Join(root, name))
 	})
 	report := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")

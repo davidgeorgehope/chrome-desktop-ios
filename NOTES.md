@@ -1600,4 +1600,59 @@ The near pass-through worktree
 `/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-passthrough`
 (branch `exclusive/0022-near-pass-through` from `9676ead`) is in place
 with shared `.build/{dependencies,kernel,rootfs}` symlinks. Prototype
-code has not been written yet; that is the next step.
+code has not been written yet.
+
+## Official 0022 warm second-page timing (13 Nov 2026, 5:13–5:16 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host and official 0022
+`uml-darwin-official-0022-20261113` (md5 `6ea8180e05fc6736d32530811ba3c439`).
+Kernel local2, persist off, native Metal 1920×1080, `mem=4G` `ncpus=8`,
+`--jit-cache-budget=8G`, SWAP_ABORT on. Baked Chromium flags from the
+5:05 PM ET compositor fix. The official binary was not overwritten.
+Peek and iPad (A16) stayed Shutdown. Swap used was flat at 918.94M;
+no SWAP_ABORT.
+
+David asked about the ~8 s Chromium first-page time. That number is
+cold: process start / `CHROMIUM_START` until the first in-page rAF on
+a fresh browser. The number he will feel after that is a same-window
+navigation to a second local page.
+
+The harness now does that after `===INTERACTIVE_INPUT===` (whether
+`why=ok` or `why=timeout`): the landing page posts
+`===INTERACTIVE_WARM_NAV=== from=... to=/warm.html` and
+`location.assign("/warm.html")`. `warm.html` is a distinct modest
+page (header + three cards). On its first rAF it posts
+`===INTERACTIVE_WARM_LAUNCH===` with in-page `first_paint_ms` plus
+Navigation Timing (`nav_ms`, `response_ms`, `dcl_ms`, `load_ms`),
+then `===INTERACTIVE_DONE=== why=warm`. The felt time is the guest
+`up=` delta from `WARM_NAV` to `WARM_LAUNCH`. `first_paint_ms` is
+still only time to the first rAF once that page's JS is running.
+
+`metrics-httpd` serves `/warm.html`. `measure-interactive.sh` injects
+it with `--guest-file`. Two Chromium runs at 5:07–5:10 PM ET reached
+`WARM_NAV` but hung until the 110 s DONE wait because that inject was
+missing (404). Those logs are not the warm baseline (scroll/input from
+them still match the compositor-fix band: 9.47 / 6.97 fps, input ok).
+The table below is the rerun after the inject, 5:13–5:16 PM ET.
+
+| Run | Window (ET) | Cold launch process / browser start (guest Δup) | first_paint_ms | Scroll fps | frames | p95_frame_ms | Input | Warm `up=` WARM_NAV→WARM_LAUNCH | nav_ms / response_ms | Peak RSS | Swap |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | --- | --- | --- |
+| Chromium r1 | 5:13:02–5:13:35 PM | 12 s / 8 s (7.62 s) | 502.7 | 9.47 | 19 | 500.00 | ok, key 7.70 ms, click 14.60 ms | **0.60 s** | 421.5 / 149.0 | 4256 MiB | 918.94→918.94M |
+| Chromium r2 | 5:13:36–5:14:08 PM | 10 s / 7 s (7.50 s) | 673.3 | 9.25 | 19 | 283.40 | ok, key 12.90 ms, click 16.90 ms | **0.64 s** | 459.4 / 144.4 | 5047 MiB | 918.94→918.94M |
+| Firefox r1 | 5:14:09–5:15:12 PM | 19 s / 16 s (15.74 s) | 20.0 | 39.36 | 80 | 66.64 | timeout, 0/0 (`hasFocus=0`) | **1.85 s** | 0.0 / 773.0 | 4812 MiB | 918.94→918.94M |
+| Firefox r2 | 5:15:12–5:16:16 PM | 19 s / 15 s (15.91 s) | 3.0 | 39.72 | 80 | 66.66 | timeout, 0/0 (`hasFocus=0`) | **1.32 s** | 0.0 / 362.0 | 5063 MiB | 918.94→918.94M |
+
+Once Chromium is up, the second page in the same window is about
+0.60–0.64 s (Navigation Timing `nav_ms` 421–459 ms agrees). That is
+the number David will feel, not the ~7–8 s cold `CHROMIUM_START` to
+first page. Firefox's cold first page is still ~15–16 s after
+`FIREFOX_START`; its same-window second page is 1.32–1.85 s. Firefox
+Navigation Timing fields were mostly 0 at first rAF (`nav_ms` /
+`dcl_ms` / `load_ms`); use the `up=` delta. The evdev poke still
+does not focus Firefox (`hasFocus=0`, input timeout); warm navigation
+still runs after the input timeout and is a valid same-window timing.
+
+Logs on the mini:
+`session-interactive-official0022-cr-warm-{1,2}-20261113-1713{02,36}.log`
+and
+`session-interactive-official0022-ff-warm-{1,2}-20261113-171{409,512}.log`.

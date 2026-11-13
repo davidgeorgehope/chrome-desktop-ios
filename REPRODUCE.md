@@ -473,7 +473,19 @@ the next rAF (synthetic JS events are ignored). If `vncdotool` is on
 BTN_LEFT at the VNC tablet’s 16-bit ABS midpoint, then KEY_A). Host
 `VNC_POKE` to TCP 5900 does not work on `--gpu-display=native` (RFB
 003.889, no None auth). After the 13 Nov Chromium compositor fix, a
-run should report non-zero `key_n` and `click_n` with `why=ok`.
+Chromium run should report non-zero `key_n` and `click_n` with
+`why=ok`. Firefox still times out (`hasFocus=0`); that is a known
+gap, not a failed inject.
+
+After input (ok or timeout) the landing page posts
+`===INTERACTIVE_WARM_NAV===` and navigates in the same window to
+`/warm.html`. That file must be injected (`measure-interactive.sh`
+does this). Look for `===INTERACTIVE_WARM_LAUNCH===`. The felt
+second-page time is the guest `up=` delta from `WARM_NAV` to
+`WARM_LAUNCH` (plus Navigation Timing `nav_ms` when it is non-zero).
+`===INTERACTIVE_DONE=== why=warm` ends the run. Official 0022 Chromium
+warm navigation is about 0.60–0.64 s versus ~7–8 s cold first page
+(5:13–5:16 PM ET, 13 Nov 2026).
 
 Chromium flags live in `scripts/desktop-guest/chromium-flags` and are
 injected as `/usr/local/etc/chromium-flags`. The official 0022 usable
@@ -482,7 +494,7 @@ desktop needs `--disable-gpu-compositing --enable-gpu-rasterization`
 `UML_CHROMIUM_FLAGS_FILE`. Persist off, memory-pressure preflight,
 SWAP_ABORT start+2048M, `mem=4G ncpus=8`, `--jit-cache-budget=8G`,
 native Metal 1920×1080, same labwc images as TTP. Official 0022 numbers
-are in `NOTES.md` (4:42–4:47 PM and 4:55–5:05 PM ET, 13 Nov 2026).
+are in `NOTES.md` (4:42–4:47 PM, 4:55–5:05 PM, and the warm second-page table at 5:13–5:16 PM ET, 13 Nov 2026).
 
 Time-to-example.com stays a separate measurement:
 `launch-ab-uml-darwin.sh` plus `scripts/macos-metal/score-ttp-shots.py`

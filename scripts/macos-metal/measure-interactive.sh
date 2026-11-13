@@ -115,6 +115,7 @@ args=(
   --guest-file=/payload/usr/local/etc/interactive-metrics="$FLAG"
   --guest-file=/payload/usr/local/bin/interactive-metrics-start.sh="$HERE/desktop-guest/interactive-metrics-start.sh"
   --guest-file=/payload/usr/local/share/interactive-metrics/index.html="$METRICS_ROOT/index.html"
+  --guest-file=/payload/usr/local/share/interactive-metrics/warm.html="$METRICS_ROOT/warm.html"
   --guest-file=/payload/usr/local/share/interactive-metrics/cgi-bin/report="$METRICS_ROOT/cgi-bin/report"
   --guest-file=/payload/usr/local/share/interactive-metrics/metrics-httpd="$METRICS_ROOT/metrics-httpd"
   --guest-file=/payload/usr/local/share/interactive-metrics/evdev-poke.sh="$METRICS_ROOT/evdev-poke.sh"
