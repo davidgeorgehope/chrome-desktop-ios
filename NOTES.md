@@ -395,3 +395,29 @@ The same seat unblocks the gears clients that previously failed for lack of a ke
 
 `FIREFOX_URL` (default `https://example.com`) is now an optional override on the production labwc start script, used by the input-proof overlay.
 
+## Shared translation cache vs a second Firefox content process (13 Nov 2026, 3:21–3:35 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Official 4K sources, measured on a side `uml-darwin-stats` binary (official `uml-darwin` inode unchanged). mem=4G, ncpus=8, labwc desktop, Firefox 151 loading example.com.
+
+The shared cache is already keyed by file+offset and slides guest PCs, so a second process mapping the same `libxul.so` page should hit. A same-boot warm Firefox after SIGTERM had previously shown no help (content process 10.41 s vs 10.45 s cold). Instrumentation (`UML_JIT_SHARED_STATS=1`, plus guest `/proc` maps) found the following, in this order of the suspected causes:
+
+| candidate | finding |
+| --- | --- |
+| Cache size / eviction | **The cause.** Default leftover is 3 GiB (`guest/2 + 1 GiB`). It fills at ~1.33M entries mid-Firefox. `reclaim_unused` evicts only `use_count==1` owners, but live L1s pin the entries, so `evictions=0`. New content-process PCs hash to *different shards* (shard key is the ASLR'd guest VA). Further publications are rejected (`rejected` climbed to **698,874**). Those unique blocks are never stored, so a later content process cannot hit them. |
+| Reloc cap | Not the cause. `malformed` stayed in the tens to low hundreds. |
+| Different mapping slide | File+offset works: `id0=0`, `idN` in the millions. Socket/forkserver/content map libxul at different slides than the parent; `location`/`slide` hits were 100k–300k. |
+| Non-relocatable literals | Materialization failures were almost all tiny `mat_arena` (dozens), not link refusals. `reuses` tracked `matches` almost 1:1. |
+| W^X / self-modifying invalidation | No version-churn signal in the stamps; identity stayed stable for the backing. |
+| Per-mm flush on exec | The process-wide cache is not flushed. The miss is admission rejection, not a drop of already-stored entries. |
+
+Before/after at the default 3 GiB cap, same first-boot workload:
+
+| | insertions (end of first session) | evictions | rejected | first Isolated Web Content after READY |
+| --- | ---: | ---: | ---: | ---: |
+| Before (reject-on-full) | frozen at 1,331,938 | 0 | 698,874 | ~11–13 s (prior official baseline) |
+| After (evict in-use + cross-shard) | continued, 2.0M+ | 757k by warm-restart point | 1–3k | 14.6 s (not a first-load win) |
+
+`--jit-cache-budget=8G` (6 GiB shared at 8 vCPUs) holds one Firefox unique set (~2.41M entries, 5.48 GiB) with **zero evictions and zero rejects** through the first session. First Isolated Web Content was still 16.0 s after READY — the first content process must compile its unique libxul paths once. A same-boot `killall`+restart in that 8G run had not spawned Isolated Web Content by 25 s after the warm start (helpers were also late vs the first session); that is not a demonstrated time-to-page win, and the restart method may have been messy. Persist-to-disk across boots was not landed (not cheap: ~2 GiB payload plus relocations and stamp versions).
+
+The official 4K binary and identity were left alone. The evict-on-full change and the optional stats dump are in `patches/0011-jit-shared-evict-on-full`. The official desktop launcher accepts `UML_JIT_CACHE_BUDGET` (for example `8G`) once a rebuilt uml-darwin is in use.
+

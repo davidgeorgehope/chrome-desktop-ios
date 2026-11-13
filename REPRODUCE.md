@@ -228,7 +228,7 @@ For an AppKit window (and `screencapture -v -l <windowid>`), open the
 `.command` from the Mac GUI so `UML_GPU_DISPLAY=native`. Keep the guest at
 1920×1080 (`--gpu-auto-resize=off`); do not change the Mac's 3840×2160
 display or voxl resize. Use `mem=4G` on the 16 GB mini (the CLI default is
-`mem=8G`). `script(1)` in the `.command` gives the guest a pty so
+`mem=8G`). Optional `UML_JIT_CACHE_BUDGET=8G` raises the process-wide JIT budget so the shared translation cache can hold one Firefox unique set; evict-on-full is `patches/0011-jit-shared-evict-on-full` (set `UML_JIT_SHARED_STATS=1` on a rebuild to dump hit/miss/reject counters). `script(1)` in the `.command` gives the guest a pty so
 `===DESKTOP_READY===` is line-buffered into `session.log`.
 
 Guest session scripts in `scripts/desktop-guest/` now probe Zink first when

@@ -61,6 +61,13 @@ args=(
 if [ -x "$BWRAP" ]; then
 	args+=( --guest-file=/payload/usr/local/bin/bwrap-passthrough.sh="$BWRAP" )
 fi
+# Optional larger host JIT budget so Firefox unique translations stay in
+# the shared cache. Default leftover at mem=4G ncpus=8 is 3 GiB and fills
+# mid-session; 8G total leaves ~6 GiB shared. Evict-on-full (patches/0011)
+# needs a rebuilt uml-darwin; the flag itself works on the official binary.
+if [ -n "${UML_JIT_CACHE_BUDGET:-}" ]; then
+	args+=( --jit-cache-budget="$UML_JIT_CACHE_BUDGET" )
+fi
 if [ -x "$FFPROF" ]; then
 	args+=( --guest-file=/payload/usr/local/bin/firefox-kernarium-profile.sh="$FFPROF" )
 fi
