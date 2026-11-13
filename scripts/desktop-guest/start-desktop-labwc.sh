@@ -94,6 +94,33 @@ mkdir -p /tmp/labwc-cfg
 # drm alone disables wlroots' libinput backend, so the VNC keyboard and
 # tablet (already registered by uml_vnc_input) never reach labwc.
 export WLR_BACKENDS="${WLR_BACKENDS:-drm,libinput}"
+
+# The iOS Simulator software Virgl provider advertises EDID; the macOS
+# Metal/Zink path does not (`[drm] features: +virgl -edid ...` there).
+# labwc's default GLES/EGL virtio_gpu scanout reaches READY on the
+# Simulator but never presents a CPU framebuffer, so simctl screenshots
+# stay black. pixman scanouts a dumb buffer, which is the same present
+# path XFCE already uses there. Leave WLR_RENDERER alone on Metal.
+# Callers can still export WLR_RENDERER to force a choice.
+if [ -z "${WLR_RENDERER:-}" ]; then
+  edid=0
+  for f in /sys/class/drm/*/edid; do
+    if [ -s "$f" ]; then
+      edid=1
+      break
+    fi
+  done
+  if [ "$edid" = 0 ] && grep -q 'features:.*+edid' /sys/class/drm/card0/device/uevent 2>/dev/null; then
+    edid=1
+  fi
+  if [ "$edid" = 0 ] && dmesg 2>/dev/null | grep -q '\[drm\] features:.*+edid'; then
+    edid=1
+  fi
+  if [ "$edid" = 1 ]; then
+    export WLR_RENDERER=pixman
+    ts "software_display WLR_RENDERER=pixman"
+  fi
+fi
 chmod 666 /dev/input/event* /dev/input/mice /dev/input/mouse* 2>/dev/null || true
 ts labwc_exec
 labwc -C /tmp/labwc-cfg > /tmp/labwc.log 2>&1 &
@@ -141,7 +168,13 @@ if command -v firefox >/dev/null; then
   fi
   ff_url="${FIREFOX_URL:-https://example.com}"
   echo "===FIREFOX_URL=== $ff_url WLR_BACKENDS=$WLR_BACKENDS input=$(ls /dev/input 2>/dev/null)" | tee /dev/ttyS0
-  MOZ_ENABLE_WAYLAND=1 MOZ_ACCELERATED=1 \
+  # Accelerated Wayland Firefox on a pixman compositor often never
+  # paints; use software WebRender on the Simulator path only.
+  ff_accel=1
+  if [ "${WLR_RENDERER:-}" = pixman ]; then
+    ff_accel=0
+  fi
+  MOZ_ENABLE_WAYLAND=1 MOZ_ACCELERATED=$ff_accel MOZ_WEBRENDER=$ff_accel \
     firefox $ff_profile --new-instance "$ff_url" \
     > /tmp/firefox.log 2>&1 &
 fi

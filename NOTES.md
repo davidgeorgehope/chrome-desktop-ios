@@ -582,3 +582,36 @@ CPU benches on Peek, same Alpine 3.24.2 slim-init image as the old Simulator tab
 The `sh` loop is clearly faster than the previous Simulator JIT (0.20 s vs 0.34 s, now 5.15× LinuxRunner). sha256sum is tied with the old JIT. apk was a bit slower this run and is partly network-bound; do not treat that as a regression of the arena. Boot to benches was 1.15 s vs 1.00 s, within DHCP noise (lease obtained just before `BENCH_START`).
 
 The desktop number is not a like-for-like XFCE rematch: the current production image is labwc (`alpine-3.24.2-desktop-labwc.ext4`, journal-clean). On iPad (A16) at 4:38 AM ET, `DESKTOP_START` was 3.28 s, labwc's Wayland socket was up at 5.95 s, and `DESKTOP_READY` was **5.97 s** (`display=wayland-0 labwc=1`). A second boot at 4:39 AM ET was ready in **3.96 s**. The old 28.60 s figure was XFCE. The serial log is the source for those times; `simctl io screenshot` of the iPad showed only Simulator chrome over a black guest surface (Firefox had been started but a painted-frame rematch was not captured). Execution engine was jit, 1 GiB cache budget. No phone install.
+
+## Simulator labwc pixels (pixman present path, 13 Nov 2026, 4:49 AM ET)
+
+The 4:38–4:39 AM ET labwc boots on iPad (A16) reached `DESKTOP_READY` (5.97 s, then 3.96 s) with JIT through a48d90a, but `simctl io screenshot` showed only Simulator chrome over a black guest surface. The Simulator Virgl provider is software (`Virgl software rasterizer provider: software`, guest `[drm] features: +virgl +edid +resource_blob +host_visible`). There is no Metal scanout texture; present depends on `RESOURCE_FLUSH` → `presentReadback` / `publishCpuFrame`. labwc's default GLES/EGL virtio_gpu scanout did not reach that path. XFCE already presented because Xorg modesetting uses a dumb/linear resource and flush. The macOS Metal path (`presentMetal`, `-edid`) was left unchanged.
+
+`scripts/desktop-guest/start-desktop-labwc.sh` now selects `WLR_RENDERER=pixman` when it sees a non-empty `/sys/class/drm/*/edid` or dmesg `features:.*+edid`, and launches Firefox with `MOZ_ACCELERATED=0 MOZ_WEBRENDER=0` in that case only. A Simulator-only APFS clone `alpine-3.24.2-desktop-labwc-sim-pixman.ext4` (journal-clean, incompat 0x2c2, not the 0444 production file) received the script via Lima. iPad Documents pointed a new symlink at that clone; `tmp/kernarium-overlay.ext4` was deleted before launch.
+
+First painted boot, 4:49:02 AM ET launch, iPad (A16) 1920×1080, JIT, 1 GiB cache, 4096 MiB / 8 vCPUs, `https://example.com`:
+
+| Event | Guest uptime | Wall (America/New_York) |
+| --- | ---: | --- |
+| `simctl launch` | — | 4:49:02 AM |
+| `software_display WLR_RENDERER=pixman` | 2.44 s | — |
+| `DESKTOP_READY` | **3.83 s** | 4:49:07 AM |
+| `FIREFOX_START` | 3.88 s | 4:49:07 AM |
+| Firefox chrome painted (New Tab, blank content) | — | 4:49:38 AM (~31 s after READY) |
+| example.com painted | — | 4:50:22 AM (~75 s after READY) |
+
+Proof screenshot: `/Users/davidhope/linux-ios-bakeoff/screenshots/kernarium-sim-labwc-pixman-painted.png` (same bytes as `kernarium-sim-labwc-pixman-55s.png`, taken 4:50:22 AM ET). Earlier chrome-only frame: `kernarium-sim-labwc-pixman-25s.png`. The guest surface shows the labwc/Firefox window with the Example Domain page (a Firefox Privacy Notice tab also opened).
+
+A second boot (Simulator had been shut down and rebooted; `DESKTOP_READY` **6.55 s**) measured Firefox time-to-page with `simctl io screenshot` every 5–10 s after READY (`screenshots/ttp/plus-*.png`, log `notes/macos-metal-desktop/kernarium-sim-labwc-pixman-ttp.log`):
+
+| After READY | What the screenshot shows |
+| ---: | --- |
+| 30 s | still a black guest surface |
+| 35 s | Firefox chrome, New Tab, blank content |
+| 55 s | tab/URL on example.com, status “Waiting for example.com...” |
+| 70 s | first Example Domain body text; status “Transferring data from example.com...” |
+| 80 s | full example.com page painted (icon, translations, Learn more) |
+
+So on this software-WebRender Simulator path, Firefox chrome appears about 35 s after READY, first page text by 70 s, and the full page by **80 s** after READY. That is much slower than the macOS Metal/Zink Isolated Web Content times (~12–15 s). The first boot’s 31 s chrome / 75 s full-page bracket matches this second measurement.
+
+The Simulator app is the 4:36 AM ET JIT-through-a48d90a build. Rebuild it from this repo with `scripts/build-kernarium-simulator.sh /path/to/Kernarium` (applies `patches/0013-jit-publish-arena/` and `patches/0014-simulator-vm-region-64/`, `cmake --build --preset kernarium-ios-simulator` only). Nothing was installed on a physical iPhone. Official 4K inode remains 244909018.
