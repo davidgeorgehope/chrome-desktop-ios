@@ -963,3 +963,120 @@ Full multilingual page **53 s→39 s** (~26%) and first English body **46 s→29
 
 Not rebuilt or re-measured in this pass. The first side-link had to be thrown out after the `/init` ABI panic, and the uml-darwin official vs alloc A/B finished at **9:44 AM ET**. The patch is the iOS-applicable compiler-reuse series (`apply.py` after 0020). Persist must stay off on Designed-for-iPad until the openssl 8192-byte hang is shown safe. Do not install anything on a phone.
 
+## Emit-in-place wrap-up, 0021 device/sim numbers, and persist-cache diagnosis (13 Nov 2026, 9:51 AM–10:36 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3. Work stayed on this host. Nothing was installed on a phone. Display resolution, voxl, Screen Sharing, Keychain, and the official 4K frozen copies (`uml-darwin-official-c134a87` / `uml-darwin-official-20261113`, md5 `91afb4a7fc3037c87b782081029fac21`) were not overwritten. Persist stayed **off** for every new measurement in this stretch. David’s 10:33 AM ET priority change: wrap up emit()/sh-loop quickly (land nothing that is not a clear win), then treat a persistent translation cache that actually speeds a second browser launch as the lever (run-2 full page target <10 s), and include Chromium alongside Firefox in those run1/run2 TTPs.
+
+### Designed-for-iPad and Simulator, patch 0021 (done 9:51–10:15 AM ET)
+
+Rebuilt from main `45875be` (compiler reuse). D4iPad: debugger JIT via lldb `jit_serve`, 2 GiB cache / 128 MiB L1, Aqua `gui/501` LaunchAgent, persist off, `vm.swapusage` 0, TEST SUCCEEDED, RSS peak 5.45 GiB. Simulator: Peek iPhone 17, `xcodebuild test` with `-parallel-testing-enabled NO` and one destination (a first attempt with default parallel testing spawned 3 XCTest clones and blew swap; that run was aborted). iPad (A16) was left Shutdown.
+
+| Event | 7:50 AM D4iPad 2G (pre-0021) | 0021 D4iPad 2G (9:51–9:55 AM ET) | Sim ~80 s baseline | 0021 Sim (10:11:43–10:14:59 AM ET) |
+| --- | --- | --- | --- | --- |
+| READY | 3.04 s | **2.82 s** | | **4.39 s** (was 6.55 s on the earlier sim path) |
+| Chrome (New Tab) | 31 s | **28 s** | | **28 s** |
+| First English body | ~70 s (context) | **60 s** | | **64 s** |
+| Full multilingual + icon | 70 s | **65 s** | ~80 s | **72 s** |
+| sha256 32 MiB | 0.64 s | **0.48 s** | | 0.51 s |
+| evp aes-256-cbc 16 KiB | 701.5 MB/s | 771.3 MB/s | | 802.4 MB/s |
+| evp sha256 16 KiB | 708.5 MB/s | 773.1 MB/s | | 1039.3 MB/s |
+| sh_loop_ash 20k | 0.68 s | **1.00 s (regressed)** | | 1.01 s |
+
+D4iPad Firefox is still far from uml-darwin. The sh_loop 0.68→1.00 s regression is real on that debugger-JIT / 4G path; uml-darwin 2G minimal stayed 0.18 s, so this was not investigated further after the 10:33 AM pivot. Simulator 1G / default 256 MiB L1 shared cache thrashed (`matches=135`, `misses=135358`). The 72 s sim full-page number may be slightly conservative: leftover swap from the aborted 3-clone run was still present.
+
+### Patch 0022 emit-in-place: measured, not landed
+
+`patches/0022` was implemented in the local Kernarium tree only (not committed, not pushed, not on `linux-ios-fast` main). `ExecutableArena::reserve_emit` writes into the writable alias; `store_block` skips the memcpy when the emit buffer is already there; packed-publish still memcpy’s host words into the share template (needed so the template outlives L1 and zeros reloc cells). New fields only at the **end** of `ExecutableArena` / `Arm64Emitter`. `Implementation::compile_into_arena` is a method (no mid-struct insertion). `/init` did not panic.
+
+Working `uml-darwin` was overwritten by this side-link as expected; official named copies were not. Frozen side binaries: `uml-darwin-inplace-20261113` / `uml-darwin-inplace-20261113-102031`, md5 `c3c61b7012f744e69a7af55f33769efc`.
+
+SIGPROF compile-cold (persist off, mem=2G ncpus=8): official 2.28 s, alloc 2.13 s, inplace **2.16 s**. `_platform_memmove` samples 2211 / 2033 / **1433**. `Arm64Emitter::emit()` became 15.8% of inplace samples (per-instruction bounds/branch). Incremental emit() tightening was started and then dropped after the 10:33 AM pivot; it is not enough to change time-to-page.
+
+After leftovers were gone, swap used sat around 1.63 GiB and would not drain to 0 without a reboot (David forbade a reboot and quitting his apps). Remeasures used “no new swap pressure”: used stayed flat or fell slightly. This is **not** literal 0 swap.
+
+CPU benches at that flat sticky swap (used 1634.25 MiB throughout, 10:27–10:29 AM ET), persist off, mem=2G ncpus=8:
+
+| Bench | Alloc 0021 (10:27 AM ET) | Inplace 0022 (10:28 AM ET) |
+| --- | --- | --- |
+| sh_loop_ash | 0.18 s | 0.18 s hold |
+| sh_loop_dash | 0.19 s | 0.19 s hold |
+| sha256_32m | 0.35 s | 0.36 s hold |
+| evp aes-256-cbc 16 KiB | 969.0 MB/s | 944.8 MB/s slight regress |
+| evp sha256 16 KiB | 1502.2 MB/s | 1527.2 MB/s slight improve |
+| compile_tiny_sha cold | 2.14 s | 2.19 s slight regress |
+| compile_tiny_sha warm | 1.31 s | 1.40 s regress |
+
+Firefox TTP, same method as the 8:50 AM A/B table (labwc image, native Metal 1920×1080, mem=4G ncpus=8, 8G JIT budget, persist off), seconds after process start:
+
+| Config | Window (ET) | READY | Chrome | First English body | Full multilingual body | Swap |
+| --- | --- | --- | --- | --- | --- | --- |
+| Alloc reuse, morning 0-swap (from the 9:22 AM section) | 9:42:38–9:44:38 AM | 3.51 s | 27 s | **29 s** | **39 s** | 0.00M used |
+| Inplace 0022, leftover-swap (not a landing run) | t0 10:21:47 AM | 3.26 s | 20 s | **34 s** | 39 s hold | ~1.7G used, contaminated |
+| Alloc reuse, flat sticky swap | t0 10:31:41 AM | **2.61 s** | **16 s** (10:31:57 New Tab) | **23 s** (10:32:04) | **31 s** (10:32:12) | used 1634→1626 MiB, no new pressure |
+
+The 10:31 AM alloc run is the same-session baseline for any later inplace comparison. Inplace Firefox at that same flat-swap condition was **not** started; the 10:33 AM pivot landed first. Official md5 was still `91afb4a7…` after these runs.
+
+**Landing decision: 0022 is not a clear win and is not on main.** compile_tiny_sha and evp AES do not beat alloc; the only inplace Firefox first-English number is the leftover-swap 29→34 s regression. The 39 s full-page headline is not going to be solved by trimming `emit()`.
+
+### Why patch 0020’s persistent cache had no Firefox win
+
+Numbers already in the 8:15–8:19 AM ET rows of the persist A/B table: persist-on cold full page **63 s**, warm **46 s**, vs persist-off hook-fix **48 s** and pre-0020 arena **45 s**. READY was **4.62 s cold / 4.66 s warm** — no boot win either. Persist-on cold paid a real I/O tax (Isolated 18→23 s, full 48→63 s).
+
+This is not primarily “ASLR / guest-VA keying.” The on-disk key is already `(page_hash of the 4 KiB guest code page, codegen profile hash, page offset)` plus an optional source-image fingerprint (ext4 UUID / size / mtime). `rejected=0` on both the cold and warm runs: when a key is found, guest-byte validation and CRC pass. Process-lifetime `code_page_identity` is used only for the in-RAM location index, as designed.
+
+The coverage math, from `session-persist-cold-20261113-081534.log` and `session-persist-warm-20261113-081750.log`:
+
+| Point | Cold persist-on (8:15:34–8:17:12 AM ET) | Warm persist-on (8:17:50–8:19:27 AM ET) |
+| --- | --- | --- |
+| READY | misses 149,998 / insertions 164,159 / stores 20,480 / hits 18,534 | misses 138,642 / insertions 174,808 / stores 10 / hits 41,338 |
+| End of ~100 s window | misses 1,339,379 / insertions 1,496,849 / stores **147,480** / hits 179,445 | misses 1,233,479 / insertions 1,533,890 / stores +10,340 / hits **320,315** |
+
+Cold persisted only **147,480 / 1,496,849 ≈ 9.8%** of admitted translations. Warm then found those stored entries (`hits=320,315`, `rejected=0`, cache only grew 147,456→157,796). Unique misses fell by only ~106k (~8%). That is why run 2 cannot be “a few seconds.” An earlier aborted warm start (`session-persist-warm-20261113-081315.log`, 3 s, hits=1) opened a previous **413,696-entry / 751 MB** `data.jtc`; the cache later used for the real warm run was the 58 MB file from the 8:15 cold run (now 60M + 7.7M index under `/Volumes/KernariumCS/jit-cache/uml-darwin`).
+
+`remember()` silently returns, with **no counter**, when it sees a leftover host pointer in `[0x100000000, 0x200000000)` after zeroing recorded reloc cells. That range is typical macOS user/JIT VAs. The pointers are real: `Arm64Emitter::call()` / `call_transition()` / `call_preserving_flags()` use `load_stable_pointer()` → `load_literal_constant()` and bake the helper address into the literal pool **without a `JitRelocation`**. Only `direct_link` / `indirect_link` / `guest_pc` are recorded today, so any block that calls a host helper is dropped from the durable store. The ~10% that are stored (pure ALU-style translations without helpers) do hit on run 2; they are not enough of Firefox’s compile working set to move TTP.
+
+Other costs, once a block *is* stored: every persist-on `find`/`publish` fetches and wyhashes a 4 KiB guest page (`persistent_identity_for`); every hit `pread`s the record, CRC32s it, memcpy’s into a packed `SharedTranslation`, inserts into the RAM cache, then copies again into L1 and applies relocs. `remember()` fsyncs and rewrites the whole `index.jtc` every 4,096 stores under the persist mutex (cold: ~147k stores ≈ 36 full index syncs). There is no mmap of `data.jtc`. Lookup cost plus that I/O tax is consistent with persist-on cold being *slower* than persist-off, and with warm tying persist-off rather than beating it.
+
+Designed-for-iPad openssl `aes-256-cbc` 8192-byte hang (persist-on only, 8:37–8:43 AM ET, ~0.3% CPU until SIGTERM) is still unexplained by a rerun, but the same leftover-pointer window is a plausible cause: it is shaped like uml-darwin macOS VAs and may **admit** a Designed-for-iPad translation that still contains a host pointer outside that range, which then jumps into the previous process after reload — or `remember()` fsync/index rewrite under the mutex during heavy eviction can stall the guest. Persist stays opt-in and must not be turned on for D4iPad until this path is shown safe.
+
+### Persist redesign (to implement; stays opt-in until proven)
+
+Success: Firefox (and Chromium, same page, same method) run 1 ~ current persist-off TTP; run 2 full page dramatically lower, target **<10 s**. CPU benches no regression. Only then consider default-on.
+
+1. **Coverage is the first lever.** Add `JitRelocationKind::host_callable`. `call()` / `call_transition()` / `call_preserving_flags()` (and `load_stable_pointer` used for host functions) must record a reloc whose key is a durable image identity plus offset (`dladdr` / Mach-O slide), not a process-local host VA. Materialize patches the current process’s address. `remember()` classifies any leftover host pointer the same way instead of silently dropping the block; unclassifiable pointers are refused with a **logged counter** (`leftover_host`, `foreign_image`, `reloc_oob`, `already_present`, `no_identity`) and are never stored as raw VAs. This also closes the D4iPad “wrong VA window” hole: stop using a hardcoded `[0x1_0000_0000, 0x2_0000_0000)` test.
+2. **Lazy link** is already the packed-publish rule (reloc cells zero in the template). Keep it: persist the unlinked form, link on first materialize in the new process.
+3. **Map `data.jtc` (mmap)** and return views into the mapping instead of `pread` + CRC + memcpy on every hit. CRC at write / flush / open, not on the hit path. Defer `fsync` and the index rewrite to a background / exit flush, not every 4,096 stores under the mutex.
+4. **Key by file + offset** when the guest page is file-backed (backing inode / generation / mtime + file offset + page offset), and only fall back to a content hash for anonymous / JIT pages. Content hashing is already ASLR-stable for PIC text (warm did not balloon the cache with new hashes), so this is a lookup-cost and dirty-page-stability win, not the coverage fix. `CodePageStamp` today is only a process-lifetime identity/version; a backing-file API still has to be added.
+5. **Cap** the durable store so it cannot grow to the earlier 751 MB / 413k-entry file. Keep source-fingerprint invalidation.
+6. Stay **opt-in** (`UML_JIT_PERSISTENT_CACHE` / `KERNARIUM_JIT_PERSISTENT_CACHE`) until run 2 meets the target, D4iPad 8192 is shown safe, and CPU benches hold.
+
+### Fast baseline / tiered JIT for first launch (sketch only; not built)
+
+Run 1 will still compile on the order of a million unique blocks even after persist works (that is the fill of the cache). Incremental emit() trims will not make a cold Firefox/Chromium page fast. A later first-launch path should be a cheap baseline tier in front of the current optimizing JIT: decode once and emit a thin template / threaded-code body (or reuse the existing gadget engine as that tier) so the first execution of a block is cheap, then promote hot blocks to today’s compiler and persist the optimized form (baseline only if it is also cheap to record). The success metric is cold run-1 TTP moving toward run-2 without waiting for a full optimizing compile of libxul / Chromium. Do not build this until the persist coverage path is landed and measured.
+
+### Chromium on the labwc desktop image
+
+David prefers Chromium. Firefox stays installed. The original 0444 `alpine-3.24.2-desktop-labwc.ext4` (03:58 AM ET) was left untouched. An APFS clone was frozen as `alpine-3.24.2-desktop-labwc-pre-chromium-20261113.ext4`. Alpine’s `chromium` package was installed into a separate writable clone, `alpine-3.24.2-desktop-labwc-chromium-20261113.ext4`, booted official-c134a87 with `UML_BOOT_UPPER=none` (so writes hit the ext4, not the production tmpfs overlay), then a clean `poweroff` (not `-f`). Journal was clean afterward; the work image was chmod 0444. Official md5 stayed `91afb4a7fc3037c87b782081029fac21`. Swap used stayed 1506.25 MiB (no new pressure).
+
+Install window: **10:39:38–10:39:54 AM ET** (`install-chromium-labwc-20261113-103938.log`). Guest uptime at `INSTALL_CHROMIUM_DONE` was 13.80 s. Result: **Chromium 156.0.8078.79** Alpine (`chromium-156.0.8078.79-r0` plus `chromium-angle` and `chromium-common`). `/usr/bin/chromium` → `chromium-browser` → `/usr/lib/chromium/chromium-launcher.sh`. `/usr/lib/chromium/chrome-sandbox` is setuid root (`-rwsr-xr-x`). `/usr/bin/firefox` is still present. The ext4 went from whatever it was to **3.0 GiB used / 725.4 MiB free (81%)**. Scripts: `scripts/desktop-guest/install-chromium.sh`, `scripts/macos-metal/install-chromium-labwc.sh`, `scripts/macos-metal/boot.env-upper-none`.
+
+`start-desktop-labwc.sh` and the persist overlay now honor `DESKTOP_BROWSER` / `/usr/local/etc/desktop-browser` (`firefox` default), emit `===CHROMIUM_START===`, open `https://example.com`, and prefetch `/usr/lib/chromium/*`. Extra flags come from `/usr/local/etc/chromium-flags` (overlaid from `scripts/desktop-guest/chromium-flags`). `launch-ab-uml-darwin.sh` takes optional args 5–6: `firefox|chromium` and an explicit rootfs; Chromium defaults to the new image.
+
+### Chromium sandbox / zygote under UML, and a persist-off TTP baseline
+
+The labwc session runs as root, same as Firefox. That is the actual zygote issue:
+
+1. First persist-off smoke (`chromesmoke0swap8g`, t0 **10:40:39 AM ET**, no extra flags): Chromium started and immediately exited. `/tmp/chromium.log` was `ERROR:content/browser/zygote_host/zygote_host_impl_linux.cc:103] Running as root without --no-sandbox is not supported. See https://crbug.com/638180.` The process list went `chromium` → `chrome_crashpad <defunct>` → empty. The setuid `chrome-sandbox` is present but Chromium will not use a sandbox when the browser itself is root. `--no-zygote` was not required.
+2. Retry with `--no-sandbox --disable-setuid-sandbox` (`chromenosandbox0swap8g`, t0 **10:41:11 AM ET**): the process stayed up and a window appeared at **10:41:34 AM ET (+23 s)**, but the page stayed on “Loading…” behind a GNOME **“Choose password for new keyring”** / Default Keyring modal, plus an infobar that `--disable-setuid-sandbox` is an unsupported flag.
+3. Workaround used: **`--no-sandbox --password-store=basic`** (drop `--disable-setuid-sandbox`). `--no-sandbox` is required as root; `--password-store=basic` uses Chromium’s built-in store so gnome-keyring never prompts. The `--no-sandbox` unsupported-flag infobar remains (it cannot be avoided if we have to pass that flag). The only other log line was `vaInitialize failed: unknown libva error` (VA-API is not on this Zink/KosmicKrisp path; it did not block painting).
+
+Persist-off Chromium TTP, same method as the Firefox A/B table, alloc reuse `uml-darwin-alloc`, 8G JIT budget, native Metal 1920×1080, mem=4G ncpus=8, new chromium labwc image, sticky swap used 1506.25 MiB with no new pressure, t0 **10:42:44 AM ET** (`session-ab-chromebasic0swap8g-20261113-104244.log`, shots `persist-ttp-ab-chromebasic0swap8g-manual/`):
+
+| Event | Time (ET) | Seconds after process start |
+| --- | --- | --- |
+| READY | 10:42:47 AM (guest uptime 2.57 s) | **3 s** |
+| Chrome (window + `example.com` URL, tab still “Loading…”, blank body, `--no-sandbox` infobar) | 10:43:03 AM (`t-104303`) | **19 s** |
+| First English body **and** full multilingual + book icon (Example Domain, Arabic/French/Russian/Spanish, Learn more) | 10:43:04 AM (`t-104304`) | **20 s** |
+
+English body and the full multilingual page landed in the same 1-second watcher tick. Compare the same-session Firefox alloc baseline at flat sticky swap (t0 10:31:41 AM ET): chrome **16 s**, first English **23 s**, full multilingual **31 s**. This Chromium figure is a single persist-off run, not yet a persist run1/run2 pair; the window is the default first-run size (not maximized) and shows the `--no-sandbox` infobar. Persist run1/run2 for **both** Firefox and Chromium still waits on the redesigned cache (coverage / `host_callable` relocs first) and stays opt-in until that path is shown safe, including the D4iPad openssl 8192 hang.
+

@@ -74,7 +74,7 @@ echo "===DESKTOP_START=== $(date) uptime=$(cat /proc/uptime) dri=$(ls /dev/dri 2
 # Fault Firefox's large libraries into the page cache while labwc starts.
 # This is I/O only; it does not pre-JIT libxul for a later process.
 (
-  for f in /usr/lib/firefox/libxul.so /usr/lib/firefox/*.so; do
+  for f in /usr/lib/firefox/libxul.so /usr/lib/firefox/*.so            /usr/lib/chromium/chromium /usr/lib/chromium/*.so; do
     [ -f "$f" ] && cat "$f" >/dev/null 2>&1
   done
 ) &
@@ -199,38 +199,65 @@ EOJ
     ts software_firefox_prefs
   fi
 fi
-if command -v firefox >/dev/null; then
+ff_url="${BROWSER_URL:-${FIREFOX_URL:-https://example.com}}"
+# Accelerated Wayland Firefox on a pixman compositor often never
+# paints; use software WebRender on the Simulator path only.
+ff_accel=1
+if [ "${WLR_RENDERER:-}" = pixman ]; then
+  ff_accel=0
+  # pixman already damages per-rect; keep default damage tracking
+  # and allow a client buffer to be scanned out when it is the
+  # only surface (no extra full-frame blit).
+  export WLR_SCENE_DISABLE_DIRECT_SCANOUT=0
+fi
+if [ -x /usr/local/bin/firefox-startup-probe.sh ]; then
+  /usr/local/bin/firefox-startup-probe.sh >/tmp/firefox-probe.log 2>&1 &
+  ts firefox_probe
+fi
+browser=${DESKTOP_BROWSER:-}
+if [ -z "$browser" ]; then
+  browser=$(cat /usr/local/etc/desktop-browser 2>/dev/null || echo firefox)
+fi
+echo "===BROWSER_SELECT=== $browser url=$ff_url WLR_BACKENDS=$WLR_BACKENDS WLR_RENDERER=${WLR_RENDERER:-} input=$(ls /dev/input 2>/dev/null)" | tee /dev/ttyS0
+if [ "$browser" = chromium ]; then
+  chromium_bin=""
+  command -v chromium >/dev/null && chromium_bin=chromium
+  [ -z "$chromium_bin" ] && command -v chromium-browser >/dev/null && chromium_bin=chromium-browser
+  if [ -n "$chromium_bin" ]; then
+    echo "===CHROMIUM_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00 bin=$chromium_bin" | tee /dev/ttyS0
+    # Default flags: Wayland, skip first-run chrome, dedicated profile.
+    # Extra flags (sandbox/zygote workarounds) come from
+    # /usr/local/etc/chromium-flags if a launch needs them.
+    chromium_dir=/root/.config/chromium-kernarium
+    mkdir -p "$chromium_dir"
+    extra=""
+    if [ -f /usr/local/etc/chromium-flags ]; then
+      extra=$(tr '\n' ' ' < /usr/local/etc/chromium-flags)
+    fi
+    # shellcheck disable=SC2086
+    ozone_platform=wayland \
+      $chromium_bin --ozone-platform=wayland \
+      --no-first-run --no-default-browser-check \
+      --user-data-dir="$chromium_dir" \
+      $extra \
+      "$ff_url" > /tmp/chromium.log 2>&1 &
+  else
+    echo "===CHROMIUM_MISSING=== desktop-browser=chromium but no binary" | tee /dev/ttyS0
+  fi
+elif [ "$browser" = falkon ] && command -v falkon >/dev/null; then
+  echo "===FALKON_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
+  QT_QPA_PLATFORM=wayland falkon --no-extensions "$ff_url" \
+    > /tmp/falkon.log 2>&1 &
+elif command -v firefox >/dev/null; then
   ff_profile=""
   if [ -d /root/.mozilla/firefox/kernarium ]; then
     ff_profile="--profile /root/.mozilla/firefox/kernarium"
   fi
-  ff_url="${FIREFOX_URL:-https://example.com}"
   echo "===FIREFOX_URL=== $ff_url WLR_BACKENDS=$WLR_BACKENDS WLR_RENDERER=${WLR_RENDERER:-} input=$(ls /dev/input 2>/dev/null)" | tee /dev/ttyS0
-  # Accelerated Wayland Firefox on a pixman compositor often never
-  # paints; use software WebRender on the Simulator path only.
-  ff_accel=1
-  if [ "${WLR_RENDERER:-}" = pixman ]; then
-    ff_accel=0
-    # pixman already damages per-rect; keep default damage tracking
-    # and allow a client buffer to be scanned out when it is the
-    # only surface (no extra full-frame blit).
-    export WLR_SCENE_DISABLE_DIRECT_SCANOUT=0
-  fi
-  if [ -x /usr/local/bin/firefox-startup-probe.sh ]; then
-    /usr/local/bin/firefox-startup-probe.sh >/tmp/firefox-probe.log 2>&1 &
-    ts firefox_probe
-  fi
-  browser=$(cat /usr/local/etc/desktop-browser 2>/dev/null || echo firefox)
-  if [ "$browser" = falkon ] && command -v falkon >/dev/null; then
-    echo "===FALKON_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
-    QT_QPA_PLATFORM=wayland falkon --no-extensions "$ff_url" \
-      > /tmp/falkon.log 2>&1 &
-  else
-    echo "===FIREFOX_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
-    MOZ_ENABLE_WAYLAND=1 MOZ_ACCELERATED=$ff_accel MOZ_WEBRENDER=$ff_accel \
-      firefox $ff_profile --new-instance "$ff_url" \
-      > /tmp/firefox.log 2>&1 &
-  fi
+  echo "===FIREFOX_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
+  MOZ_ENABLE_WAYLAND=1 MOZ_ACCELERATED=$ff_accel MOZ_WEBRENDER=$ff_accel \
+    firefox $ff_profile --new-instance "$ff_url" \
+    > /tmp/firefox.log 2>&1 &
 fi
 if [ -x /usr/local/bin/desktop-ready.sh ]; then
   # desktop-ready is X11-oriented (xdotool / glxgears); skip it on Wayland.
