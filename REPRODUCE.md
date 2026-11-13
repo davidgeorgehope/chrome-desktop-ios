@@ -22,6 +22,9 @@ hdiutil create -size 50g -fs 'Case-sensitive APFS' -volname KernariumCS -type SP
 hdiutil attach ~/linux-ios-bakeoff/KernariumCS.sparseimage
 ```
 
+There is no LaunchAgent for this image. After a macOS reboot, attach it again with the same `hdiutil attach` command before using `/Volumes/KernariumCS`.
+
+
 ## 2. Arm64 Linux with sudo (Lima)
 
 The box and Hetzner box used here are x86_64; do not use them for these builds. On the Mac:
@@ -236,9 +239,8 @@ for the fixed display size.
 
 ## macOS Metal (uml-darwin + KosmicKrisp)
 
-Designed-for-iPad (`Kernarium/scripts/run-ios-mac.sh`, team `4P2629648N`) is blocked on the bakeoff mini: Xcode 26.6 does not support macOS 26.3.1 as a "My Mac (Designed for iPad)" destination. Do not upgrade macOS and do not install on a paired phone.
+The bakeoff mini is on macOS Tahoe 26.7.3 (25G342) as of 13 Nov 2026, 6:37 AM ET (upgraded from 26.3.1 / 25D2128; 27.x was not installed). Xcode 26.6 now lists `My Mac` as `platform=macOS,variant=Designed for [iPad,iPhone]`. `cmake --preset kernarium-ios-device -DUML_IOS_DEBUGGER_JIT=OFF` plus the Linux-only packager `~/linux-ios-bakeoff/notes/package-ios-linux-device.sh` and an unsigned `xcodebuild` Release build for that destination succeed. Launching still needs a development signature for `com.imxieyi.Kernarium` (wildcard team profiles lack the kernel entitlements and this Mac). Do not install on a paired phone. Until signing is fixed, use the official macOS CLI:
 
-Use the official macOS CLI instead:
 
 ```sh
 # In the Kernarium tree, after the macos Apple GPU prefix and

@@ -137,7 +137,7 @@ Screenshots and video (box `/workspace/`, also `~/linux-ios-bakeoff/screenshots/
 - `kernarium-desktop-native-end-firefox.png` — example.com at 9:04 PM ET
 - `kernarium-desktop-native-end.log` — serial log with renderer strings and the aligned native window
 
-Feel: the shell and panel were already fine; Firefox now paints a real page and the guest no longer dies under a DOM Worker munmap. 3D in the Simulator is still host llvmpipe (~28 FPS gears). Real Metal is on the native macOS `uml-darwin` CLI (next section); Designed-for-iPad is blocked on this Mac by an Xcode/host OS mismatch.
+Feel: the shell and panel were already fine; Firefox now paints a real page and the guest no longer dies under a DOM Worker munmap. 3D in the Simulator is still host llvmpipe (~28 FPS gears). Real Metal is on the native macOS `uml-darwin` CLI (next section). The Designed-for-iPad destination is no longer blocked by the host OS (see the 13 Nov 2026 6:01 AM ET upgrade); launching still needs a development signature.
 
 ## Real Metal on the Mac (uml-darwin + KosmicKrisp)
 
@@ -145,7 +145,7 @@ Date: Thu Nov 12, 2026, 9:19–9:58 PM ET (America/New_York). Host: Mac mini, Ap
 
 ### Why not Designed for iPad / Catalyst
 
-The official Kernarium path is `scripts/run-ios-mac.sh` (destination `platform=macOS,variant=Designed for iPad`, cmake preset `kernarium-ios-device`, team `4P2629648N`). Xcode 26.6 / iOS 26.5 SDK refuses that destination: "Xcode doesn’t support My Mac’s macOS 26.3.1 (25D2128)." Available destinations include the paired phones (Silver, Yellow); those were not used. macOS was not upgraded. Catalyst would need macabi slices of KosmicKrisp, which the official prefix does not publish. A minos 27.0 hello-world does run on 26.3.1, so the framework minos is not the blocker — Xcode's Designed-for-iPad destination is.
+As of 13 Nov 2026, 6:37 AM ET, this is historical: the mini is on macOS Tahoe 26.7.3 (25G342) and Xcode 26.6 lists `My Mac` with `variant:Designed for [iPad,iPhone]`. See the upgrade section at the end of this file. Previously, on macOS 26.3.1 (25D2128), Xcode 26.6 / iOS 26.5 SDK refused that destination: "Xcode doesn’t support My Mac’s macOS 26.3.1 (25D2128)." Paired phones (Silver, Yellow) were not used then either. Catalyst would need macabi slices of KosmicKrisp, which the official prefix does not publish. A minos 27.0 hello-world does run on 26.3.1, so the framework minos is not the blocker — Xcode's Designed-for-iPad destination is.
 
 Device-side work that did land, uninstalled: ios-device runtime with `UML_IOS_DEBUGGER_JIT=OFF` and `UML_GPU_SOFTWARE_RENDERER=FALSE`, packaged Linux-only XCFrameworks (the official `--runtimes all` packager wants a missing Android kernel artifact), MAP_JIT publication for iphoneos / Designed for iPad (`patches/0004-map-jit-designed-for-ipad.patch`), entitlements already contain `com.apple.security.cs.allow-jit`. A pending Keychain prompt on the mini is *not* this build: it is "xcodebuild wants to use your confidential information stored in github.com" and was left untouched.
 
@@ -653,3 +653,37 @@ Screenshots (mini `~/linux-ios-bakeoff/screenshots/`, also box `/workspace/`):
 Logs: `notes/macos-metal-desktop/kernarium-sim-ff-profile-1g.log`, `kernarium-sim-ff-profile-4g.log`, `kernarium-sim-ff-layers-1g.log` (actually 4G; sticky env), `kernarium-sim-falkon-1g.log`.
 
 Rebuild the Simulator app with `scripts/build-kernarium-simulator.sh`. Launch with `SIMCTL_CHILD_UML_JIT_SHARED_STATS=1` to dump cache counters. The default cache remains 1 GiB (safer on this mini). Nothing was installed on a physical iPhone. Official 4K inode remains 244909018.
+
+
+## macOS 26.7.3 upgrade and Designed-for-iPad (13 Nov 2026, 6:01–6:48 AM ET)
+
+David approved a 26.x upgrade so Xcode 26.6 would accept this Mac as a Designed-for-iPad destination. The mini was on macOS Tahoe 26.3.1 (25D2128, Darwin 25.3.0) and is now on **macOS Tahoe 26.7.3 (25G342, Darwin 25.6.0)**. Catalog at 6:02 AM ET also listed macOS 27.2.1-26B131; that was not installed. 26.6.2 was a previous notification, not the current latest 26.x.
+
+`softwareupdate -i 'macOS Tahoe 26.7.3-25G342' --restart --agree-to-license --stdinpass --user davidhope` must run as root (`--restart` exits 13 otherwise). The volume-owner password came from 1Password (vault Grokbot, item "Mac mini login (davidhope)") and was not logged. Download + prepare ran 6:04:32–6:25:01 AM ET; required free space was 26.4 GB, about 39 GB was free. Post-logout apply started at 6:25:22 (`Applying MSU update`). SSH dropped around 6:28; the mini was reachable again at **6:37:24 AM ET** on 26.7.3. `softwareupdate --history` records the install at 6:26:31 AM ET.
+
+Pre-upgrade (6:01 AM ET): Tailscale 1.104.2, Xcode 26.6 (17F113), voxl-launch still at `~/voxl-compare/voxl-launch` (not moved), LaunchAgents `com.davidhope.voxl` (127.0.0.1:6911, `--output-size=1366x768`) and `com.davidhope.voxl-1080` (6912), Tailscale serve 8443→6911 and 8444→6912, `com.davidhope.securityd-guard` StartInterval 60. No uml-darwin / xcodebuild / booted Simulator was running.
+
+Post-reboot checks:
+
+- Tailscale: reachable over 100.110.59.5 (`mac`) and 100.117.9.1 (`davids-mac-mini-1`). CLI still 1.104.2 (client commit e26db7a57 vs daemon c3430f0d2, same mismatch as before). Serve mappings came back on their own.
+- voxl: both LaunchAgents started; `voxl-launch` path unchanged. After boot, ScreenCaptureKit captured the 1920×1080 display at 1364×768 (6911) and 2698×1518 (6912) with no permission error. From the mini, `https://davids-mac-mini-1.taile209c0.ts.net:8443/` and `:8444/` return HTTP 401 (Basic auth), as does `http://127.0.0.1:6911/` and `:6912/`. Display resolution was not changed; voxl resize was not enabled; Screen Sharing was left alone.
+- securityd-guard: still loaded, periodic, last exit 0; `runs` counted up after boot (2 then 3+). `/usr/sbin/securityd` was running. The Keychain/`security` CLI was not used for the upgrade or the app build.
+- `/Volumes/KernariumCS` did **not** auto-remount (no LaunchAgent). Re-attach with `hdiutil attach ~/linux-ios-bakeoff/KernariumCS.sparseimage`. After that it was 50 GiB, 25 GiB used, contents intact.
+- Xcode 26.6 (17F113) still launches.
+
+### Designed-for-iPad build
+
+Destination now includes:
+
+`{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00006020-0009715A216B401E, name:My Mac }`
+
+`cmake --preset kernarium-ios-device -DUML_IOS_DEBUGGER_JIT=OFF` and the Linux-only packager `~/linux-ios-bakeoff/notes/package-ios-linux-device.sh` succeeded (official `package-ios-frameworks.sh` still wants the missing Android runtime). `xcodebuild -scheme Kernarium -configuration Release -destination 'platform=macOS,variant=Designed for iPad' CODE_SIGNING_ALLOWED=NO` **BUILD SUCCEEDED** at 6:46 AM ET (product: `.build/kernarium-xcode-derived/Build/Products/Release-iphoneos/Kernarium.app`). KosmicKrisp was embedded for the device. Nothing was installed on a paired phone.
+
+Launch is still blocked on signing, so there are no Designed-for-iPad READY or CPU bench numbers yet:
+
+- Automatic signing with `DEVELOPMENT_TEAM=4P2629648N` fails: `com.imxieyi.Kernarium` cannot be registered to the signed-in team, the wildcard `iOS Team Provisioning Profile: *` lacks Extended Virtual Addressing and Increased Memory Limit, and it does not include this Mac (`00006020-0009715A216B401E`).
+- Unsigned install is rejected by `IDEInstallLocalMacService` (`0xe800801c`, no code signature).
+- Ad-hoc (`codesign -s -`) is not allowed with the iOS 26.5 SDK, and the entitlements require a development certificate.
+- `devicectl` does not list the host Mac. Do not install on Silver or Yellow.
+
+To actually run the iPad-on-Mac build, either sign as the team that already owns `com.imxieyi.Kernarium` (register this Mac, keep the kernel entitlements) or use a unique bundle ID on a team that can enable those capabilities. The unsigned Release product is on disk if that signing is fixed. Until then, real Metal on this Mac remains the `uml-darwin` CLI path.
