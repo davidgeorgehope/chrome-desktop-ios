@@ -88,7 +88,7 @@ xcodebuild build \
   EXCLUDED_ARCHS=x86_64
 ```
 
-The reproducible Simulator rebuild is `scripts/build-kernarium-simulator.sh /path/to/Kernarium`. It copies the iOS-applicable JIT series (`patches/0013-jit-publish-arena/`, evict + packed publish + bump arena) and the Simulator `vm_region_64` fix (`patches/0014-simulator-vm-region-64/`) into the checkout, runs only `cmake --build --preset kernarium-ios-simulator`, packages `KRuntime_6_18_4K.xcframework`, and `xcodebuild`s a `Release-iphonesimulator` `Kernarium.app`. It does not build the `macos-integration` preset, does not touch the official `uml-darwin` identity, and does not install on a physical iPhone. `SKIP_PATCH=1` uses the checkout sources as they already stand. MesaEGL/MesaGallium xcframeworks are reused if they are already in `.build/kernarium-xcframeworks`.
+The reproducible Simulator rebuild is `scripts/build-kernarium-simulator.sh /path/to/Kernarium`. It copies the iOS-applicable JIT series (`patches/0013-jit-publish-arena/`, evict + packed publish + bump arena), the Simulator `vm_region_64` fix (`patches/0014-simulator-vm-region-64/`), and the optional JIT cache-budget override (`patches/0015-kernarium-jit-cache-budget`) into the checkout, runs only `cmake --build --preset kernarium-ios-simulator`, packages `KRuntime_6_18_4K.xcframework`, and `xcodebuild`s a `Release-iphonesimulator` `Kernarium.app`. It does not build the `macos-integration` preset, does not touch the official `uml-darwin` identity, and does not install on a physical iPhone. `SKIP_PATCH=1` uses the checkout sources as they already stand. MesaEGL/MesaGallium xcframeworks are reused if they are already in `.build/kernarium-xcframeworks`. Pass a budget into the Simulator with `SIMCTL_CHILD_KERNARIUM_JIT_CACHE_BUDGET` (K/M/G); `SIMCTL_CHILD_UML_JIT_SHARED_STATS=1` dumps `===JIT_SHARED_STATS===`. The default remains 1 GiB. A 4 GiB budget funds a real shared tier but filled before Firefox Web Content started on this host and drove ~7.3 GiB of swap on the 16 GiB mini — do not raise it further here, and unset the `SIMCTL_CHILD_*` variable after a 4G run because it persists in the shell.
 
 `scripts/rebuild-and-relaunch.sh` is an older wrapper that also installs onto Peek and launches. Symlink the ext4 into the app Documents container as shown in NOTES.md. Delete `tmp/kernarium-overlay.ext4` after changing the base image.
 
@@ -211,12 +211,24 @@ on the Simulator, `-edid` on the macOS Metal path) and sets `WLR_RENDERER=pixman
 only in that case, so labwc scanouts a dumb buffer (the same present path XFCE
 already used). Firefox is launched with `MOZ_ACCELERATED=0 MOZ_WEBRENDER=0` on
 that path only. Leave `WLR_RENDERER` unset on Metal; callers can still export
-it to force a choice. A Simulator-only sibling of the production labwc image
-with that script installed was used for the painted screenshot; the production
-0444 / Drive labwc image is unchanged.
+it to force a choice. On that same pixman path the script also installs
+Simulator-only Firefox prefs after `firefox-kernarium-profile.sh`: software
+WebRender, `fission.autostart=false`, and `dom.ipc.processCount=1`. Write
+`layers` to `/usr/local/etc/firefox-gfx` to try basic layers instead;
+`/usr/local/etc/desktop-browser` with `falkon` launches Falkon (it started
+but never painted in 120 s on this path). Leave the content sandbox on.
+`firefox-startup-probe.sh` prints spawn/CPU samples to ttyS0 every 2 s.
+
+The Simulator-only sibling `alpine-3.24.2-desktop-labwc-sim-pixman.ext4`
+also has that profile script, the probe, and a cheap CJK font
+(`font-wqy-zenhei`, ~16.7 MiB installed). The production 0444 / Drive labwc
+image is unchanged; the local sim image was updated, but Drive was not,
+because Firefox chrome/full-page times stayed about 35 s / 80 s after
+`DESKTOP_READY`. See NOTES.md for the before/after table.
 
 Look for `software_display WLR_RENDERER=pixman`, `Kernarium: fixed guest display 1920x1080`,
-`execution engine jit`, `===DESKTOP_START===`, and `===DESKTOP_READY===`.
+`execution engine jit`, `===DESKTOP_START===`, `===DESKTOP_READY===`,
+`profile_ready`, and `software_firefox_prefs`.
 The overlay is disposable; delete it after changing the base image.
 
 `patches/0002-kernarium-display-size-env.md` documents the ContentView change

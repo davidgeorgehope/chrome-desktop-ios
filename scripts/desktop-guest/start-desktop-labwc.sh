@@ -160,23 +160,77 @@ if [ -x /usr/local/bin/firefox-kernarium-profile.sh ]; then
   /usr/local/bin/firefox-kernarium-profile.sh
   ts profile_ready
 fi
+# Simulator-only: software Virgl / pixman has no Metal compositing.
+# Override the Metal-oriented webrender.all prefs from the shared
+# profile, turn Fission off, and cap content processes so libxul is
+# not JIT-compiled into several Isolated Web Content processes.
+# Leave these unset on the macOS Metal path. Do not disable the
+# content sandbox here (it did not cut time-to-page on Metal and
+# showed a warning banner).
+# /usr/local/etc/firefox-gfx: "software" (default) or "layers".
+if [ "${WLR_RENDERER:-}" = pixman ] && [ -d /root/.mozilla/firefox/kernarium ]; then
+  gfx=$(cat /usr/local/etc/firefox-gfx 2>/dev/null || echo software)
+  if [ "$gfx" = layers ]; then
+    cat >> /root/.mozilla/firefox/kernarium/user.js << 'EOJ'
+user_pref("gfx.webrender.all", false);
+user_pref("gfx.webrender.software", false);
+user_pref("gfx.webrender.enabled", false);
+user_pref("layers.acceleration.force-enabled", false);
+user_pref("layers.acceleration.disabled", true);
+user_pref("fission.autostart", false);
+user_pref("fission.autostart.session", false);
+user_pref("dom.ipc.processCount", 1);
+user_pref("dom.ipc.processCount.webIsolated", 1);
+user_pref("browser.tabs.remote.separateFileUriProcess", false);
+EOJ
+    ts software_firefox_prefs_layers
+  else
+    cat >> /root/.mozilla/firefox/kernarium/user.js << 'EOJ'
+user_pref("gfx.webrender.all", false);
+user_pref("gfx.webrender.software", true);
+user_pref("gfx.webrender.enabled", true);
+user_pref("layers.acceleration.force-enabled", false);
+user_pref("fission.autostart", false);
+user_pref("fission.autostart.session", false);
+user_pref("dom.ipc.processCount", 1);
+user_pref("dom.ipc.processCount.webIsolated", 1);
+user_pref("browser.tabs.remote.separateFileUriProcess", false);
+EOJ
+    ts software_firefox_prefs
+  fi
+fi
 if command -v firefox >/dev/null; then
-  echo "===FIREFOX_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
   ff_profile=""
   if [ -d /root/.mozilla/firefox/kernarium ]; then
     ff_profile="--profile /root/.mozilla/firefox/kernarium"
   fi
   ff_url="${FIREFOX_URL:-https://example.com}"
-  echo "===FIREFOX_URL=== $ff_url WLR_BACKENDS=$WLR_BACKENDS input=$(ls /dev/input 2>/dev/null)" | tee /dev/ttyS0
+  echo "===FIREFOX_URL=== $ff_url WLR_BACKENDS=$WLR_BACKENDS WLR_RENDERER=${WLR_RENDERER:-} input=$(ls /dev/input 2>/dev/null)" | tee /dev/ttyS0
   # Accelerated Wayland Firefox on a pixman compositor often never
   # paints; use software WebRender on the Simulator path only.
   ff_accel=1
   if [ "${WLR_RENDERER:-}" = pixman ]; then
     ff_accel=0
+    # pixman already damages per-rect; keep default damage tracking
+    # and allow a client buffer to be scanned out when it is the
+    # only surface (no extra full-frame blit).
+    export WLR_SCENE_DISABLE_DIRECT_SCANOUT=0
   fi
-  MOZ_ENABLE_WAYLAND=1 MOZ_ACCELERATED=$ff_accel MOZ_WEBRENDER=$ff_accel \
-    firefox $ff_profile --new-instance "$ff_url" \
-    > /tmp/firefox.log 2>&1 &
+  if [ -x /usr/local/bin/firefox-startup-probe.sh ]; then
+    /usr/local/bin/firefox-startup-probe.sh >/tmp/firefox-probe.log 2>&1 &
+    ts firefox_probe
+  fi
+  browser=$(cat /usr/local/etc/desktop-browser 2>/dev/null || echo firefox)
+  if [ "$browser" = falkon ] && command -v falkon >/dev/null; then
+    echo "===FALKON_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
+    QT_QPA_PLATFORM=wayland falkon --no-extensions "$ff_url" \
+      > /tmp/falkon.log 2>&1 &
+  else
+    echo "===FIREFOX_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
+    MOZ_ENABLE_WAYLAND=1 MOZ_ACCELERATED=$ff_accel MOZ_WEBRENDER=$ff_accel \
+      firefox $ff_profile --new-instance "$ff_url" \
+      > /tmp/firefox.log 2>&1 &
+  fi
 fi
 if [ -x /usr/local/bin/desktop-ready.sh ]; then
   # desktop-ready is X11-oriented (xdotool / glxgears); skip it on Wayland.

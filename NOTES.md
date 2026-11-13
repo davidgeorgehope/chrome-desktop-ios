@@ -614,4 +614,42 @@ A second boot (Simulator had been shut down and rebooted; `DESKTOP_READY` **6.55
 
 So on this software-WebRender Simulator path, Firefox chrome appears about 35 s after READY, first page text by 70 s, and the full page by **80 s** after READY. That is much slower than the macOS Metal/Zink Isolated Web Content times (~12–15 s). The first boot’s 31 s chrome / 75 s full-page bracket matches this second measurement.
 
-The Simulator app is the 4:36 AM ET JIT-through-a48d90a build. Rebuild it from this repo with `scripts/build-kernarium-simulator.sh /path/to/Kernarium` (applies `patches/0013-jit-publish-arena/` and `patches/0014-simulator-vm-region-64/`, `cmake --build --preset kernarium-ios-simulator` only). Nothing was installed on a physical iPhone. Official 4K inode remains 244909018.
+The Simulator app started as the 4:36 AM ET JIT-through-a48d90a build and was rebuilt at 5:03 AM ET to honor `KERNARIUM_JIT_CACHE_BUDGET` (`patches/0015-kernarium-jit-cache-budget`). Rebuild it from this repo with `scripts/build-kernarium-simulator.sh /path/to/Kernarium` (applies `patches/0013-jit-publish-arena/`, `patches/0014-simulator-vm-region-64/`, and 0015; `cmake --build --preset kernarium-ios-simulator` only). Nothing was installed on a physical iPhone. Official 4K inode remains 244909018.
+
+## Simulator Firefox time-to-page (profile, CJK, JIT cache, 13 Nov 2026, 5:00–5:23 AM ET)
+
+The first painted pixman screenshot still had a Firefox Privacy Notice tab, and CJK glyphs on example.com rendered as boxes. `scripts/desktop-guest/firefox-kernarium-profile.sh` (commit 8648ad6) was in the repo but had not been copied into the Simulator-only clone `alpine-3.24.2-desktop-labwc-sim-pixman.ext4`. That script was installed, along with a cheap CJK font (`font-wqy-zenhei` 0.9.46-r0; apk 9.0 MiB, installed `wqy-zenhei.ttc` ~16.7 MiB under `/usr/share/fonts/wqy-zenhei/`). `font-noto-cjk` (~73/89 MiB) was rejected as not cheap. After that, the Privacy Notice tab was gone and the CJK line of example.com painted.
+
+On iPad (A16), 1920×1080, JIT, 4096 MiB guest / 8 vCPUs, `https://example.com`, chrome and full-page times are seconds after `DESKTOP_READY`:
+
+| Config | Chrome | Full page | Notes |
+| --- | ---: | ---: | --- |
+| Baseline (no profile, 1G, `MOZ_WEBRENDER=0` only) | ~35 s | ~80 s | Privacy Notice tab; CJK boxes |
+| Profile + CJK + software WR + fission off, 1G | 40 s | 80 s | No privacy tab; CJK OK; 12.2M rejected, 184 reuses, shared ~105 KiB |
+| Same + 4G cache | 35 s | 80 s | 5.60M reuses, 5.8k rejected; 2 GiB shared full at ~11 s; heavy swap |
+| Basic layers + 4G (sticky env) | 35 s | 80 s | No improvement vs software WR |
+| Falkon, 1G | no paint in 120 s | — | `FALKON_START` at 6.53 s; screenshots stayed black |
+
+### Where the time goes
+
+Chrome tracks Web Content process spawn, not labwc present. A guest `/proc` probe (`scripts/desktop-guest/firefox-startup-probe.sh`, ttyS0 every 2 s) on the profile+1G boot (READY 6.04 s) saw: firefox 6.33 s, Socket/forkserver 20.02 s, WebExtensions/RDD 26.27 s, Web Content 43.04 s (~37 s after READY, matching chrome). The full page still landed ~80 s after READY.
+
+The default JIT cache budget is one quarter of guest RAM (1 GiB at `mem=4G`). With 8 vCPUs and a 256 MiB L1 cap, that 1 GiB is consumed by the private L1s and the shared translation cache is left at ~105 KiB (`accounted`/`max` ≈ 105792). `UML_JIT_SHARED_STATS=1` dumps `===JIT_SHARED_STATS===` about once a second: evictions≈insertions≈5.03M, rejected≈12.2M, reuses=184. The 1 GiB budget evicts on every insert and cannot reuse the parent's libxul translations in the content process.
+
+`patches/0015-kernarium-jit-cache-budget` lets `KERNARIUM_JIT_CACHE_BUDGET` (then `UML_JIT_CACHE_BUDGET`, K/M/G suffix) override `jit_cache_budget_for()`. Pass it into the Simulator with `SIMCTL_CHILD_KERNARIUM_JIT_CACHE_BUDGET`. Official `uml-darwin` was not rebuilt from this source. A Simulator-only KRuntime rebuild at 5:03 AM ET honored `4G` (budget 4294967296). Shared max=2147523904 (2 GiB). Evictions stayed 0 until dump #11 (~11 s, before Web Content at 34.09 s); later evictions=2.3M, rejected only 5755, reuses=5.60M. The shared tier fills before the content process starts, so time-to-page stays ~80 s. 4 GiB is the conceptually right budget for a real shared tier, but it is not a TTP win on this path and is too heavy for this 16 GiB mini + Simulator: swap was 8192M total / 7334M used, with ~74 MiB free during the run. Do not raise the budget further on this host. Unset `SIMCTL_CHILD_KERNARIUM_JIT_CACHE_BUDGET` after a 4G boot; it sticks in the shell and made the "layers 1G" run actually 4G.
+
+Software WebRender (`gfx.webrender.software=true`, `fission.autostart=false`, `dom.ipc.processCount=1`) versus basic layers (`/usr/local/etc/firefox-gfx=layers`) was a tie: 35/80 s either way. Pixman damage tracking is not the startup bottleneck (the surface stays black until Firefox presents). The content sandbox was left on: on Metal, turning it off did not cut TTP and showed a warning banner.
+
+Falkon is already in the image (Qt WebEngine). It started (`FALKON_START` at 6.53 s, READY 6.12 s) but never presented in 120 s; screenshots stayed black (likely EGL/GLES on Wayland, the same class of present problem pixman solved for labwc/Firefox). No lighter already-installed Alpine browser painted faster. Epiphany/Midori are not in the image.
+
+The local sim-pixman clone was restored at 5:23 AM ET to Firefox + software WR defaults (profile script, wqy-zenhei, startup probe, no `/usr/local/etc/desktop-browser` or `firefox-gfx` overrides), journal-clean, 0444, inode 248520. Production `alpine-3.24.2-desktop-labwc.ext4` remains 0444, inode 248509, mtime 3:58:46 AM ET. Drive was not updated: time-to-page is not much better than the baseline.
+
+Screenshots (mini `~/linux-ios-bakeoff/screenshots/`, also box `/workspace/`):
+
+- `kernarium-sim-ff-profile-chrome.png`, `kernarium-sim-ff-profile-painted.png` — profile + CJK + software WR + fission off, 1G
+- `kernarium-sim-ff-4g-chrome.png`, `kernarium-sim-ff-4g-painted.png` — same + 4G cache
+- Earlier baseline with the Privacy Notice tab: `kernarium-sim-labwc-pixman-painted.png`
+
+Logs: `notes/macos-metal-desktop/kernarium-sim-ff-profile-1g.log`, `kernarium-sim-ff-profile-4g.log`, `kernarium-sim-ff-layers-1g.log` (actually 4G; sticky env), `kernarium-sim-falkon-1g.log`.
+
+Rebuild the Simulator app with `scripts/build-kernarium-simulator.sh`. Launch with `SIMCTL_CHILD_UML_JIT_SHARED_STATS=1` to dump cache counters. The default cache remains 1 GiB (safer on this mini). Nothing was installed on a physical iPhone. Official 4K inode remains 244909018.
