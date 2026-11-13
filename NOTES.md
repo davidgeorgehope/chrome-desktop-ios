@@ -262,6 +262,6 @@ Guest `/proc/cpuinfo` already advertises `aes pmull sha1 sha2 sha3 sha512 crc32 
 | run tiny-sha 3×32 MiB, gcc -O2 | 0.628 s / 152.90 MiB/s | 1.179 s / 81.42 MiB/s | 1.88× |
 | apk add offline (tree+openssl+build-base) | n/a | 3.07 s | — |
 
-The first code increment raised unsigned-offset memory-run length 4/8 → 16 so more guest loads/stores share one TLB translation. Re-measure was within noise; the change was reverted. gcc SHA-256 uses `LDP` and signed/post-index accesses, which that collector does not hoist. Next: last-page host-delta / pair+signed runs, a richer than 2-entry indirect IC, cheaper SVC exits. vkcube-on-Venus/X11 still black, not diagnosed in this stretch.
+Five JIT increments were tried after that baseline and all reverted: longer unsigned runs (wash), a generalized `LDP`/signed/pre/post run (SIGILL, then `/init` hang), no-writeback `LDP`+`LDUR` (same hang), non-negative `LDUR` only (wash), and a 1-entry last-page host-delta cache (regression: tiny-sha 81.42 → 78.45 MiB/s). The table above is unchanged. Indirect ICs, a RET stack, cheaper SVC exits, and a correct pair/signed hoist are still open. vkcube-on-Venus/X11 still black, not diagnosed in this stretch.
 
 The slim guest's first apk attempt failed on DNS (`DNS: transient error`); benches now inject `resolv.conf` and an offline `apks.tar` of Alpine 3.24 aarch64 packages fetched on the Mac. That tarball is not in git.

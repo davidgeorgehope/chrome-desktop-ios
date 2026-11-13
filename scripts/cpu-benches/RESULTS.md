@@ -23,12 +23,25 @@ Digests matched: `sha256sum` of the 32 MiB buffer is `83ee4724…`; tiny-sha dig
 
 Fair 1× columns are openssl evp (both use ARMv8 crypto; the JIT already advertises `sha2`/`aes` and lowers them) and tiny-sha compiled with gcc. `sha256sum` on the host is hardware; Alpine busybox is software, so 19× is not a JIT tax. The shell-loop shells also differ (`dash` vs `ash`) but both are simple POSIX `while` arithmetic; 10× is still a real gap.
 
-## First increment (not kept)
+## Increments tried after the baseline (all reverted)
 
-Raised the JIT unsigned-offset memory-run cap from 4 (GPR/SP) / 8 (SIMD) to 16 and `RunStraddle::maximum_accesses` to 16, so more consecutive same-base unsigned loads/stores share one TLB lookup and run as the guest's own `LDR`/`STR`. Re-measured at 10:15 PM ET. Results were within noise (openssl sha256 evp 16 KiB 1,731,317.55k → 1,709,888.85k; tiny-sha 1.179 s / 81.42 MiB/s → 1.185 s / 81.00 MiB/s). The change was reverted. gcc `-O2` SHA-256 is dominated by `LDP`/`STP`, signed/unscaled offsets, and post-index, which this run collector does not cover.
+All times America/New_York (UTC-5) on 12 Nov 2026. The live `uml-darwin` tree was restored to the baseline compiler after each miss.
+
+1. **Unsigned-run length 4/8 → 16** (about 10:15 PM ET). Within noise (evp sha256 1,731,317.55k → 1,709,888.85k; tiny-sha 81.42 → 81.00 MiB/s). Reverted. gcc `-O2` SHA-256 is mostly `LDP`/`STP`, signed/unscaled, and post-index, which that collector does not hoist.
+
+2. **Generalized same-base runs** covering `LDP`/`STP` and signed/pre/post-index, including writeback simulation. The first encoding (pair words missing the `101` class bits) caused a guest `SIGILL` at `/init`. After fixing the class bits, `/init` hung: `sample` showed the JIT still in `run_translated_loop` / exclusives, with no serial progress. Reverted.
+
+3. **Narrower no-writeback `LDP`/`STP` + non-negative `LDUR`/`STUR` in the existing collector**, run length 16. Same `/init` hang. Reverted.
+
+4. **Non-negative `LDUR`/`STUR` only** (no pairs, original run lengths). Booted and finished. Results within noise (evp sha256 1,731,317.55k → 1,719,844.86k; tiny-sha 1.179 s / 81.42 MiB/s → 1.181 s / 81.28 MiB/s). Reverted: no gain. The SHA-256 offsets that matter are negative (`[x1, #-60]` etc.).
+
+5. **One-entry last-page host-delta cache** in `JitChainState`, checked in `emit_translate` before the 512 KiB software TLB. Booted and finished, but a regression: tiny-sha 81.42 → 78.45 MiB/s, evp sha256 1,731,317.55k → 1,691,828.22k, sh loop 0.31 → 0.35 s. The extra compare+branch on every access cost more than the hit saved, especially when the working set alternates pages. Reverted.
+
+The guest/host table above is unchanged. Indirect-branch ICs (still 2-entry), a RET stack, cheaper SVC exits, and a correct LDP/signed-offset hoist remain unlanded.
 
 ## Next costs
 
-- Software CPU (~1.88×): hoist translation for pair and signed/post-index accesses, or a last-page host-delta cache so translated memory is not redone on every access.
-- Shell loop (~10×): richer indirect-branch inline caches (sites are still 2-entry) and longer chained blocks.
-- Compile (~11.6×): cold per-exec translation plus syscall exits (SVC still terminates the block with `Event::system_call`).
+- Software CPU (~1.88×): a correct hoist of `LDP`/`STP` and signed/post-index (the naive run hung `/init`; start from no-writeback pairs with a unit test), or a multi-entry last-page cache that does not tax the miss path.
+- Shell loop (~10×): richer than 2-entry indirect ICs, a return-address stack for `RET`, and longer chained blocks.
+- Compile (~11.6×): cheaper `Event::system_call` round trips and translation reuse across `exec` of the same binary.
+- A fixed host offset for guest user memory (the Darwin native window and `direct-root` already map guest physical RAM) was not attempted; it needs a conflict-free VA plan on 16 KiB host pages.
