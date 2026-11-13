@@ -1,0 +1,662 @@
+diff --git a/darwin/cpu/CMakeLists.txt b/darwin/cpu/CMakeLists.txt
+index 9bf1993..124286b 100644
+--- a/darwin/cpu/CMakeLists.txt
++++ b/darwin/cpu/CMakeLists.txt
+@@ -384,6 +384,7 @@ set(_uml_cpu_jit_executor_sources
+     arm64/jit/jit_executor_a32.cpp
+     arm64/jit/jit_executor_cache.cpp
+     arm64/jit/jit_executor_execution.cpp
++    arm64/jit/jit_exit_profile.cpp
+     arm64/jit/jit_executor_lifecycle.cpp
+     arm64/jit/jit_executor_pool.cpp
+     arm64/jit/jit_executor_linking.cpp
+diff --git a/darwin/cpu/arm64/jit/jit_executor_execution.cpp b/darwin/cpu/arm64/jit/jit_executor_execution.cpp
+index e05e6fb..9192761 100644
+--- a/darwin/cpu/arm64/jit/jit_executor_execution.cpp
++++ b/darwin/cpu/arm64/jit/jit_executor_execution.cpp
+@@ -2,6 +2,8 @@
+ 
+ #include "jit_executor_internal.hpp"
+ 
++#include "jit_exit_profile.hpp"
++
+ #include "jit_semantic_reservation.hpp"
+ 
+ #include "cpu/arm64/detail/floating_exception.hpp"
+@@ -39,9 +41,10 @@ inline constexpr std::uint64_t key_state_bits =
+ [[nodiscard]] Event JitExecutor::Implementation::run_block(CpuState &cpu, StaticGuestMemory &memory,
+                               unsigned long generation,
+                               std::size_t &executed) {
++  jit_profile::RunScope profile;
+   if (!cache_lease_.admitted()) {
+     executed = 0;
+-    return Event::fatal;
++    return profile.finish(Event::fatal);
+   }
+   const ::uml::cpu::HostCapabilitiesScope capabilities_scope{
+       host_capabilities_};
+@@ -53,7 +56,7 @@ inline constexpr std::uint64_t key_state_bits =
+       darwin_uml_static_vm_execution_context_sequences(execution_context_);
+   preempted_ = sequences.execution_interrupt != 0;
+   if (preempted_)
+-    return Event::interrupt;
++    return profile.finish_irq(Event::interrupt);
+   /* What the translations this run reaches are validated at, below: an ISB
+    * leaves when the address space's code has changed since. */
+   cpu.code_sequence = code_sequence_;
+@@ -84,7 +87,7 @@ inline constexpr std::uint64_t key_state_bits =
+     pending_indirect_ = {};
+     std::uint32_t unmapped{};
+     (void)fetch_instruction(memory, cpu.pc, unmapped);
+-    return Event::memory_fault;
++    return profile.finish(Event::memory_fault);
+   }
+   /*
+    * The guest SVCR mode and top-byte-ignore select the translation
+@@ -96,9 +99,9 @@ inline constexpr std::uint64_t key_state_bits =
+    */
+   if (guest_sme_mode(cpu) != 0U) [[unlikely]] {
+     if (cpu.sme_registers == nullptr || !implements_sme(host_capabilities_))
+-      return Event::fatal;
++      return profile.finish(Event::fatal);
+     if ((cpu.pc & (alignof(std::uint32_t) - 1U)) != 0U)
+-      return Event::pc_alignment;
++      return profile.finish(Event::pc_alignment);
+     cpu.access_sme_state();
+     /* XNU resets FPSR on every kernel entry while a thread is in streaming
+      * mode, so SM=1 code keeps the guest's FPCR and FPSR in CpuState and
+@@ -128,11 +131,12 @@ inline constexpr std::uint64_t key_state_bits =
+     indirect_link_diagnostics_.unsafe_target_refusals +=
+         pending_source.has_value();
+ #endif
+-    return run_floating_exception_mode(cpu, memory, executed);
++    return profile.finish(run_floating_exception_mode(cpu, memory, executed));
+   }
+ 
+   auto *block = find(generation, sequences.code_changes, block_key, memory);
+   if (block == nullptr) {
++    profile.note_cache_miss();
+     const auto mode = guest_translation_mode(cpu);
+     const auto key = translation_key(cpu.pc, mode);
+     std::array<std::uint32_t, maximum_block_instructions> instructions{};
+@@ -164,7 +168,7 @@ inline constexpr std::uint64_t key_state_bits =
+     }
+     if (count == 0) {
+       record_fetch_fault(memory);
+-      return Event::memory_fault;
++      return profile.finish(Event::memory_fault);
+     }
+     /*
+      * Another executor may already have decoded and emitted exactly these
+@@ -176,6 +180,7 @@ inline constexpr std::uint64_t key_state_bits =
+     auto *shared = install_shared_translation(
+         generation, sequences.code_changes, cpu.pc, mode, fetched);
+     if (shared != nullptr) {
++      profile.note_shared_reuse();
+       block = shared;
+     } else {
+       JitCompiler compiler{
+@@ -185,7 +190,9 @@ inline constexpr std::uint64_t key_state_bits =
+       compiler.set_translation_mode(mode);
+       // Compile once on a miss. Speculatively lowering the whole block a
+       // second time for GPR residency delays cold multi-process workloads.
++      jit_profile::CompileTimer compile_timer;
+       const auto compiled = compiler.compile(cpu.pc, fetched);
++      compile_timer.complete(compiled.guest_instructions);
+ #if UML_JIT_RUNTIME_DIAGNOSTICS
+       cache_validation_diagnostics_.direct_link_refusals +=
+           compiled.direct_link_refusals;
+@@ -225,7 +232,7 @@ inline constexpr std::uint64_t key_state_bits =
+           );
+         };
+         if (!valid_compilation(compiled))
+-          return run_single_instruction(cpu, instructions[0], executed);
++          return profile.finish(run_single_instruction(cpu, instructions[0], executed));
+         /* Link records are keyed by address-space generation and leave only
+          * with the whole cache, so exited address spaces keep theirs. A site
+          * refused by a table that holds records recycles the cache, as a
+@@ -261,8 +268,10 @@ inline constexpr std::uint64_t key_state_bits =
+               &Implementation::resolve_indirect_link
+           };
+           retry_compiler.set_translation_mode(mode);
++          jit_profile::CompileTimer retry_timer;
+           const auto retry_compiled = retry_compiler.compile(
+               cpu.pc, std::span{instructions}.first(count));
++          retry_timer.complete(retry_compiled.guest_instructions);
+ #if UML_JIT_RUNTIME_DIAGNOSTICS
+           cache_validation_diagnostics_.direct_link_refusals +=
+               retry_compiled.direct_link_refusals;
+@@ -270,19 +279,21 @@ inline constexpr std::uint64_t key_state_bits =
+               retry_compiled.indirect_link_refusals;
+ #endif
+           if (!valid_compilation(retry_compiled))
+-            return run_single_instruction(cpu, instructions[0], executed);
++            return profile.finish(run_single_instruction(cpu, instructions[0], executed));
+           stored = arena_.store_block(
+               key, retry_compiled.words,
+               retry_compiled.relocations, {}, links_, empty_link_,
+               generation);
+           if (!stored)
+-            return run_single_instruction(cpu, instructions[0], executed);
++            return profile.finish(run_single_instruction(cpu, instructions[0], executed));
+           auto shared = publish_shared_translation(cpu.pc, mode, fetched,
+                                                    retry_compiled);
+           block = install_compilation(retry_compiled, stored, shared);
+         }
+       }
+     }
++  } else {
++    profile.note_cache_hit();
+   }
+   if (pending_source)
+     train_indirect(*pending_source, *block);
+@@ -322,17 +333,19 @@ inline constexpr std::uint64_t key_state_bits =
+                current_executed;
+     if (event == Event::memory_fault)
+       tlb_.discard(tlb_.fault_address);
+-    if (event == Event::continued && chain.indirect_miss != nullptr)
++    if (event == Event::continued && chain.indirect_miss != nullptr) {
++      profile.note_indirect_miss();
+       record_pending_indirect(chain.indirect_miss,
+                               chain.indirect_source_pc, cpu, generation,
+                               sequences.code_changes);
++    }
+     if (deferred_exclusive == 0U)
+       reconcile_reservation(cpu);
+     return event;
+   };
+ 
+   if (block->direct_memory_write_mask == 0)
+-    return execute_native(block->function, false);
++    return profile.finish(execute_native(block->function, false));
+   Event event{};
+   bool tracked_unavailable = false;
+   {
+@@ -356,8 +369,8 @@ inline constexpr std::uint64_t key_state_bits =
+      */
+     std::uint32_t instruction{};
+     if (!fetch_instruction(memory, cpu.pc, instruction))
+-      return Event::memory_fault;
+-    return run_single_instruction(cpu, instruction, executed);
++      return profile.finish(Event::memory_fault);
++    return profile.finish(run_single_instruction(cpu, instruction, executed));
+   }
+   if (deferred_exclusive != 0U) {
+     const auto retired_prefix = executed;
+@@ -367,7 +380,7 @@ inline constexpr std::uint64_t key_state_bits =
+     executed = retired_prefix + exclusive_executed;
+   }
+   reconcile_reservation(cpu);
+-  return event;
++  return profile.finish(event);
+ }
+ 
+ [[nodiscard]] JitFunction
+@@ -384,9 +397,11 @@ JitExecutor::Implementation::tracked_store_function(CompiledBlock &block, Static
+   }
+   JitCompiler compiler{nullptr, nullptr, true};
+   compiler.set_translation_mode(translation_key_mode(block.key));
++  jit_profile::CompileTimer tracked_timer{true};
+   const auto compiled = compiler.compile(
+       translation_key_pc(block.key),
+       std::span{instructions}.first(block.instruction_count));
++  tracked_timer.complete(compiled.guest_instructions);
+   return store_tracked_variant(block, compiled, compiled.guest_instructions);
+ }
+ 
+
+fixed jit_exit_profile.hpp.diff lines 128
+fixed jit_exit_profile.cpp.diff lines 324
+diff --git a/darwin/cpu/arm64/jit/jit_exit_profile.hpp b/darwin/cpu/arm64/jit/jit_exit_profile.hpp
+new file mode 100644
+index 0000000..1994c54
+--- /dev/null
++++ b/darwin/cpu/arm64/jit/jit_exit_profile.hpp
+@@ -0,0 +1,122 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++
++#include "jit_runtime_contract.hpp"
++
++#include <chrono>
++#include <cstddef>
++#include <cstdint>
++
++namespace uml::cpu::arm64::jit_profile {
++
++/* Cheap, default-off translated-block exit profiler.
++ *
++ * Enable with UML_JIT_PROFILE=1 (or any value other than 0/false/off). If the
++ * value looks like a path, counters are also written there. UML_JIT_PROFILE_FILE
++ * overrides the path; the default file is /tmp/uml-jit-profile.txt. A flusher
++ * rewrites that file about once a second, and a final dump goes to stderr
++ * when the host process exits.
++ *
++ * The disabled path is one predictable branch on each run_block entry and
++ * exit. Compile timing and shared-cache statistics are recorded only when
++ * the profiler is on.
++ */
++[[nodiscard]] bool enabled() noexcept;
++
++void record_run_block() noexcept;
++void record_cache_hit() noexcept;
++void record_cache_miss() noexcept;
++void record_shared_reuse() noexcept;
++void record_compile(std::uint64_t nanoseconds,
++                    std::size_t guest_instructions) noexcept;
++void record_tracked_compile(std::uint64_t nanoseconds,
++                            std::size_t guest_instructions) noexcept;
++void record_block_exit(Event event, bool indirect_miss, bool irq) noexcept;
++void request_dump() noexcept;
++
++class RunScope final {
++public:
++  RunScope() noexcept {
++    if (enabled())
++      record_run_block();
++  }
++  RunScope(const RunScope &) = delete;
++  RunScope &operator=(const RunScope &) = delete;
++
++  Event finish(Event event) noexcept {
++    event_ = event;
++    armed_ = true;
++    return event;
++  }
++
++  Event finish_irq(Event event) noexcept {
++    irq_ = true;
++    return finish(event);
++  }
++
++  void note_indirect_miss() noexcept { indirect_ = true; }
++
++  void note_cache_hit() noexcept {
++    if (enabled())
++      record_cache_hit();
++  }
++
++  void note_cache_miss() noexcept {
++    if (enabled())
++      record_cache_miss();
++  }
++
++  void note_shared_reuse() noexcept {
++    if (enabled())
++      record_shared_reuse();
++  }
++
++  ~RunScope() noexcept {
++    if (armed_ && enabled())
++      record_block_exit(event_, indirect_, irq_);
++  }
++
++private:
++  Event event_{Event::fatal};
++  bool armed_{false};
++  bool irq_{false};
++  bool indirect_{false};
++};
++
++class CompileTimer final {
++public:
++  explicit CompileTimer(bool tracked = false) noexcept
++      : on_(enabled()), tracked_(tracked) {
++    if (on_)
++      start_ = std::chrono::steady_clock::now();
++  }
++  CompileTimer(const CompileTimer &) = delete;
++  CompileTimer &operator=(const CompileTimer &) = delete;
++
++  void complete(std::size_t guest_instructions) noexcept {
++    if (!on_ || completed_)
++      return;
++    completed_ = true;
++    const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
++                        std::chrono::steady_clock::now() - start_)
++                        .count();
++    const auto elapsed = static_cast<std::uint64_t>(ns < 0 ? 0 : ns);
++    if (tracked_)
++      record_tracked_compile(elapsed, guest_instructions);
++    else
++      record_compile(elapsed, guest_instructions);
++  }
++
++  ~CompileTimer() noexcept {
++    if (!completed_)
++      complete(0);
++  }
++
++private:
++  std::chrono::steady_clock::time_point start_{};
++  bool on_{false};
++  bool tracked_{false};
++  bool completed_{false};
++};
++
++} // namespace uml::cpu::arm64::jit_profile
+
+diff --git a/darwin/cpu/arm64/jit/jit_exit_profile.cpp b/darwin/cpu/arm64/jit/jit_exit_profile.cpp
+new file mode 100644
+index 0000000..f77f4bb
+--- /dev/null
++++ b/darwin/cpu/arm64/jit/jit_exit_profile.cpp
+@@ -0,0 +1,318 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++
++#include "jit_exit_profile.hpp"
++
++#include "jit_shared_translations.hpp"
++
++#include <atomic>
++#include <chrono>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <mutex>
++#include <string>
++#include <thread>
++
++namespace uml::cpu::arm64::jit_profile {
++namespace {
++
++std::atomic<bool> enabled_flag{false};
++std::atomic<bool> initialized{false};
++std::atomic<bool> stop_flusher{false};
++
++std::atomic<std::uint64_t> run_blocks{0};
++std::atomic<std::uint64_t> cache_hits{0};
++std::atomic<std::uint64_t> cache_misses{0};
++std::atomic<std::uint64_t> shared_reuses{0};
++std::atomic<std::uint64_t> compiles{0};
++std::atomic<std::uint64_t> compile_ns{0};
++std::atomic<std::uint64_t> compile_instructions{0};
++std::atomic<std::uint64_t> tracked_compiles{0};
++std::atomic<std::uint64_t> tracked_compile_ns{0};
++std::atomic<std::uint64_t> tracked_compile_instructions{0};
++
++std::atomic<std::uint64_t> exit_svc{0};
++std::atomic<std::uint64_t> exit_indirect_miss{0};
++std::atomic<std::uint64_t> exit_page_fault{0};
++std::atomic<std::uint64_t> exit_irq{0};
++std::atomic<std::uint64_t> exit_continued{0};
++std::atomic<std::uint64_t> exit_illegal{0};
++std::atomic<std::uint64_t> exit_other{0};
++
++std::mutex path_mutex;
++std::string profile_path = "/tmp/uml-jit-profile.txt";
++std::string control_path = "/tmp/uml-jit-profile.ctl";
++std::once_flag start_flag;
++
++[[nodiscard]] bool truthy_env(const char *value) noexcept {
++  if (value == nullptr || value[0] == '\0')
++    return false;
++  return std::strcmp(value, "0") != 0 && std::strcmp(value, "false") != 0 &&
++         std::strcmp(value, "FALSE") != 0 && std::strcmp(value, "off") != 0 &&
++         std::strcmp(value, "OFF") != 0;
++}
++
++[[nodiscard]] bool looks_like_path(const char *value) noexcept {
++  if (value == nullptr || value[0] == '\0')
++    return false;
++  if (value[0] == '/' || value[0] == '.')
++    return true;
++  return std::strchr(value, '/') != nullptr;
++}
++
++void write_report(std::FILE *out) noexcept {
++  if (out == nullptr)
++    return;
++  const auto load = [](const std::atomic<std::uint64_t> &value) {
++    return value.load(std::memory_order_relaxed);
++  };
++  const auto compiles_now = load(compiles);
++  const auto compile_ns_now = load(compile_ns);
++  const auto tracked_now = load(tracked_compiles);
++  const auto tracked_ns_now = load(tracked_compile_ns);
++  const auto shared = SharedTranslationCache::instance().statistics();
++  std::fprintf(out, "===UML_JIT_PROFILE===\n");
++  std::fprintf(out, "run_blocks=%llu\n",
++               static_cast<unsigned long long>(load(run_blocks)));
++  std::fprintf(out, "cache_hit=%llu\n",
++               static_cast<unsigned long long>(load(cache_hits)));
++  std::fprintf(out, "cache_miss=%llu\n",
++               static_cast<unsigned long long>(load(cache_misses)));
++  std::fprintf(out, "shared_reuse=%llu\n",
++               static_cast<unsigned long long>(load(shared_reuses)));
++  std::fprintf(out, "compiles=%llu\n",
++               static_cast<unsigned long long>(compiles_now));
++  std::fprintf(out, "compile_ns=%llu\n",
++               static_cast<unsigned long long>(compile_ns_now));
++  std::fprintf(out, "compile_ms=%.3f\n",
++               static_cast<double>(compile_ns_now) / 1.0e6);
++  std::fprintf(out, "compile_guest_insns=%llu\n",
++               static_cast<unsigned long long>(load(compile_instructions)));
++  std::fprintf(out, "avg_compile_us=%.3f\n",
++               compiles_now == 0
++                   ? 0.0
++                   : (static_cast<double>(compile_ns_now) / 1.0e3) /
++                         static_cast<double>(compiles_now));
++  std::fprintf(out, "tracked_compiles=%llu\n",
++               static_cast<unsigned long long>(tracked_now));
++  std::fprintf(out, "tracked_compile_ns=%llu\n",
++               static_cast<unsigned long long>(tracked_ns_now));
++  std::fprintf(out, "tracked_compile_ms=%.3f\n",
++               static_cast<double>(tracked_ns_now) / 1.0e6);
++  std::fprintf(out, "tracked_compile_guest_insns=%llu\n",
++               static_cast<unsigned long long>(
++                   load(tracked_compile_instructions)));
++  std::fprintf(out, "exit.svc=%llu\n",
++               static_cast<unsigned long long>(load(exit_svc)));
++  std::fprintf(out, "exit.indirect_miss=%llu\n",
++               static_cast<unsigned long long>(load(exit_indirect_miss)));
++  std::fprintf(out, "exit.page_fault=%llu\n",
++               static_cast<unsigned long long>(load(exit_page_fault)));
++  std::fprintf(out, "exit.irq=%llu\n",
++               static_cast<unsigned long long>(load(exit_irq)));
++  std::fprintf(out, "exit.continued=%llu\n",
++               static_cast<unsigned long long>(load(exit_continued)));
++  std::fprintf(out, "exit.illegal=%llu\n",
++               static_cast<unsigned long long>(load(exit_illegal)));
++  std::fprintf(out, "exit.other=%llu\n",
++               static_cast<unsigned long long>(load(exit_other)));
++  std::fprintf(out, "shared.matches=%llu\n",
++               static_cast<unsigned long long>(shared.matches));
++  std::fprintf(out, "shared.reuses=%llu\n",
++               static_cast<unsigned long long>(shared.reuses));
++  std::fprintf(out, "shared.misses=%llu\n",
++               static_cast<unsigned long long>(shared.misses));
++  std::fprintf(out, "shared.insertions=%llu\n",
++               static_cast<unsigned long long>(shared.insertions));
++  std::fprintf(out, "shared.evictions=%llu\n",
++               static_cast<unsigned long long>(shared.evictions));
++  std::fprintf(out, "shared.entries=%llu\n",
++               static_cast<unsigned long long>(shared.entries));
++  std::fprintf(out, "===UML_JIT_PROFILE_END===\n");
++  std::fflush(out);
++}
++
++void dump_to_file() noexcept {
++  std::string path;
++  {
++    std::lock_guard<std::mutex> lock(path_mutex);
++    path = profile_path;
++  }
++  if (path.empty())
++    return;
++  std::FILE *out = std::fopen(path.c_str(), "w");
++  if (out == nullptr)
++    return;
++  write_report(out);
++  std::fclose(out);
++}
++
++void reset_counters() noexcept {
++  const auto zero = [](std::atomic<std::uint64_t> &value) {
++    value.store(0, std::memory_order_relaxed);
++  };
++  zero(run_blocks);
++  zero(cache_hits);
++  zero(cache_misses);
++  zero(shared_reuses);
++  zero(compiles);
++  zero(compile_ns);
++  zero(compile_instructions);
++  zero(tracked_compiles);
++  zero(tracked_compile_ns);
++  zero(tracked_compile_instructions);
++  zero(exit_svc);
++  zero(exit_indirect_miss);
++  zero(exit_page_fault);
++  zero(exit_irq);
++  zero(exit_continued);
++  zero(exit_illegal);
++  zero(exit_other);
++}
++
++void dump_final() noexcept {
++  dump_to_file();
++  write_report(stderr);
++}
++
++void poll_control() noexcept {
++  std::string path;
++  {
++    std::lock_guard<std::mutex> lock(path_mutex);
++    path = control_path;
++  }
++  if (path.empty())
++    return;
++  std::FILE *in = std::fopen(path.c_str(), "r");
++  if (in == nullptr)
++    return;
++  char command[32]{};
++  const auto n = std::fread(command, 1, sizeof(command) - 1U, in);
++  std::fclose(in);
++  std::remove(path.c_str());
++  (void)n;
++  if (std::strncmp(command, "reset", 5) == 0) {
++    reset_counters();
++    dump_to_file();
++  } else if (std::strncmp(command, "dump", 4) == 0) {
++    dump_final();
++  }
++}
++
++void flusher_main() {
++  while (!stop_flusher.load(std::memory_order_relaxed)) {
++    poll_control();
++    dump_to_file();
++    for (int i = 0; i < 10 && !stop_flusher.load(std::memory_order_relaxed);
++         ++i)
++      std::this_thread::sleep_for(std::chrono::milliseconds(100));
++  }
++  dump_final();
++}
++
++void start_flusher() {
++  std::atexit([]() {
++    stop_flusher.store(true, std::memory_order_relaxed);
++    /* The detached flusher may still be in its 100 ms sleep. Give it a
++     * moment, then write a last snapshot from this thread in case it has
++     * already exited. */
++    std::this_thread::sleep_for(std::chrono::milliseconds(150));
++    dump_final();
++  });
++  std::thread{flusher_main}.detach();
++}
++
++void initialize() noexcept {
++  bool expected = false;
++  if (!initialized.compare_exchange_strong(expected, true,
++                                           std::memory_order_acq_rel))
++    return;
++  const char *value = std::getenv("UML_JIT_PROFILE");
++  if (!truthy_env(value))
++    return;
++  {
++    std::lock_guard<std::mutex> lock(path_mutex);
++    if (looks_like_path(value))
++      profile_path = value;
++    if (const char *file = std::getenv("UML_JIT_PROFILE_FILE");
++        file != nullptr && file[0] != '\0')
++      profile_path = file;
++    if (const char *control = std::getenv("UML_JIT_PROFILE_CONTROL");
++        control != nullptr && control[0] != '\0')
++      control_path = control;
++  }
++  enabled_flag.store(true, std::memory_order_release);
++  std::call_once(start_flag, start_flusher);
++}
++
++} // namespace
++
++bool enabled() noexcept {
++  if (!initialized.load(std::memory_order_acquire))
++    initialize();
++  return enabled_flag.load(std::memory_order_relaxed);
++}
++
++void record_run_block() noexcept {
++  run_blocks.fetch_add(1, std::memory_order_relaxed);
++}
++
++void record_cache_hit() noexcept {
++  cache_hits.fetch_add(1, std::memory_order_relaxed);
++}
++
++void record_cache_miss() noexcept {
++  cache_misses.fetch_add(1, std::memory_order_relaxed);
++}
++
++void record_shared_reuse() noexcept {
++  shared_reuses.fetch_add(1, std::memory_order_relaxed);
++}
++
++void record_compile(std::uint64_t nanoseconds,
++                    std::size_t guest_instructions) noexcept {
++  compiles.fetch_add(1, std::memory_order_relaxed);
++  compile_ns.fetch_add(nanoseconds, std::memory_order_relaxed);
++  compile_instructions.fetch_add(guest_instructions,
++                                 std::memory_order_relaxed);
++}
++
++void record_tracked_compile(std::uint64_t nanoseconds,
++                            std::size_t guest_instructions) noexcept {
++  tracked_compiles.fetch_add(1, std::memory_order_relaxed);
++  tracked_compile_ns.fetch_add(nanoseconds, std::memory_order_relaxed);
++  tracked_compile_instructions.fetch_add(guest_instructions,
++                                         std::memory_order_relaxed);
++}
++
++void record_block_exit(Event event, bool indirect_miss, bool irq) noexcept {
++  if (irq || event == Event::interrupt) {
++    exit_irq.fetch_add(1, std::memory_order_relaxed);
++    return;
++  }
++  if (event == Event::continued && indirect_miss) {
++    exit_indirect_miss.fetch_add(1, std::memory_order_relaxed);
++    return;
++  }
++  switch (event) {
++  case Event::system_call:
++    exit_svc.fetch_add(1, std::memory_order_relaxed);
++    break;
++  case Event::memory_fault:
++    exit_page_fault.fetch_add(1, std::memory_order_relaxed);
++    break;
++  case Event::continued:
++    exit_continued.fetch_add(1, std::memory_order_relaxed);
++    break;
++  case Event::illegal_instruction:
++    exit_illegal.fetch_add(1, std::memory_order_relaxed);
++    break;
++  default:
++    exit_other.fetch_add(1, std::memory_order_relaxed);
++    break;
++  }
++}
++
++void request_dump() noexcept { dump_final(); }
++
++} // namespace uml::cpu::arm64::jit_profile

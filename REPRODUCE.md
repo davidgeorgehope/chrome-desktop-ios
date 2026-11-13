@@ -259,6 +259,6 @@ For a gcc-matched tiny-sha, also build and run with Homebrew `gcc-16 -O2`.
 
 Guest: `scripts/cpu-benches/launch-guest-jit-benches.sh` wraps
 `uml-darwin --execution-engine=jit` with `mem=2G ncpus=8` and no GPU, under
-`caffeinate -i`. Use `script(1)` so serial markers are line-buffered. Look for
+`caffeinate -i`. Use `script -F` so serial markers are line-buffered and a mid-run profiler reset can see them live. `UML_JIT_PROFILE=1` enables the translated-block exit profiler (`launch-guest-jit-profile.sh sh_loop|compile`). Look for
 `===BENCH_START===` / `===BENCH_DONE===`. Results: `scripts/cpu-benches/RESULTS.md`.
 

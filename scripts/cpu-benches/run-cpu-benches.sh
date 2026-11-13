@@ -9,6 +9,8 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 TINY="$HERE/tiny-sha"
 OPENSSL_BIN="${OPENSSL_BIN:-openssl}"
 SH_FOR_LOOP="${SH_FOR_LOOP:-/bin/sh}"
+CPU_BENCH_ONLY="${CPU_BENCH_ONLY:-}"
+# CPU_BENCH_ONLY=sh_loop|compile runs just that bench (compile still installs apk).
 
 run() {
   echo
@@ -54,11 +56,24 @@ time_run() {
   ${CC:-cc} --version 2>/dev/null | head -1 || true
 
   run uname uname -a
+  if [ -z "$CPU_BENCH_ONLY" ] || [ "$CPU_BENCH_ONLY" = sh_loop ]; then
+  if [ "$CPU_BENCH_ONLY" = sh_loop ]; then
+    echo ===UML_JIT_PROFILE_RESET===
+    sleep 1
+  fi
   time_run sh_loop "$SH_FOR_LOOP" -c 'i=0; while [ $i -lt 20000 ]; do i=$((i+1)); done'
+  if [ "$CPU_BENCH_ONLY" = sh_loop ]; then
+    echo ===UML_JIT_PROFILE_DUMP===
+    sleep 1
+  fi
+  fi
+  if [ -z "$CPU_BENCH_ONLY" ]; then
   run dd_null dd if=/dev/zero of=/dev/null bs=1048576 count=32
   run dd_write32 dd if=/dev/zero of=/tmp/32m.bin bs=1048576 count=32
   time_run sha256_32m sha256sum /tmp/32m.bin
 
+  fi
+  if [ -z "$CPU_BENCH_ONLY" ] || [ "$CPU_BENCH_ONLY" = compile ]; then
   if command -v apk >/dev/null 2>&1; then
     # Prefer a pre-injected Alpine package pack so the guest does not need DNS.
     APKDIR=""
@@ -92,10 +107,18 @@ time_run() {
     echo "======== apk_skipped (no apk on this host) ========"
   fi
 
+  if [ "$CPU_BENCH_ONLY" = compile ]; then
+    echo ===UML_JIT_PROFILE_RESET===
+    sleep 1
+  fi
+  if [ -z "$CPU_BENCH_ONLY" ]; then
   if [ -x "$OPENSSL_BIN" ] || command -v "$OPENSSL_BIN" >/dev/null 2>&1; then
     run openssl_speed "$OPENSSL_BIN" speed -seconds 3 -evp sha256 aes-256-cbc
   fi
 
+  fi
+  fi
+  if [ -z "$CPU_BENCH_ONLY" ] || [ "$CPU_BENCH_ONLY" = compile ]; then
   if [ -d "$TINY" ]; then
     work=/tmp/tiny-sha-build
     rm -rf "$work"
@@ -111,12 +134,19 @@ time_run() {
     fi
     echo "COMPILE_EXIT:$?"
     if [ -x "$work/tiny-sha" ]; then
-      time_run run_tiny_sha "$work/tiny-sha" 3
+      if [ "$CPU_BENCH_ONLY" != compile ]; then
+        time_run run_tiny_sha "$work/tiny-sha" 3
+      fi
     else
       echo "tiny-sha binary missing"
     fi
+    if [ "$CPU_BENCH_ONLY" = compile ]; then
+      echo ===UML_JIT_PROFILE_DUMP===
+      sleep 1
+    fi
   fi
 
+  fi
   echo "===BENCH_DONE==="
   date
   echo "uptime: $(cat /proc/uptime 2>/dev/null || echo host)"

@@ -39,9 +39,50 @@ All times America/New_York (UTC-5) on 12 Nov 2026. The live `uml-darwin` tree wa
 
 The guest/host table above is unchanged. Indirect-branch ICs (still 2-entry), a RET stack, cheaper SVC exits, and a correct LDP/signed-offset hoist remain unlanded.
 
+
+## Exit profile (12 Nov 2026, 10:49–10:50 PM ET)
+
+Added a default-off translated-block profiler (`UML_JIT_PROFILE=1`, patch `patches/0005-jit-exit-profile.patch`). It counts `run_block` entries by cache hit/miss/shared reuse, compile time of new blocks, and exits by reason (SVC, indirect miss, continued/unlinked-or-fairness, page fault, IRQ). A control file can reset or dump mid-run. Disabled, the cost is one predictable branch per block entry/exit.
+
+Counters below were isolated by resetting after boot (and after `apk add` for the compile) and snapshotting immediately after the bench, with `script -F` so the host saw the marks live. Raw files: `scripts/cpu-benches/profiles/`.
+
+### `sh` loop 20k (0.37 s wall with the profiler on; baseline without it was 0.31 s)
+
+| Counter | Count | Share of `run_blocks` |
+| --- | ---: | ---: |
+| `run_blocks` | 3,263,109 | 100% |
+| cache hit | 3,259,668 | 99.9% |
+| cache miss / compile | 3,442 / 3,416 | 0.1% |
+| compile time | 16.3 ms (avg 4.8 µs/block) | — |
+| shared reuse | 0 | — |
+| exit continued (fairness or unlinked direct / ISB / etc.) | 1,918,633 | 58.8% |
+| exit indirect miss | 1,344,306 | 41.2% |
+| exit SVC | 80 | ~0% |
+| exit page fault | 91 | ~0% |
+| exit IRQ | 0 | 0% |
+
+The 10× shell tax is not syscalls or compile. Almost every translated block returns to C++ because the chain could not stay in generated code: either the 2-entry indirect cache missed (typically `RET` / indirect calls) or a direct link took the continued fallback (fairness window or an unlinked successor). 3.26 million `run_block` entries in 0.37 s is ~113 ns per entry, which already accounts for the whole bench.
+
+### compile tiny-sha, gcc `-O2` (2.98 s wall with the profiler on; baseline without it was 2.78 s)
+
+| Counter | Count | Share |
+| --- | ---: | ---: |
+| `run_blocks` | 5,538,113 | 100% of entries |
+| cache hit | 4,855,643 | 87.7% |
+| cache miss / compile | 682,470 / 681,564 | 12.3% of entries |
+| compile time | **1,396 ms** | **47% of wall** |
+| shared reuse | 0 | — |
+| exit continued | 2,952,628 | 53.3% of entries |
+| exit indirect miss | 2,565,360 | 46.3% of entries |
+| exit SVC | 7,897 | 0.14% |
+| exit page fault | 12,228 | 0.22% |
+| exit IRQ | 0 | 0% |
+
+The 11.6× compile tax is two problems stacked. First, this one-shot `gcc`/`cc1`/`as` run compiled 681k new blocks (1.40 s). The process-wide shared translation cache did not reuse any of them: publications require two live executors at once, and entries are keyed by guest PC + words, so ASLR after `exec` misses even when the bytes are the same (`libc`, the dynamic linker, `libgcc`). Second, the blocks that do hit still exit the same way the shell does (continued + indirect miss). SVC is not the top exit on either bench.
+
 ## Next costs
 
-- Software CPU (~1.88×): a correct hoist of `LDP`/`STP` and signed/post-index (the naive run hung `/init`; start from no-writeback pairs with a unit test), or a multi-entry last-page cache that does not tax the miss path.
-- Shell loop (~10×): richer than 2-entry indirect ICs, a return-address stack for `RET`, and longer chained blocks.
-- Compile (~11.6×): cheaper `Event::system_call` round trips and translation reuse across `exec` of the same binary.
-- A fixed host offset for guest user memory (the Darwin native window and `direct-root` already map guest physical RAM) was not attempted; it needs a conflict-free VA plan on 16 KiB host pages.
+- Shell (~10×): a return-address stack plus a deeper polymorphic inline cache for indirect sites (they are still 2-entry), and a split of `exit.continued` into fairness vs unlinked-direct so those chains stay in generated code.
+- Compile (~11.6×): persist or share translations across `fork`/`exec` of the same file, keyed by file+offset (or a fixed guest-user mapping so PCs are stable). Also allow the shared cache to publish when only one executor is live, which is how a sequential toolchain actually runs. Cheaper SVC round trips are not the top cost here (7,897 SVC exits vs 1.40 s of compile and millions of continued/indirect exits).
+- Software CPU (~1.88×): left alone for now. A correct hoist of `LDP`/`STP` and signed/post-index still needs a unit test first (the naive run hung `/init`); a multi-entry last-page cache must not tax the miss path.
+- A fixed host offset for guest user memory (the Darwin native window and `direct-root` already map guest physical RAM) was not implemented; it needs a conflict-free VA plan on 16 KiB host pages. A design belongs in `DESIGN.md`.

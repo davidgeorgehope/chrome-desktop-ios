@@ -265,3 +265,9 @@ Guest `/proc/cpuinfo` already advertises `aes pmull sha1 sha2 sha3 sha512 crc32 
 Five JIT increments were tried after that baseline and all reverted: longer unsigned runs (wash), a generalized `LDP`/signed/pre/post run (SIGILL, then `/init` hang), no-writeback `LDP`+`LDUR` (same hang), non-negative `LDUR` only (wash), and a 1-entry last-page host-delta cache (regression: tiny-sha 81.42 → 78.45 MiB/s). The table above is unchanged. Indirect ICs, a RET stack, cheaper SVC exits, and a correct pair/signed hoist are still open. vkcube-on-Venus/X11 still black, not diagnosed in this stretch.
 
 The slim guest's first apk attempt failed on DNS (`DNS: transient error`); benches now inject `resolv.conf` and an offline `apks.tar` of Alpine 3.24 aarch64 packages fetched on the Mac. That tarball is not in git.
+
+## Exit profile of the shell and gcc compile (12 Nov 2026, 10:49 PM ET)
+
+A default-off `UML_JIT_PROFILE` counter in the uml-darwin JIT (`patches/0005-jit-exit-profile.patch`) recorded isolated `sh` loop and `gcc -O2` tiny-sha compiles, reset after boot / `apk add` and snapshotting at the end of the bench. Full table: `scripts/cpu-benches/RESULTS.md`. Profiles: `scripts/cpu-benches/profiles/`.
+
+The shell at ~10× is 3.26 million translated-block entries in 0.37 s, split 59% `continued` (fairness or unlinked direct) and 41% indirect-cache misses. SVC and compile are noise (80 syscalls, 16 ms of compile). The compile at ~11.6× has the same exit mix, plus 1.40 s (47% of wall) spent compiling 681k new blocks with zero shared-cache reuse: the shared cache only publishes when two executors are live at once, and it keys entries by guest PC, so `exec` of `cc1`/`as` under ASLR cannot reuse `libc` or the toolchain. SVC is not the top exit on either bench. The profiler is off unless `UML_JIT_PROFILE` is set, and was not used for the performance table.
