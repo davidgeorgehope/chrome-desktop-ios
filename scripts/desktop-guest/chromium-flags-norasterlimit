@@ -1,0 +1,12 @@
+--no-sandbox
+--password-store=basic
+--disable-background-timer-throttling
+--disable-renderer-backgrounding
+--disable-backgrounding-occluded-windows
+--disable-gpu-compositing
+--enable-gpu-rasterization
+--start-maximized
+--disable-features=CalculateNativeWinOcclusion,IntensiveWakeUpThrottling
+--num-raster-threads=4
+--disable-partial-raster
+--cc-scroll-animation-duration-in-seconds=0

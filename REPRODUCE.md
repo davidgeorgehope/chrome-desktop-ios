@@ -491,7 +491,12 @@ Chromium flags live in `scripts/desktop-guest/chromium-flags` and are
 injected as `/usr/local/etc/chromium-flags`. The official 0022 usable
 desktop needs `--disable-gpu-compositing --enable-gpu-rasterization`
 (default Wayland GPU compositing scrolls at ~1 fps). Override with
-`UML_CHROMIUM_FLAGS_FILE`. Persist off, memory-pressure preflight,
+`UML_CHROMIUM_FLAGS_FILE`. Do not add `--disable-frame-rate-limit` when
+comparing this rAF scroll metric to Firefox: it uncaps
+`requestAnimationFrame` and inflates fps to ~140–155 without measuring
+presented frames (5:23–5:30 PM ET sweep, 13 Nov 2026). Raster-thread
+and zero-copy / smooth-scrolling variants were not a clear win; the
+baked flags are unchanged. Persist off, memory-pressure preflight,
 SWAP_ABORT start+2048M, `mem=4G ncpus=8`, `--jit-cache-budget=8G`,
 native Metal 1920×1080, same labwc images as TTP. Official 0022 numbers
 are in `NOTES.md` (4:42–4:47 PM, 4:55–5:05 PM, and the warm second-page table at 5:13–5:16 PM ET, 13 Nov 2026).

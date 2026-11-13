@@ -1656,3 +1656,60 @@ Logs on the mini:
 `session-interactive-official0022-cr-warm-{1,2}-20261113-1713{02,36}.log`
 and
 `session-interactive-official0022-ff-warm-{1,2}-20261113-171{409,512}.log`.
+
+## Chromium scroll flag sweep on official 0022 (13 Nov 2026, 5:23–5:30 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host and official 0022
+`uml-darwin-official-0022-20261113` (md5 `6ea8180e05fc6736d32530811ba3c439`).
+Kernel local2, persist off, native Metal 1920×1080, `mem=4G` `ncpus=8`,
+`--jit-cache-budget=8G`, SWAP_ABORT on. Each variant is the baked
+compositor-fix flags plus one change. `UML_CHROMIUM_FLAGS_FILE` was
+applied (confirmed on the `===CHROMIUM_FLAGS===` line). Official 0022
+was not overwritten. Peek and iPad (A16) stayed Shutdown. Swap used
+was 918.94M then 910.94M, flat within each run; no SWAP_ABORT.
+
+The goal was to push Chromium programmatic-scroll rAF fps from the
+baked 9.25–9.47 band toward Firefox’s 33–43 fps. Only a measured clear
+win would be baked. None was.
+
+A first 5:17–5:23 PM ET loop did not actually apply the variant files
+(zsh did not word-split the tag/flag pair, so the harness fell back to
+the baked flags). Those `official0022-cr-rscroll-*` logs are accidental
+baked repeats (about 8–12 fps) and are not this table.
+
+The scroll metric is rAF callbacks during a 2 s `scrollBy(0, 48)` loop,
+the same as Firefox’s 33–43 fps number. It is a present-rate proxy only
+while rAF is vsync- or present-capped.
+
+| Variant (one run unless noted) | Window (ET) | Scroll fps | frames | p95_frame_ms | first_paint_ms | vs baked 9.25–9.47 |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| Baked (warm r1 / r2, 5:13–5:14 PM) | 5:13:02 / 5:13:36 PM | 9.47 / 9.25 | 19 / 19 | 500.00 / 283.40 | 502.7 / 673.3 | baseline |
+| `--num-raster-threads=1` | 5:23:19 PM | 6.72 | 14 | 350.00 | 573.6 | worse |
+| `--num-raster-threads=2` | 5:23:52 PM | 6.45 | 13 | 409.30 | 482.2 | worse |
+| `--num-raster-threads=8` | 5:24:25 PM | 8.23 | 17 | 333.20 | 490.8 | no win |
+| `--disable-smooth-scrolling` + `SmoothScrolling` off | 5:24:59 PM | 8.95 | 19 | 385.60 | 45.8 | no win |
+| `--disable-gpu-vsync --disable-frame-rate-limit` | 5:25:34 PM | 142.52 | 286 | 19.20 | 31.8 | rAF uncapped, not baked |
+| same, confirm | 5:28:53 PM | 138.65 | 279 | 25.20 | 16.0 | rAF uncapped, not baked |
+| `--disable-gpu-vsync` only | 5:29:27 PM | 8.30 | 17 | 333.25 | 439.8 | no win |
+| `--disable-frame-rate-limit` only | 5:30:01 PM | 154.82 | 310 | 18.00 | 100.0 | rAF uncapped, not baked |
+| `--enable-oop-rasterization` + `CanvasOopRasterization` | 5:26:11 PM | 10.70 | 22 | 169.30 | 496.2 | noise, not baked |
+| `--disable-zero-copy` + ZeroCopy features off | 5:26:41 PM | 7.84 | 16 | 533.30 | 502.8 | no win |
+| `--enable-zero-copy` | 5:27:15 PM | 7.37 | 15 | 450.00 | 449.1 | no win |
+| `--disable-partial-raster --cc-scroll-animation-duration-in-seconds=0` | 5:27:49 PM | 9.83 | 20 | 316.70 | 452.4 | no win |
+
+`--disable-frame-rate-limit` (alone or with `--disable-gpu-vsync`)
+makes `requestAnimationFrame` fire as fast as the renderer main thread
+can run, so the harness counts ~140–155 JS callbacks per second with a
+~18–25 ms p95. That is not a presented-frame rate and is not comparable
+to Firefox’s vsync-capped 33–43 fps. `--disable-gpu-vsync` alone stays
+in the baked band. The flags are not baked.
+
+Raster thread counts 1 and 2 are worse than 4. 8 is no win. Zero-copy
+on or off, smooth-scrolling off, and the partial-raster / scroll-animation
+pair do not help. OOP raster was 10.70 fps / p95 169 ms on one run,
+inside the earlier 7–10 fps (and accidental baked-repeat 8–12 fps)
+noise, and still far from Firefox. Baked `chromium-flags` is unchanged.
+
+Experiment files (not used by the default start script) live next to
+the baked flags as `scripts/desktop-guest/chromium-flags-{raster1,raster2,raster8,nosmooth,novsync,novsync-vsynconly,novsync-frlonly,oop,nozerocopy,zerocopy,norasterlimit}`.
+Logs on the mini: `session-interactive-official0022-cr-scrollx-*`.
