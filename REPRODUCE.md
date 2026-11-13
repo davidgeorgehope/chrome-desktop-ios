@@ -356,3 +356,20 @@ Guest: `scripts/cpu-benches/launch-guest-jit-benches.sh` wraps
 `caffeinate -i`. Use `script -F` so serial markers are line-buffered and a mid-run profiler reset can see them live. `UML_JIT_PROFILE=1` enables the translated-block exit profiler (`launch-guest-jit-profile.sh sh_loop|compile`). Look for
 `===BENCH_START===` / `===BENCH_DONE===`. Results: `scripts/cpu-benches/RESULTS.md`.
 
+
+## Compiler reuse (0021, 13 Nov 2026)
+
+`python3 patches/0021-jit-compile-reuse/apply.py` from the Kernarium tree
+after 0020. Side-link; do not overwrite
+`uml-darwin-official-c134a87` / `uml-darwin-official-20261113` (frozen
+at 9:22 AM ET, inode 245391030). Persist off. CPU benches: `mem=2G ncpus=8`
+on the minimal ext4, `guest-run-benches.sh` / `run-cpu-benches.sh`.
+Firefox TTP: same 8:50 AM method (labwc image, native Metal 1920×1080,
+`mem=4G ncpus=8`, `--jit-cache-budget=8G`,
+`start-desktop-labwc-persist.sh`, machine-shell `screencapture -x -l WID`).
+Look for compile_tiny_sha cold (2.45 s official → 2.15 s alloc) and full
+multilingual body (53 s → 39 s). SIGPROF:
+`UML_JIT_SIGPROF=1 UML_JIT_SIGPROF_HZ=999` plus the compile-cold guest
+that sleeps 1.2 s after `COMPILE_COLD_START`, then
+`analyze-sigprof-hist.py` subtracting the pre-compile hist. `compiler_`
+must stay at the end of `Implementation`.

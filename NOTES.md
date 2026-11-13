@@ -906,3 +906,60 @@ The persist-on D4iPad cold guest (`kernarium-ipad-persist-cold-session-20261113-
 
 That hang is persist-on only. It was not reproduced with persist off, and it was not re-run on D4iPad after the hook fix (no hypothesis was safe enough to risk another multi-minute stall). Possible causes: a persist-admitted translation that is incorrect on this destination (the leftover-host-pointer refusal range `[0x100000000, 0x200000000)` is shaped like uml-darwin macOS user VAs and may miss Designed-for-iPad JIT-region pointers), or a long stall from `remember()` fsync/index write under the persist mutex during heavy eviction. Persist stays opt-in and should not be turned on for D4iPad until that path is shown safe. The hook-fix change does not alter persist-on behaviour; it only skips hashing when the store is off.
 
+
+## Compiler reuse and reserved emit buffers (13 Nov 2026, 9:22–9:44 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3. Work stayed on this host. Nothing was installed on a phone. Display resolution, voxl, Screen Sharing, Keychain, and the official `macos-integration-16k` binary (1:30 AM ET, inode 244913917) were not changed. `vm.swapusage` stayed **0.00M used** on every run. Persist stayed **off**.
+
+### Official-from-main identity, frozen
+
+A clean official 4K `macos-integration` `uml-darwin` was rebuilt from hook-fix + 0011–0013 sources already in the tree at **9:22:03 AM ET** (inode 245391025, 54,324,568 bytes) and immediately copied to `uml-darwin-official-c134a87` (inode **245391030**) and `uml-darwin-official-20261113` (inode 245391031). Those named copies were not overwritten by the later side-link. Evict-on-full (0011), packed-publish (0012), and the publish arena (0013) are part of this official identity and stay promoted: earlier same-session compile-cold figures were official 1.99/2.08 s, packed 1.94 s, arena 1.91/1.94 s (~5–8%).
+
+### Profile (official-c134a87, then alloc)
+
+SIGPROF 999 Hz, compile-cold window after subtracting the pre-compile (boot+apk) histogram, `mem=2G ncpus=8`, persist off. Official **9:23:22–9:23:31 AM ET**, compile-cold wall **2.28 s**, 1990 delta samples: memcpy/memset **44.82%** (814 `_platform_memmove`), malloc **9.40%** (177 `_xzm_xzone_malloc_freelist_outlined`), shared-cache find 12.41% plus `valid_shared_translation` 7.74% and `memcmp` 6.83%, decode+emit **1.36%**. `sample(1)` attached to `caffeinate` and is not useful.
+
+The leftover malloc after 0011–0013 is mostly per-block `JitCompiler` construction and vector growth; the leftover memmove is geometric `words_` growth plus `store_block` / packed-publish copies.
+
+`patches/0021-jit-compile-reuse` keeps one heap `JitCompiler` per executor and resets / reserves its emit buffers across blocks. `compiler_` is at the **end** of `Implementation`. An earlier side-link that inserted it between the arenas and `Tlb` mixed layouts with official objects and panicked `/init` (`Darwin: fatal guest event -1 at ip 0x400444`, `exitcode=0x0000000b`). Moving the member to the end fixed the boot.
+
+Alloc SIGPROF **9:42:18–9:42:25 AM ET**, compile-cold wall **2.13 s**, 1247 delta samples: malloc samples 177→119, memmove samples 814→669. Malloc's *share* stayed ~10% and memmove's share rose because shared-cache find/memcmp also dropped; the remaining memmove is still the copy into the code cache (emit-in-place was not landed).
+
+### CPU benches (persist off, profilers off, mem=2G ncpus=8)
+
+Official-c134a87 launched **9:24:57 AM ET**, `BENCH_DONE` ~**9:25:45 AM ET**. Alloc (`uml-darwin-alloc`, inode 245395686 after the ABI-safe relink, 54,325,344 bytes) launched **9:40:45 AM ET**, `BENCH_DONE` ~**9:41:34 AM ET**.
+
+| Bench | Official-c134a87 (9:24 AM ET) | Alloc reuse (9:40 AM ET) |
+| --- | --- | --- |
+| sh_loop_ash | 0.19 s | 0.18 s |
+| sh_loop_dash | 0.18 s | 0.22 s |
+| sha256_32m | 0.36 s | 0.35 s |
+| apk_add_offline | 2.98 s | 2.96 s |
+| evp aes-256-cbc 16 KiB | 1011520.85k (~1011.5 MB/s) | 1015584.09k (~1015.6 MB/s) |
+| evp sha256 16 KiB | 1431665.70k (~1431.7 MB/s) | 1516314.54k (~1516.3 MB/s) |
+| compile_tiny_sha cold | **2.45 s** | **2.15 s** |
+| compile_tiny_sha warm | 1.30 s | 1.30 s |
+| compile_native_loop | 0.27 s | 0.29 s |
+| native_loop | 0.49 s | 0.52 s |
+
+Compile-cold is a **12%** wall-time cut (2.45→2.15 s). Warm compile is unchanged. evp/sha/apk stay in noise except sha256 16 KiB, which was slightly up.
+
+### Firefox TTP (same method as the 8:50 AM A/B table, persist off)
+
+labwc image `/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-desktop-labwc.ext4`, native Metal 1920×1080, `mem=4G ncpus=8`, `UML_JIT_CACHE_BUDGET=8G` / `--jit-cache-budget=8G`, e10s on, `start-desktop-labwc-persist.sh`, shots from a machine-targeted shell (`screencapture -x -l WID`). Chrome / first body / full page times are seconds after process start. Zero `JIT_PERSIST_STATS` lines on both runs.
+
+| Config | Window (ET) | READY | Isolated (`from_ready`) | Chrome | First English body | Full multilingual body |
+| --- | --- | --- | --- | --- | --- | --- |
+| Pre-0020 `uml-darwin-arena` 8G, persist off | 8:50:36–8:52:35 AM | **3.98 s** at 8:50:41 AM | **15.07 s** | **21 s** (8:51:02 AM) | **38 s** (8:51:19 AM) | **45 s** (8:51:26 AM) |
+| Hook-fix `uml-darwin-hookfix` 8G, persist off | 8:58:51–9:00:50 AM | **3.36 s** at 8:58:57 AM | **14.65 s** | **26 s** New Tab (8:59:17 AM); example.com empty at 8:59:25 AM | **41 s** (8:59:32 AM) | **48 s** (8:59:39 AM) |
+| Official-c134a87 8G, persist off | 9:28:12–9:30:19 AM | **4.59 s** at 9:28:17 AM | **15.68 s** | **27 s** example.com empty (9:28:39 AM) | **46 s** (9:28:58 AM) | **53 s** (9:29:05 AM) |
+| Alloc reuse `uml-darwin-alloc` 8G, persist off | 9:42:38–9:44:38 AM | **3.51 s** at 9:42:42 AM | **14.03 s** | **27 s** example.com empty, “Waiting for example.com…” (9:43:05 AM) | **29 s** (9:43:07 AM) | **39 s** (9:43:17 AM) |
+
+Official shots: `~/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-ab-official8g-manual/` (`t-092839`, `t-092858`, `t-092905`). Alloc shots: `persist-ttp-ab-alloc8g-manual/` (`t-094305`, `t-094307`, `t-094317`). Session logs: `session-ab-official8g-20261113-092812.log`, `session-ab-alloc8g-20261113-094238.log`. Official benches: `notes/jit-baseline/compile-alloc/benches-official-c134a87-20261113-092457.log`. Alloc benches: `benches-alloc-20261113-094045.log`.
+
+Full multilingual page **53 s→39 s** (~26%) and first English body **46 s→29 s** are the Firefox win. Isolated 15.68→14.03 s and READY 4.59→3.51 s move the same direction. Chrome first-visible stayed 27 s (gap after the black READY frame is the same 1 s watcher limitation as official).
+
+### Designed-for-iPad and Simulator
+
+Not rebuilt or re-measured in this pass. The first side-link had to be thrown out after the `/init` ABI panic, and the uml-darwin official vs alloc A/B finished at **9:44 AM ET**. The patch is the iOS-applicable compiler-reuse series (`apply.py` after 0020). Persist must stay off on Designed-for-iPad until the openssl 8192-byte hang is shown safe. Do not install anything on a phone.
+
