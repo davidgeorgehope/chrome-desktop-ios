@@ -72,6 +72,9 @@ BOOTENV="$NOTES/boot.env"
 READY="$FAST/desktop-ready.sh"
 BWRAP="$FAST/bwrap-passthrough.sh"
 FFPROF="$FAST/firefox-kernarium-profile.sh"
+if [ -x "$HERE/desktop-guest/firefox-kernarium-profile.sh" ]; then
+  FFPROF="$HERE/desktop-guest/firefox-kernarium-profile.sh"
+fi
 
 {
   echo "LAUNCH $(date) tag=$TAG bin=$BIN budget=${UML_JIT_CACHE_BUDGET} persist=off browser=$BROWSER interactive=1"

@@ -474,8 +474,10 @@ BTN_LEFT at the VNC tablet’s 16-bit ABS midpoint, then KEY_A). Host
 `VNC_POKE` to TCP 5900 does not work on `--gpu-display=native` (RFB
 003.889, no None auth). After the 13 Nov Chromium compositor fix, a
 Chromium run should report non-zero `key_n` and `click_n` with
-`why=ok`. Firefox still times out (`hasFocus=0`); that is a known
-gap, not a failed inject.
+`why=ok`. Firefox also should, after the 13 Nov 5:40 PM ET focus fix
+(labwc Maximize plus an upper-center then mid evdev poke). A mid-only
+poke can miss a non-maximized Firefox window and steal focus to the
+desktop (`hasFocus=0`, input timeout).
 
 After input (ok or timeout) the landing page posts
 `===INTERACTIVE_WARM_NAV===` and navigates in the same window to

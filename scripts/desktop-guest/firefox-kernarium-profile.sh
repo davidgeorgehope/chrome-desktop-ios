@@ -43,3 +43,10 @@ user_pref("identity.fxaccounts.enabled", false);
 user_pref("app.shield.optoutstudies.enabled", false);
 user_pref("app.normandy.enabled", false);
 EOJ
+
+# Interactive-metrics (and a usable desktop) want a maximized window so
+# a mid-tablet evdev poke hits content, not the labwc desktop.
+mkdir -p "$PROFDIR"
+cat > "$PROFDIR/xulstore.json" << 'EOX'
+{"chrome://browser/content/browser.xhtml":{"main-window":{"width":"1920","height":"1080","screenX":"0","screenY":"0","sizemode":"maximized"}}}
+EOX

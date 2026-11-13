@@ -1774,3 +1774,43 @@ blocks; most C frames use SP and would fall back. That is not a
 clear-win land candidate. The prototype stays on the branch; official
 0022 is unchanged. Full write-up:
 `notes/near-pass-through-prototype.md` in the Kernarium worktree.
+
+## Firefox input focus fix on official 0022 (13 Nov 2026, 5:40–5:41 PM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host and official 0022
+`uml-darwin-official-0022-20261113` (md5 `6ea8180e05fc6736d32530811ba3c439`).
+Kernel local2, persist off, native Metal 1920×1080, `mem=4G` `ncpus=8`,
+`--jit-cache-budget=8G`, SWAP_ABORT on. Official 0022 was not overwritten.
+Peek and iPad (A16) stayed Shutdown. Swap used was 910.94M then 902.94M;
+no SWAP_ABORT.
+
+The 5:14–5:16 PM ET warm runs had Firefox input `why=timeout`,
+`hasFocus=0`, even though evdev writes succeeded. Launch and scroll
+still reported `hasFocus=1`. The mid-tablet poke (ABS 32767,32767) was
+hitting the labwc desktop: Firefox is not started with
+`--start-maximized`, so a default window often does not cover the
+center of 1920×1080, and the click stole focus.
+
+The harness now (1) writes a labwc `rc.xml` window rule that Maximizes
+Firefox and Chromium on map when interactive metrics are on, (2) seeds
+the kernarium profile `xulstore.json` with `sizemode=maximized` at
+1920×1080, and (3) pokes a focus click at upper-center (ABS_Y≈19660)
+then mid before KEY_A. `measure-interactive.sh` prefers the repo
+Firefox profile script.
+
+| Run | Window (ET) | Cold launch process / FIREFOX_START (guest Δup) | first_paint_ms | Scroll fps | frames | p95_frame_ms | Input | Warm `up=` | Peak RSS | Swap |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | --- | --- |
+| Firefox r1 (warm, before fix) | 5:14:09–5:15:12 PM | 19 s / 16 s (15.74 s) | 20.0 | 39.36 | 80 | 66.64 | timeout, 0/0 (`hasFocus=0`) | 1.85 s | 4812 MiB | 918.94→918.94M |
+| Firefox r2 (warm, before fix) | 5:15:12–5:16:16 PM | 19 s / 15 s (15.91 s) | 3.0 | 39.72 | 80 | 66.66 | timeout, 0/0 (`hasFocus=0`) | 1.32 s | 5063 MiB | 918.94→918.94M |
+| Firefox r1 | 5:40:28–5:41:01 PM | 20 s / 16 s (15.93 s) | 27.0 | 40.68 | 82 | 50.70 | **ok, key 2.00 ms, click 97.00 ms** (n=1/2, `hasFocus=1`) | **1.19 s** | 4477 MiB | 910.94→902.94M |
+| Firefox r2 | 5:41:01–5:41:34 PM | 19 s / 15 s (15.78 s) | 42.0 | 42.15 | 85 | 66.30 | **ok, key 5.00 ms, click 69.00 ms** (n=1/2, `hasFocus=1`) | **1.16 s** | 4615 MiB | 902.94→902.94M |
+
+`click_n=2` is the focus mid-click plus the following mid click, both
+after the page armed. Click latency (69–97 ms) is slower than
+Chromium's ~15–17 ms and includes the first hit after the upper-center
+focus poke. Keys are 2–5 ms. Warm same-window navigation is 1.16–1.19 s
+(shorter than the pre-fix 1.32–1.85 s, which included a 20 s input
+timeout before navigate). Scroll stays in the 39–42 fps band.
+
+Logs:
+`session-interactive-official0022-ff-input-{1,2}-20261113-174{028,101}.log`.

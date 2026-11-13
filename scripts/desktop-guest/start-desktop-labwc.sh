@@ -91,6 +91,32 @@ fi
 
 mkdir -p /tmp/labwc-cfg
 : > /tmp/labwc-cfg/autostart
+# Interactive metrics poke mid-tablet. A default Firefox window is not
+# full-screen, so that click can hit the labwc desktop and steal focus
+# (hasFocus 1 at scroll, 0 at input timeout). Maximize the browser on
+# map so the mid click lands in content. Chromium already passes
+# --start-maximized; the rule is cheap insurance for both.
+if [ -e /usr/local/etc/interactive-metrics ] || [ "${INTERACTIVE_METRICS:-}" = 1 ]; then
+  cat > /tmp/labwc-cfg/rc.xml << 'EORC'
+<?xml version="1.0"?>
+<labwc_config>
+  <windowRules>
+    <windowRule identifier="firefox*" matchOnce="true">
+      <action name="Maximize"/>
+    </windowRule>
+    <windowRule identifier="Firefox*" matchOnce="true">
+      <action name="Maximize"/>
+    </windowRule>
+    <windowRule identifier="chromium*" matchOnce="true">
+      <action name="Maximize"/>
+    </windowRule>
+    <windowRule identifier="Chromium*" matchOnce="true">
+      <action name="Maximize"/>
+    </windowRule>
+  </windowRules>
+</labwc_config>
+EORC
+fi
 # drm alone disables wlroots' libinput backend, so the VNC keyboard and
 # tablet (already registered by uml_vnc_input) never reach labwc.
 export WLR_BACKENDS="${WLR_BACKENDS:-drm,libinput}"

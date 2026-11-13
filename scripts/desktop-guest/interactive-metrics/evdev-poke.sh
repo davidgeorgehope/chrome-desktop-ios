@@ -64,14 +64,16 @@ write_blob() {
   return $st
 }
 
-if [ -n "$tablet" ]; then
+# One click at a 16-bit ABS point. 960,540 (1920x1080 mid) produced no
+# mousedown; the VNC tablet's range is 0..65535 (PROP=2 / ABS=3).
+# BTN_TOUCH=330, BTN_LEFT=272, ABS_X=0, ABS_Y=1, SYN_REPORT=0.
+click_at() {
+  x=$1
+  y=$2
   tmp=/tmp/evdev-touch.bin
   {
-    # One click at 16-bit ABS mid. 960,540 (1920x1080 mid) produced no
-    # mousedown; the VNC tablet's range is 0..65535 (PROP=2 / ABS=3).
-    # BTN_TOUCH=330, BTN_LEFT=272, ABS_X=0, ABS_Y=1, SYN_REPORT=0.
-    evdev_event 3 0 32767
-    evdev_event 3 1 32767
+    evdev_event 3 0 "$x"
+    evdev_event 3 1 "$y"
     evdev_event 0 0 0
     evdev_event 1 330 1
     evdev_event 1 272 1
@@ -81,7 +83,18 @@ if [ -n "$tablet" ]; then
     evdev_event 0 0 0
   } > "$tmp"
   write_blob "$tablet" "$tmp" || true
-  sleep 0.5
+}
+
+if [ -n "$tablet" ]; then
+  # Focus first: a default Firefox window often sits in the upper half,
+  # so a mid-screen click can miss it and steal focus to the desktop.
+  # Upper-center (~30% down), then mid, then the mid click that should
+  # hit maximized content. Chromium already worked with mid alone.
+  report "===INTERACTIVE_EVDEV_FOCUS=== upper then mid"
+  click_at 32767 19660
+  sleep 0.25
+  click_at 32767 32767
+  sleep 0.35
 fi
 
 if [ -n "$kbd" ]; then
