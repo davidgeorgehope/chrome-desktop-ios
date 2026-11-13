@@ -817,3 +817,54 @@ Firefox TTP improved (chrome 80 s→**31 s**, body 131 s→**70 s**) but is stil
 
 Logs on the mini: `~/linux-ios-bakeoff/notes/macos-metal-desktop/kernarium-ipad-mac-debugger-jit-2g-session-20261113.log`, `-serial-`, `-guest-session-`, `kernarium-ipad-jit-serve-2g-20261113.log`, and `kernarium-ipad-jit-2g-memory-20261113.log`. The failed 2 GiB/default-L1 attempt is archived as `kernarium-ipad-mac-2g-oversize-region-failed-20261113.log`.
 
+## Persistent JIT translation cache and KernariumCS login attach (13 Nov 2026, 8:04–8:19 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3. Work stayed on this host (uml-darwin and, next, Designed for iPad on My Mac). Nothing was installed on a phone. Display resolution, voxl, Screen Sharing, and the official 4K `uml-darwin` identity were not changed. The official `macos-integration-16k` binary remains the 1:30 AM ET artifact.
+
+### KernariumCS LaunchAgent
+
+`KernariumCS.sparseimage` is unencrypted (`image-encrypted: false`). After the 26.7.3 upgrade it needed a manual `hdiutil attach`. A login LaunchAgent now attaches it without the Keychain or the `security` CLI: `scripts/macos-metal/attach-kernariumcs.sh` and `com.davidhope.kernariumcs-attach.plist`. ProgramArguments point at the stable bakeoff copy `/Users/davidhope/linux-ios-bakeoff/scripts/macos-metal/attach-kernariumcs.sh`. Installed under `~/Library/LaunchAgents/` and bootstrapped in `gui/501`. The script is idempotent if the volume is already mounted; the 8:05:12 AM ET login/bootstrap log line was `already mounted at /Volumes/KernariumCS`. The cache lives on that volume (the data volume is tight; do not put a multi-GB JIT cache there).
+
+### Persistent store
+
+`patches/0020-jit-persistent-cache` writes admitted shared-cache translations to an append-only `data.jtc` plus `index.jtc`. The on-disk key is the 16-byte content hash of the guest code page, the page offset, and the codegen profile — not the process-lifetime `code_page_identity` stamp, which cannot survive a reboot. Lookup requires an exact match of the stored guest instruction bytes; an optional source fingerprint (ext4 UUID, size, mtime via `UML_JIT_PERSISTENT_CACHE_SOURCE`) retires a mismatched image to `*.stale` and starts empty. CRC or header damage is a skip / empty store (safe fallback). Reloc cells are zeroed before a record is written; any leftover 64-bit value in the macOS user range `[0x100000000, 0x200000000)` is refused on remember and on lookup.
+
+The official 4K identity was not rebuilt. macos-integration `uml-darwin` was rebuilt at **8:15 AM ET** after a first warm boot against a tainted cache (writes that still carried a cold-process host pointer) panicked at **8:13:15–8:13:18 AM ET** (`Kernel mode signal 10` at a macOS user `pc`). That ~719 MiB generation was wiped. The numbers below use the post-fix binary and a clean cache on `/Volumes/KernariumCS/jit-cache/uml-darwin`, with `UML_JIT_CACHE_BUDGET=8G`, `mem=4G ncpus=8`, production `start-desktop-labwc.sh` (e10s on), and the stable read-only labwc rootfs as the source fingerprint. `vm.swapusage` stayed **0.00M used** on both runs. Window shots were taken from a machine-targeted shell (`screencapture -x -l WID`): a LaunchAgent has no Screen Recording TCC.
+
+### uml-darwin cold vs warm Firefox TTP
+
+Cold (empty cache, **8:15:34–8:17:12 AM ET**). `DESKTOP_READY` **4.62 s** at **8:15:39 AM ET**. `FIREFOX_START` 4.84 s (`from_ready=0.00`) at **8:15:39 AM ET**. `FF_ISOLATED` **23.43 s** after READY (up=28.05, ~**8:16:02 AM ET**). Chrome (example.com tab, empty body) at **8:16:22 AM ET** (**43 s** after start). First English Example Domain body text at **8:16:30 AM ET** (**51 s**). Full multilingual body at **8:16:42 AM ET** (**63 s**). Persist: stores=147,480, same-boot hits=179,445, rejected=0, `data.jtc` ≈ 58.7 MiB. READY is slower than the historical 2.5–3.5 s uml-darwin boots; Isolated and first paint are also slower than the historical ~12 s Metal TTP, consistent with synchronous persist I/O on the cold path.
+
+Warm (same cache and binary, **8:17:50–8:19:27 AM ET**). The store reopened the cold files (`entries=147,456`, `data=58,720,816` on the first stats line, stores=0, hits already climbing). No panic. `DESKTOP_READY` **4.66 s** at **8:17:55 AM ET**. `FIREFOX_START` 4.79 s at **8:17:55 AM ET**. `FF_ISOLATED` **18.03 s** after READY (up=22.69, ~**8:18:13 AM ET**). Chrome (New Tab) at **8:18:20 AM ET** (**25 s** after start). First English Example Domain body text at **8:18:27 AM ET** (**32 s**). Full multilingual body at **8:18:41 AM ET** (**46 s**). Final persist: hits=320,315, stores=10,340, rejected=0, entries=157,796, `data.jtc` ≈ 62.6 MiB. Shared-cache insertions were still ~1.53M with ~1.23M misses — the persistent set is only the translations that are safe to store, so a warm Firefox start is faster but not yet almost all cache hits.
+
+| Event (uml-darwin Metal JIT, labwc, persist on) | Cold (empty disk cache) | Warm (reused disk cache) |
+| --- | --- | --- |
+| `DESKTOP_READY` | **4.62 s** at **8:15:39 AM ET** | **4.66 s** at **8:17:55 AM ET** |
+| Isolated Web Content (`from_ready`) | **23.43 s** (~8:16:02 AM ET) | **18.03 s** (~8:18:13 AM ET) |
+| Firefox chrome first visible | **43 s** (8:16:22 AM ET) | **25 s** (8:18:20 AM ET) |
+| First example.com body text | **51 s** (8:16:30 AM ET) | **32 s** (8:18:27 AM ET) |
+| Full Example Domain body | **63 s** (8:16:42 AM ET) | **46 s** (8:18:41 AM ET) |
+| Persist hits / stores / rejected | 179,445 / 147,480 / 0 | 320,315 / 10,340 / 0 |
+
+Shots: `~/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-cold-manual2/` and `persist-ttp-warm-manual2/`. Session logs: `session-persist-cold-20261113-081534.log` and `session-persist-warm-20261113-081750.log`.
+
+### Designed-for-iPad cold vs warm Firefox TTP
+
+ios-device runtime rebuilt with 0020 at **8:22:18 AM ET** and packaged **8:22:35 AM ET** (`UML_IOS_DEBUGGER_JIT=ON`, 2G/128M L1 unchanged). The official 4K identity was not rebuilt. Aqua `GuestSessionTests` plus `lldb`/`jit_serve` (SIGUSR1/SIGUSR2/SIGALRM passed through). A first LaunchAgent attempt at **8:24:15 AM ET** missed the process: the waiter gave up after 30 s while xcodebuild was still compiling, and the guest ran on gadgets. That run is discarded.
+
+The debugger-JIT waiter was extended to 300 s. A first JIT cold at **8:28:16 AM ET** attached and logged `execution engine jit (cache budget 2147483648 bytes, executor cap 134217728 bytes)`, but wrote no `data.jtc`: the app sandbox cannot write `/Volumes/KernariumCS`. Persist stats were absent (the store stays off if the directory cannot be opened). Firefox chrome (New Tab) was at **8:29:13 AM ET** (37 s after `FIREFOX_START` at **8:28:36 AM ET** / READY 3.83 s); full Example Domain body at **8:30:05 AM ET** (89 s). That run is a persist-off JIT baseline, not a persist result.
+
+The cache was then pointed at the app container, which the test already uses for the rootfs and guest logs:
+
+`~/Library/Containers/6C8222CA-6C25-43B8-8EAD-1F9880730E07/Data/Documents/jit-cache`
+
+with `UML_JIT_PERSISTENT_CACHE_SOURCE` set to the in-container `alpine-3.24.2-desktop-labwc.ext4`. `vm.swapusage` stayed **0.00M used**. Window shots were taken from a machine-targeted shell.
+
+Cold (empty container cache, **8:35:07–8:43:26 AM ET**). Attached **8:35:15 AM ET**, prepared **39912 pages (623.6 MiB) in 2.9 s** at **8:35:24 AM ET**, then detached. JIT 2G/128M. `DESKTOP_READY` **4.38 s** at **8:35:28 AM ET**. `FIREFOX_START` 4.44 s at **8:35:28 AM ET**. Chrome (New Tab) at **8:36:11 AM ET** (**43 s**). First English Example Domain body text at **8:36:44 AM ET** (**76 s**). Full multilingual body at **8:36:58 AM ET** (**90 s**). Persist grew to hits=237,157, stores=162,137, rejected=4, `data.jtc` ≈ 62 MiB. The guest later stalled in `openssl speed` aes-256-cbc 8192-byte (Kernarium at ~0.3% CPU, log frozen from **8:37 AM ET**); the process was SIGTERM'd at **8:43:15 AM ET**. Periodic flush had already written the 62 MiB store; no `why=atexit` line was observed.
+
+Warm (same cache and binary, **8:43:45–8:46:33 AM ET**). The store reopened the cold files (`entries=159,744`, `data=63,651,576` on the first stats line, stores=0, hits already climbing). No panic. Attached **8:43:54 AM ET**, prepared the same 39912 pages in 2.9 s at **8:44:01 AM ET**. `DESKTOP_READY` **4.41 s** at **8:44:06 AM ET**. `FIREFOX_START` 4.46 s at **8:44:06 AM ET**. Chrome (New Tab) at **8:44:43 AM ET** (**37 s**). First English Example Domain body text at **8:45:29 AM ET** (**83 s**). Full multilingual body at **8:45:42 AM ET** (**96 s**). Final persist: hits=350,266, stores=4,609, rejected=4, entries=164,353. The session was SIGTERM'd at **8:46:33 AM ET** after body paint, before the openssl stall seen on the cold run.
+
+Warm Firefox TTP on Designed-for-iPad is not clearly faster than the persist-on cold (chrome 43 s→37 s; first body 76 s→83 s; full body 90 s→96 s), and it remains slower than the earlier 2G/128M persist-off JIT (chrome 31 s, body 70 s at 7:50–7:51 AM ET). The disk cache is doing real work (350k hits after a clean reopen), but the persistent set is still only the translations that are safe to store, and shared-cache evictions at the 1 GiB cap continue. `/Volumes/KernariumCS` is the right place for the uml-darwin cache; on My Mac the store has to live in the container.
+
+Shots: `~/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-d4ipad-cold-manual3/` and `persist-ttp-d4ipad-warm-manual/`. Session logs: `kernarium-ipad-persist-cold-session-20261113-083505.log` and `kernarium-ipad-persist-warm-session-20261113-084345.log`.
+

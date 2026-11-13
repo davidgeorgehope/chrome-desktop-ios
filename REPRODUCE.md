@@ -296,6 +296,32 @@ debugger-region limit. Optional
 `TEST_RUNNER_KERNARIUM_GUEST_SESSION_NET_PROBE=1` times DNS/HTTP after
 READY. Do not use a 4 GiB budget on the 16 GiB mini.
 
+A login LaunchAgent attaches the unencrypted
+`~/linux-ios-bakeoff/KernariumCS.sparseimage` without the Keychain:
+copy `scripts/macos-metal/attach-kernariumcs.sh` and
+`com.davidhope.kernariumcs-attach.plist` into
+`~/linux-ios-bakeoff/scripts/macos-metal/` (the plist ProgramArguments
+use that stable bakeoff path), install the plist under
+`~/Library/LaunchAgents/`, and bootstrap `gui/501`. The script is a
+no-op if `/Volumes/KernariumCS` is already mounted.
+
+Persistent JIT translations (`patches/0020-jit-persistent-cache`): apply
+`python3 patches/0020-jit-persistent-cache/apply.py` in the Kernarium
+tree after 0019, then rebuild the macos-integration *side* binary (do
+not bump the official 4K identity) and, for My Mac, the ios-device
+runtime. Set `UML_JIT_PERSISTENT_CACHE` (or `KERNARIUM_JIT_*`) to a
+directory on KernariumCS, and `UML_JIT_PERSISTENT_CACHE_SOURCE` to the
+stable read-only rootfs (not a per-boot `.rw.ext4`). On Designed for
+iPad, pass the same variables through `TEST_RUNNER_`, but point the
+directory at the app container `Documents` (the sandbox cannot write
+`/Volumes/KernariumCS`). Use the in-container rootfs as
+`*_PERSISTENT_CACHE_SOURCE`. The cache is off when the directory env is
+unset or the path is not writable. Look for `===JIT_PERSIST_STATS===`
+(`hits`, `stores`, `rejected`, `entries`). A content-hash, mtime, UUID,
+or CRC mismatch is a miss or an empty store. Wipe any cache written
+before the host-pointer refusal.
+
+
 Look for `Virgl Zink/KosmicKrisp provider: hardware`, cap set id 4 (Venus),
 `Darwin native window … (host-page aligned)`, and guest strings containing
 `Apple M2 Pro` and `MESA KOSMICKRISP`.
