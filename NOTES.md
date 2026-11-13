@@ -245,3 +245,23 @@ Large artifacts: `gdrive:linux-ios-fast/artifacts/` (see REPRODUCE.md for SHA-25
 Do not put anything on the iPhone yet.
 
 In the Simulator, Kernarium with the JIT and a slim init is clearly faster than LinuxRunner on the agreed benches (about 3× the shell loop, 4× sha256sum, 2× apk wall-clock, 4–5× OpenSSL evp) and boots to a payload in about one guest second. That JIT path is a local fork that uses macOS MAP_JIT in the Simulator. On a real iPhone, without StikDebug, Kernarium stays on the gadget engine (the ~1.3× column). A device / Designed-for-iPad build still needs a newer Xcode-to-host-OS pairing (or David's agreement to install on a phone), official iphoneos packaging, and a check of MAP_JIT plus the 16 KiB UML window. Real Metal already runs on this Mac through the official `uml-darwin` CLI and KosmicKrisp (see above): guest virgl or Zink/Venus, Apple M2 Pro in the renderer string, ~120 FPS glxgears with vsync off. Do not install on the iPhone until David agrees.
+
+## JIT near-pass-through (uml-darwin, 12 Nov 2026)
+
+Baseline on the official macOS `uml-darwin` JIT, no GPU, `mem=2G` `ncpus=8`, Alpine 3.24.2-minimal, kernel 6.18.60-g8246678b2d74. Guest RAM is the Darwin direct-root window (`direct-root=yes offset=41943040`). Host numbers are from the same M2 Pro at 10:06 PM ET; the guest baseline launched at 10:11:50 PM ET. Full table: `scripts/cpu-benches/RESULTS.md`. Portable pack: `scripts/cpu-benches/`.
+
+Guest `/proc/cpuinfo` already advertises `aes pmull sha1 sha2 sha3 sha512 crc32 atomics` (the virtual CPU copies the JIT's implemented ID_AA64ISAR fields into AT_HWCAP). OpenSSL evp is the fair hardware-crypto comparison; tiny-sha compiled with gcc is the fair software-CPU comparison.
+
+| Bench | Host | Guest JIT | Ratio |
+| --- | --- | --- | --- |
+| sh loop 20k | 0.03 s (dash) | 0.31 s (ash) | 10.3× |
+| sha256sum 32 MiB | 0.02 s (HW) | 0.38 s (busybox SW) | 19×, unfair |
+| openssl evp sha256 16 KiB | 2,585 MB/s (OpenSSL 4.1.0) | 1,691 MB/s (OpenSSL 3.5.9) | 1.53× |
+| openssl evp aes-256-cbc 16 KiB | 1,296 MB/s | 860 MB/s | 1.51× |
+| compile tiny-sha, gcc -O2 | 0.24 s (gcc-16) | 2.78 s (gcc 15.2) | 11.6× |
+| run tiny-sha 3×32 MiB, gcc -O2 | 0.628 s / 152.90 MiB/s | 1.179 s / 81.42 MiB/s | 1.88× |
+| apk add offline (tree+openssl+build-base) | n/a | 3.07 s | — |
+
+The first code increment raised unsigned-offset memory-run length 4/8 → 16 so more guest loads/stores share one TLB translation. Re-measure was within noise; the change was reverted. gcc SHA-256 uses `LDP` and signed/post-index accesses, which that collector does not hoist. Next: last-page host-delta / pair+signed runs, a richer than 2-entry indirect IC, cheaper SVC exits. vkcube-on-Venus/X11 still black, not diagnosed in this stretch.
+
+The slim guest's first apk attempt failed on DNS (`DNS: transient error`); benches now inject `resolv.conf` and an offline `apks.tar` of Alpine 3.24 aarch64 packages fetched on the Mac. That tarball is not in git.

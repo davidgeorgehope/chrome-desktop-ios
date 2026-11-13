@@ -239,3 +239,26 @@ build on a physical iPhone.
 Look for `Virgl Zink/KosmicKrisp provider: hardware`, cap set id 4 (Venus),
 `Darwin native window … (host-page aligned)`, and guest strings containing
 `Apple M2 Pro` and `MESA KOSMICKRISP`.
+
+## JIT CPU benches (host vs uml-darwin)
+
+Scripts: `scripts/cpu-benches/`. On the Mac mini, copy that pack to
+`~/linux-ios-bakeoff/notes/cpu-benches/` (or point the launcher at it), plus
+an optional `apks.tar` of Alpine 3.24 aarch64 `tree`, `openssl`, and
+`build-base` (and their dependencies) for an offline `apk add`. The slim
+rootfs is `/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-minimal.ext4`.
+
+Host:
+
+```
+SH_FOR_LOOP=/bin/dash OPENSSL_BIN=/opt/homebrew/opt/openssl/bin/openssl CC=/usr/bin/clang \
+  ./scripts/cpu-benches/run-cpu-benches.sh
+```
+
+For a gcc-matched tiny-sha, also build and run with Homebrew `gcc-16 -O2`.
+
+Guest: `scripts/cpu-benches/launch-guest-jit-benches.sh` wraps
+`uml-darwin --execution-engine=jit` with `mem=2G ncpus=8` and no GPU, under
+`caffeinate -i`. Use `script(1)` so serial markers are line-buffered. Look for
+`===BENCH_START===` / `===BENCH_DONE===`. Results: `scripts/cpu-benches/RESULTS.md`.
+
