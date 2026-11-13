@@ -79,36 +79,12 @@ renderer_is_zink() {
   grep -qi zink /tmp/glxinfo-zink.txt 2>/dev/null
 }
 
-echo "===DESKTOP_READY=== $(date) uptime=$(cat /proc/uptime) display=$DISPLAY" | tee /dev/ttyS0
-
-dump_vk
-
-# Probe guest Zink first (Venus / virtio-vulkan -> host KosmicKrisp).
-export MESA_LOADER_DRIVER_OVERRIDE=zink
-export GALLIUM_DRIVER=zink
-# Zink on X11 often needs Kopper's DRI3/zink path; keep software off.
-export LIBGL_KOPPER_DRI2="${LIBGL_KOPPER_DRI2:-1}"
-dump_gl zink
-if renderer_is_zink; then
-  echo "===RENDERER_PATH=== guest_zink" | tee /dev/ttyS0
-  run_gears zink
-  run_vkcube
-else
-  echo "===RENDERER_PATH=== zink_unavailable, trying default/virgl" | tee /dev/ttyS0
-  unset MESA_LOADER_DRIVER_OVERRIDE
-  unset GALLIUM_DRIVER
-  unset LIBGL_KOPPER_DRI2
-  dump_gl default
-  run_gears default
-  run_vkcube
-fi
-
-echo "===TERM_START=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0
-xfce4-terminal > /tmp/term.log 2>&1 &
-sleep 3
-echo "===TERM_AFTER_3S=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0
-
 launch_browser() {
+  if pgrep -x firefox >/dev/null 2>&1 || \
+     xdotool search --class firefox >/dev/null 2>&1; then
+    echo "===FIREFOX_ALREADY=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0
+    return 0
+  fi
   if command -v firefox >/dev/null; then
     echo "===FIREFOX_START=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0
     firefox --new-instance --display="$DISPLAY" "https://example.com" > /tmp/firefox.log 2>&1 &
@@ -158,5 +134,36 @@ launch_browser() {
   fi
   return 1
 }
+
+echo "===DESKTOP_READY=== $(date) uptime=$(cat /proc/uptime) display=$DISPLAY" | tee /dev/ttyS0
+
 launch_browser
+
+dump_vk
+
+# Probe guest Zink first (Venus / virtio-vulkan -> host KosmicKrisp).
+export MESA_LOADER_DRIVER_OVERRIDE=zink
+export GALLIUM_DRIVER=zink
+# Zink on X11 often needs Kopper's DRI3/zink path; keep software off.
+export LIBGL_KOPPER_DRI2="${LIBGL_KOPPER_DRI2:-1}"
+dump_gl zink
+if renderer_is_zink; then
+  echo "===RENDERER_PATH=== guest_zink" | tee /dev/ttyS0
+  run_gears zink
+  run_vkcube
+else
+  echo "===RENDERER_PATH=== zink_unavailable, trying default/virgl" | tee /dev/ttyS0
+  unset MESA_LOADER_DRIVER_OVERRIDE
+  unset GALLIUM_DRIVER
+  unset LIBGL_KOPPER_DRI2
+  dump_gl default
+  run_gears default
+  run_vkcube
+fi
+
+echo "===TERM_START=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0
+xfce4-terminal > /tmp/term.log 2>&1 &
+sleep 3
+echo "===TERM_AFTER_3S=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0
+
 echo "===DESKTOP_BENCH_DONE=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0

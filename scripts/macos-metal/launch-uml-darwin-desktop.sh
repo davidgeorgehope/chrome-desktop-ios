@@ -1,5 +1,5 @@
 #!/bin/bash
-# Launch the Alpine XFCE desktop on the native macOS uml-darwin CLI with
+# Launch the Alpine desktop on the native macOS uml-darwin CLI with
 # KosmicKrisp (real Metal on the M-series GPU).
 #
 # Designed-for-iPad is blocked on this Mac: Xcode 26.6 reports
@@ -10,19 +10,33 @@
 # Default CLI display is VNC (127.0.0.1:5900). Set UML_GPU_DISPLAY=native
 # (the GUI .command does this) for an AppKit window that screencapture can
 # record. Keep the guest framebuffer at 1920x1080.
+#
+# Default session is labwc (DESKTOP_READY ~2.5 s). UML_DESKTOP=xfce selects
+# the sessionless XFCE path (~8.7 s READY).
 set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 export LANG=C
 
 ROOT=/Users/davidhope/linux-ios-bakeoff/src/Kernarium
 NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
+FAST=/Users/davidhope/linux-ios-bakeoff/notes/desktop-guest-fast
 BIN="$ROOT/.build/presets/macos-integration/bin/uml-darwin"
 if [ ! -x "$BIN" ]; then
 	BIN="$ROOT/.build/macos-integration/bin/uml-darwin"
 fi
 ROOTFS=/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-desktop.ext4
-READY=/Users/davidhope/linux-ios-bakeoff/notes/desktop-guest-fast/desktop-ready.sh
-START=/Users/davidhope/linux-ios-bakeoff/notes/desktop-guest-fast/start-desktop.sh
+# Prefer the labwc-baked image when present; fall back to the original XFCE image.
+if [ -f /Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-desktop-labwc.ext4 ]; then
+	ROOTFS=/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-desktop-labwc.ext4
+fi
+READY="$FAST/desktop-ready.sh"
+BWRAP="$FAST/bwrap-passthrough.sh"
+DESKTOP="${UML_DESKTOP:-labwc}"
+if [ "$DESKTOP" = xfce ]; then
+	START="$FAST/start-desktop.sh"
+else
+	START="$FAST/start-desktop-labwc.sh"
+fi
 BOOTENV="$NOTES/boot.env"
 DISPLAY_MODE="${UML_GPU_DISPLAY:-vnc}"
 
@@ -43,10 +57,13 @@ args=(
 	ubd0c="$ROOTFS"
 	rootfstype=ext4
 )
+if [ -x "$BWRAP" ]; then
+	args+=( --guest-file=/payload/usr/local/bin/bwrap-passthrough.sh="$BWRAP" )
+fi
 if [ "$DISPLAY_MODE" = native ]; then
 	args+=( --gpu-auto-resize=off )
 fi
 
-echo "LAUNCH $(date) bin=$BIN display=$DISPLAY_MODE"
+echo "LAUNCH $(date) bin=$BIN display=$DISPLAY_MODE desktop=$DESKTOP rootfs=$ROOTFS"
 echo "LAUNCH_ARGS ${args[*]}"
 exec /usr/bin/caffeinate -dims "$BIN" "${args[@]}"

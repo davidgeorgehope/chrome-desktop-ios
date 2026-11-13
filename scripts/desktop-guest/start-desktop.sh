@@ -253,6 +253,12 @@ if pgrep -x xfce4-panel >/dev/null 2>&1; then
 fi
 clients=$(xprop -root _NET_CLIENT_LIST 2>/dev/null || true)
 echo "CLIENT_LIST $(up) $clients" | tee /dev/ttyS0
+# Time-to-first-Firefox-page from READY: start immediately, do not wait
+# for desktop-ready.sh's vulkan/glxgears/vkcube probes.
+if command -v firefox >/dev/null; then
+  echo "===FIREFOX_START=== $(date) uptime=$(cat /proc/uptime) from_ready=0.00" | tee /dev/ttyS0
+  firefox --new-instance --display="$DISPLAY" "https://example.com" > /tmp/firefox.log 2>&1 &
+fi
 # Sessionless start skips xfce4-session autostart, so run the bakeoff hook
 # ourselves when the launch overlay provided it.
 if [ -x /usr/local/bin/desktop-ready.sh ]; then

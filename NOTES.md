@@ -308,3 +308,33 @@ Fixes in `scripts/desktop-guest/start-desktop.sh`: replace `/usr/bin/bwrap` with
 
 A lighter openbox/labwc image was not needed. The official launch overlay and a new Drive image (`alpine-3.24.2-desktop-fast.ext4.gz`, uncompressed sha256 `bc60fbe9a0cfa0290328775ccd97a00ed6741dbb5c114003ca49748e230c0063`, gz sha256 `721b2c12359178511e9741846385155c9f2847d86c978bae1a6bf30c02c6f6d8`, 994,836,889 bytes) carry the fast path. The previous desktop image and `alpine-3.24.2-desktop.ext4.gz` were kept.
 
+
+## Desktop boot timeline and labwc (13 Nov 2026, 2:27–2:41 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Official 4K `uml-darwin`, mem=4G, ncpus=8, 1920×1080 VNC. The 8.75 s XFCE `DESKTOP_READY` from the previous pass was broken down with timestamped guest stages and 0.2 s `/proc` sampling of xfwm4.
+
+Timeline of the 8.75 s XFCE path (clean production boot in parentheses; a sampled boot is noted where it inflated the wait):
+
+| stage | guest uptime | delta |
+| --- | ---: | ---: |
+| kernel start | 0.00 s | |
+| `Run /init` (initramfs) | 0.25 s | 0.25 s |
+| `start-desktop.sh` begins | 0.71–0.87 s | ~0.5 s slim init / switch_root |
+| udev + dbus + `/dev/dri` | 1.09–1.38 s | ~0.4 s (OpenRC is not used; udev settle is ~0.2 s) |
+| Xorg actually accepts connections | 2.68 s (startx was 3.10 s to the first client) | 1.4–1.8 s |
+| xfwm4 advertised `_NET_SUPPORTING_WM_CHECK` | 8.58–8.75 s | **5.5–5.9 s** |
+
+The 5.9 s window-manager wait is the remaining XFCE cost. Samples showed xfwm4 cpu-bound (`utime` climbed the whole interval): first `folio_wait_bit_common` (text-page I/O), then **`drm_version`**, a `[pango] fontcon` thread on `futex`, a Mesa `disk$0` shader-cache thread, and later `gly-global-exec` even with glycin-loaders hidden. `xfwm4 --compositor=off --vblank=off` still opens DRM/Mesa. LIBGL_ALWAYS_SOFTWARE / llvmpipe on xfwm4 only did not help (it still JITs Mesa). Early raw Xorg (skipping startx) moved XFWM_START from 3.10 s to 2.72 s and READY only from 8.75 s to 8.63 s. Preloading GTK/xfwm into the page cache during X start did not cut the JIT. The initramfs is already 1388 KiB (freed at 0.23 s). There is no cross-boot persistent JIT translation cache today; a file-backed shared cache would be the lever for a *warm* XFCE boot, but it is not implemented.
+
+labwc (already in the image) reaches a Wayland socket in ~1.3 s after dri is ready:
+
+| variant | DESKTOP_READY | Firefox |
+| --- | ---: | --- |
+| XFCE sessionless, production (before this pass) | 8.75 s | window 1 s after launch, but official desktop-ready ran vulkan/gears/vkcube first, so the window was at 42.8 s uptime (~34 s after READY) |
+| XFCE + early Xorg, xprop wait | 8.63 s | window **2.8–3.0 s after READY** when Firefox starts immediately |
+| **labwc (Wayland, three boots)** | **2.40 / 2.56 / 2.61 s** | window visible on VNC by ~3 s after READY; example.com painted by ~12 s after READY (early VNC still showed “Waiting for example.com…”) |
+
+A lighter stack was enough: no need to wait out xfwm's GTK/Mesa JIT. `scripts/desktop-guest/start-desktop-labwc.sh` is the default for `scripts/macos-metal/launch-uml-darwin-desktop.sh`; `UML_DESKTOP=xfce` selects the sessionless XFCE path (which now also starts Firefox immediately at READY). XFCE `desktop-ready.sh` skips a second Firefox if one is already running, and otherwise launches it before vulkaninfo/gears/vkcube.
+
+New Drive image, older ones kept: `alpine-3.24.2-desktop-labwc.ext4.gz` (994,819,499 bytes, sha256 `9471344de45d308d2f4bb4db20b076be906d431ba935f15f2d56e00d21901480`; uncompressed sha256 `0564698ccf4064b975e7998a471295d279d9b3542f2b95802c54aad41e5fdab3`). It bakes labwc as `/usr/local/bin/start-desktop.sh` and keeps the XFCE script as `start-desktop-xfce.sh`.
+
