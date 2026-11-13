@@ -276,6 +276,15 @@ ios remains the debugger-prepared region (`UML_IOS_DEBUGGER_JIT=ON`) when a
 debugger is attached. Do not install that build on a physical iPhone.
 Bundle-ID overrides: `patches/0016-designed-for-ipad-bundle-id`.
 Serial capture without simctl: `patches/0017-kernarium-serial-log`.
+Debugger-prepared JIT on My Mac (Designed for iPad): rebuild with
+`-DUML_IOS_DEBUGGER_JIT=ON`, apply `patches/0018-debugger-jit-wait`, and
+attach host `lldb` running `tests/integration/support/ios_jit_debugger.py`
+(`jit_serve`) after `TEST_RUNNER_KERNARIUM_WAIT_FOR_DEBUGGER=1`.
+`xcodebuild test` alone does not ptrace this destination; a bare
+`lldb -o continue` stops on `brk #0xf00d` and never blesses the pages.
+This is the same protocol Henge / StikDebug uses on a device; do not
+install that helper or this build on a physical iPhone. Look for
+`execution engine jit (cache budget …)` and not `running on gadgets`.
 
 Look for `Virgl Zink/KosmicKrisp provider: hardware`, cap set id 4 (Venus),
 `Darwin native window … (host-page aligned)`, and guest strings containing

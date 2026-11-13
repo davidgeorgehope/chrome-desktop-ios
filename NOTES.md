@@ -737,3 +737,40 @@ READY matches `uml-darwin` labwc (real Metal) and is clearly faster than the Sim
 
 Logs on the mini: `~/linux-ios-bakeoff/notes/macos-metal-desktop/kernarium-ipad-mac-guest-session-20261113.log` (and `-serial-`, `-openssl-` siblings), plus `~/Library/Logs/kernarium-ipad-mac-gui-build.log`, `kernarium-ipad-mac-launch.log`, and the guest-session xcodebuild logs. Display resolution and voxl were not changed.
 
+## Designed-for-iPad debugger JIT on My Mac (13 Nov 2026, 7:20–7:33 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host and destination as the gadget-engine pass: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3 (25G342), Xcode 26.6, `platform=macOS,variant=Designed for iPad` (`My Mac`, UDID `00006020-0009715A216B401E`) only. Nothing was installed on Silver, Yellow, or any other phone. Display resolution and voxl were not changed.
+
+### Runtime and attach
+
+The ios-device runtime was rebuilt with `cmake --preset kernarium-ios-device -DUML_IOS_DEBUGGER_JIT=ON` (**7:20:52–7:20:59 AM ET**) and packaged with the Linux-only packager (**7:21:30–7:21:37 AM ET**). The framework has `UML_JIT_MEMORY_REGION_ROUTE` / `prepare_debugger_region`. `get-task-allow` is already in the signed app; `allow-jit` is still stripped, so MAP_JIT stays unusable.
+
+`xcodebuild test` on this destination does not ptrace the host process. A first LaunchAgent session with the new runtime (starting **7:22 AM ET**, no waiter) logged `running on gadgets, not the JIT: no debugger is attached` and reached `DESKTOP_READY` at **7:23:13 AM ET** (guest uptime 2.36 s). Those CPU figures are not JIT and were not used below.
+
+The same blessing protocol Henge / StikDebug uses on a device (`brk #0xf00d`, `x16 == 1` prepare, one `0x69` byte written through the debugger into each 16 KiB page, then `x16 == 0` detach) is what actually makes the region runnable. Henge's built-in StikJIT helper is the on-device attach path; it was not used here and nothing was installed on a phone. On My Mac the attach is host `lldb` running Kernarium's own `tests/integration/support/ios_jit_debugger.py` (`jit_serve`). A bare `lldb -o continue` stops on the trap and never prepares the pages.
+
+`patches/0018-debugger-jit-wait` waits in `ContentView` when `KERNARIUM_WAIT_FOR_DEBUGGER=1` (default 30 s) and delays CPU benches with `KERNARIUM_GUEST_SESSION_BENCH_DELAY` so Firefox time-to-first-page can be captured first.
+
+A new Aqua `gui/501` session started **7:30:14 AM ET**, attached at **7:30:22 AM ET** (`debugger attached=true`), prepared **10624 pages (166 MiB) in 0.8 s** at **7:30:30–7:30:31 AM ET**, detached, and then logged:
+
+`Kernarium: execution engine jit (cache budget 285212672 bytes)` (272 MiB). Not gadgets. Guest boot followed immediately (`mem=4096M ncpus=8`, 1920×1080, 160 DPI). Metal was unchanged: `Virgl Zink/KosmicKrisp provider: hardware`, `Native display: direct Metal texture presentation`, `GPU budget 11451 MiB of a 16384 MiB limit`. Guest: `Linux alpine 6.18.60-g8246678b2d74`, Alpine 3.24.2, production `alpine-3.24.2-desktop-labwc.ext4`.
+
+### Desktop READY, CPU benches, and Firefox TTP
+
+`TEST SUCCEEDED` at **7:33:02 AM ET**. Image and benches are the same as the gadget column.
+
+| Event / bench | Designed-for-iPad (My Mac, **JIT**, labwc) | Designed-for-iPad (My Mac, gadgets, labwc) | Simulator gadgets | Simulator JIT (labwc / slim) | uml-darwin Metal (JIT, labwc) |
+| --- | --- | --- | --- | --- | --- |
+| `DESKTOP_READY` (guest uptime, labwc Wayland) | **3.92 s** (`DESKTOP_START` 1.98 s; labwc socket 3.89 s; `display=wayland-0 labwc=1`) at **7:30:35 AM ET** | **2.26 s** then **2.14 s** (`DESKTOP_START` 1.11 / 1.06 s) | 3.83–6.55 s (pixman); 3.96–5.97 s earlier | same Simulator boots; older XFCE 28.60 s | 2.40 / 2.56 / 2.61 s; clean 2.94 s; later 2.98–3.51 s |
+| `sh` loop, 20,000 increments | **0.49 s** | **0.74 s** (both runs) | 0.79 s | 0.20–0.34 s | (CPU pack, not this desktop image) |
+| `sha256sum` of 32 MiB | **0.41 s** | **1.43 s** / **1.50 s** | 1.45 s | 0.37–0.38 s | |
+| `apk add --no-cache openssl` | **2.91 s** | **3.19 s** | 2.51 s | 1.58 s | |
+| `openssl speed -evp` at 16 KiB | aes **370.0 MB/s**; sha256 **82.1 MB/s** (OpenSSL 3.5.9; 8192-byte sha256 was 302.8 MB/s) | aes **153.6 MB/s**; sha256 **573.5 MB/s** | aes 164.0; sha256 594.9 | aes 875.1–984.1; sha256 1658–1696 | evp aes ~1000–1040 MB/s; sha256 ~1780–1790 MB/s |
+| Firefox time-to-first-page (`https://example.com`, after `FIREFOX_START` at READY+0.00 s / **7:30:35 AM ET**) | Chrome (New Tab, empty) by **7:31:55 AM ET** (80 s; first successful window capture). `example.com` tab still blank and "Waiting…" at **7:32:13 AM ET** (98 s); still blank, "Transferring data…" at **7:32:41 AM ET** (126 s). **Example Domain body painted at 7:32:46 AM ET (131 s)**. | (not measured this morning) | pixman: chrome ~31–43 s, full page ~75–80 s | | Metal painted ~12 s after READY |
+
+JIT helps the integer/hash CPU benches (`sh` 0.74→0.49 s, `sha256sum` 1.43–1.50→0.41 s, close to Simulator JIT 0.37–0.38 s) and more than doubles evp AES at 16 KiB (153.6→370.0 MB/s), but that AES figure is still well short of Simulator JIT (~875–984) and `uml-darwin` (~1000–1040). evp SHA-256 at 16 KiB **regressed** (573.5→82.1 MB/s); the 8192-byte column was 302.8 MB/s, also below the gadget 16 KiB figure. `UML_JIT_SHARED_STATS=1` showed many misses and evictions with a tiny retained working set during the boot and Firefox window. READY was a little slower than the gadget boots (3.92 s vs 2.14–2.26 s), consistent with JIT warmup before labwc is up.
+
+Firefox TTP on this Metal desktop was much slower than `uml-darwin` (~12 s) and Simulator pixman (~31–80 s). The 131 s first paint spent a long time on New Tab, then on "Waiting for example.com…" / "Transferring data…", so startup plus guest NAT/network dominate over GPU present. `FIREFOX_START` is immediate after READY; the production labwc image still has no `firefox-startup-probe.sh`. Early frames (0–80 s) were not captured: a LaunchAgent `screencapture` has no Screen Recording TCC, so window shots were taken from a machine-targeted shell instead. The Kernarium window is 1024×800 on the host (guest remains 1920×1080). Shots: `~/linux-ios-bakeoff/screenshots/kernarium-ipad-jit-ttp/manual/` (`t-073155-w128.png` chrome only, `t-073213-w128.png` waiting, `t-073241-w128.png` still blank, `t-073246-w128.png` painted).
+
+Logs on the mini: `~/linux-ios-bakeoff/notes/macos-metal-desktop/kernarium-ipad-mac-debugger-jit-session-20261113.log`, `-serial-`, `-guest-session-`, and `kernarium-ipad-jit-serve-20261113.log`. The attach recipe is in `patches/0018-debugger-jit-wait/README.md` and REPRODUCE.md.
+
