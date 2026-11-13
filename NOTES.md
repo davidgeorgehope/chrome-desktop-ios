@@ -288,3 +288,23 @@ A design for a fixed-offset guest user memory mapping (and for sharing translati
 ## Shared translations (12 Nov 2026, 11:26–11:42 PM ET)
 
 `patches/0007-jit-shared-translations`. Official table: `scripts/cpu-benches/RESULTS.md`. The shared cache now publishes with one executor, keeps out-of-range link pointers in a relocatable literal island, and gets a real 2 GiB leftover (the old `guest/2` default was eaten by eight 256 MiB L1s). The relocation cap is 64, not 2. With ASLR off, a warm tiny-sha compile is 1.09 s (4.5×) vs 2.92 s before, and compile time itself is ~3 ms; cold is 1.87 s (7.8×). Fair dash is 0.19 s / 6.3× (was 0.24 s / 8.0×); the tight gcc loop is 0.49 s / 1.26× (was 0.57 s / 1.46×). Host `time -l` on a 14.5 s dash loop shows the leftover shell tax is userspace, not UML kernel/page faults. File+offset keys and PC sliding under ASLR were not added.
+
+## Desktop boot: glycin/bwrap stall (13 Nov 2026, 2:00–2:20 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Host: official 4K `uml-darwin` (`macos-integration`), mem=4G, ncpus=8, guest framebuffer 1920×1080, VNC. Image: `/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-desktop.ext4` (unchanged; sha256 `c7f65c84613ca27f22a634779ecc3b6ae7fac68ff5e367530280e7fac74e73ad`) with session scripts overlaid from `scripts/desktop-guest/`.
+
+The old ~26.8 s `DESKTOP_READY` (and the Simulator 28.6 s llvmpipe result) was not an fc-cache miss, xfconf, or GPU/vblank init. Fontconfig and GTK icon caches were already in the image (a forced `fc-cache -f` was 2.74 s; icon caches 1.07 s). gdb `thread apply all bt` plus `/proc/<pid>/task/*/wchan` showed xfwm4's main thread blocked in `libglycin-2.so.0` and a `gly-hdl-loader` thread in `do_wait`, with a child `bwrap --unshare-all` hung in UML namespaces. Isolating `xfwm4 --compositor=off --vblank=off` with warm caches still took ~10 s until `_NET_SUPPORTING_WM_CHECK` appeared, for the same reason.
+
+Fixes in `scripts/desktop-guest/start-desktop.sh`: replace `/usr/bin/bwrap` with a POSIX passthrough (original saved as `bwrap.real`); hide `/usr/share/glycin-loaders` only until the WM is up, then restore it; start XFCE sessionless (`xfconfd`, then `xfwm4 --compositor=off --vblank=off --sm-client-disable`, then settings/panel/desktop) so xfce4-session's SM timeouts are skipped; disable at-spi, gnome-keyring and xfce4-power-manager autostarts. Do not remove libglycin or stub the loaders (those added GTK pixbuf timeouts and pushed READY to ~44 s). `desktop-ready.sh` now hard-kills a hung vkcube (the known black window) so it cannot block Firefox, and detects the Firefox window with `xdotool` / `xlsclients` / `_NET_CLIENT_LIST_NAMES` because `xwininfo` is not in the image.
+
+| variant | DESKTOP_READY | notes |
+| --- | ---: | --- |
+| original startxfce4 (GPU / Zink, prior) | 26.7–26.8 s | two ~10 s SM/glycin gaps |
+| caches pre-warmed, isolated xfwm4, compositor/vblank off | WM at 17.75 s | fc-cache was not the stall; xfwm still ~10 s |
+| bwrap passthrough + sessionless (glycin still on the WM path) | 11.88 s | XFWM_START 2.83, XFWM_READY 11.84 |
+| hideconf + passthrough + sessionless (GPU / Zink) | **8.68 / 8.71 / 8.75 s** | panel process at 9.0 s; production script 8.75 s |
+| same hideconf path on llvmpipe | **7.42 s** | same class of stall, not GPU-specific |
+| production script, then desktop-ready hook (GPU / Zink) | READY 8.75 s | guest_zink; Firefox window 1 s after launch (uptime 42.80 s, after gears + a vkcube timeout + terminal) |
+
+A lighter openbox/labwc image was not needed. The official launch overlay and a new Drive image (`alpine-3.24.2-desktop-fast.ext4.gz`, uncompressed sha256 `bc60fbe9a0cfa0290328775ccd97a00ed6741dbb5c114003ca49748e230c0063`, gz sha256 `721b2c12359178511e9741846385155c9f2847d86c978bae1a6bf30c02c6f6d8`, 994,836,889 bytes) carry the fast path. The previous desktop image and `alpine-3.24.2-desktop.ext4.gz` were kept.
+

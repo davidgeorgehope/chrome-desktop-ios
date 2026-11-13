@@ -52,7 +52,25 @@ run_vkcube() {
     return 0
   fi
   echo "===VKCUBE_START=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0
-  timeout -s INT 12 vkcube --c 300 > /tmp/vkcube.txt 2>&1 || true
+  # vkcube can hang on the Venus/Zink present path (black window). Do not let
+  # that block the terminal or Firefox probe. SIGINT is not enough; kill -9.
+  vkcube --c 300 > /tmp/vkcube.txt 2>&1 &
+  VKPID=$!
+  i=0
+  while [ "$i" -lt 8 ]; do
+    if ! kill -0 "$VKPID" 2>/dev/null; then
+      break
+    fi
+    i=$((i + 1))
+    sleep 1
+  done
+  if kill -0 "$VKPID" 2>/dev/null; then
+    echo "===VKCUBE_TIMEOUT=== killing pid $VKPID" | tee /dev/ttyS0
+    kill -INT "$VKPID" 2>/dev/null || true
+    sleep 1
+    kill -KILL "$VKPID" 2>/dev/null || true
+  fi
+  wait "$VKPID" 2>/dev/null || true
   echo "===VKCUBE_END=== $(date) uptime=$(cat /proc/uptime)" | tee /dev/ttyS0
   cat /tmp/vkcube.txt | tee /dev/ttyS0
 }
@@ -97,7 +115,9 @@ launch_browser() {
     i=0
     while [ "$i" -lt 45 ]; do
       if xdotool search --class firefox >/dev/null 2>&1 || \
-         xwininfo -root -tree 2>/dev/null | grep -qi firefox; then
+         xwininfo -root -tree 2>/dev/null | grep -qi firefox || \
+         xlsclients 2>/dev/null | grep -qi firefox || \
+         xprop -root _NET_CLIENT_LIST_NAMES 2>/dev/null | grep -qi firefox; then
         echo "===FIREFOX_WINDOW=== $(date) uptime=$(cat /proc/uptime) after=${i}s" | tee /dev/ttyS0
         # Give the page a moment to paint, then scroll for the video.
         sleep 3

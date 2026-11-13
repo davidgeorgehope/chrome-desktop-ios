@@ -110,12 +110,13 @@ Uploaded 6:39 PM ET Nov 12, 2026 to `gdrive:linux-ios-fast/artifacts/` (rclone o
 | --- | --- |
 | alpine-3.24.2-minimal.ext4.gz (8.0 MiB; uncompresses to the 115,687,424-byte slim-init ext4) | `2a5e3b79bab10d07a732e22e09a247702b28ce4a66e617185e21953a0f0d5e2d` |
 | alpine-3.24.2-desktop.ext4.gz (991,029,687 bytes / 945 MiB; uncompresses to a 4 GiB XFCE+virgl Mesa ext4, sha256 `c7f65c84613ca27f22a634779ecc3b6ae7fac68ff5e367530280e7fac74e73ad`) | `0ecc51926f03b0ae5b0a1ff5fcd339b08d98e9a0a5cc21dfa7117a85b9a18599` |
+| alpine-3.24.2-desktop-fast.ext4.gz (994,836,889 bytes / 949 MiB; same 4 GiB XFCE+virgl Mesa ext4 with the fast session scripts baked in, sha256 `bc60fbe9a0cfa0290328775ccd97a00ed6741dbb5c114003ca49748e230c0063`) | `721b2c12359178511e9741846385155c9f2847d86c978bae1a6bf30c02c6f6d8` |
 | kernel-mainline-6.18-arm64-4k-20261112-6.18.60-local1.tar.gz | `8ee291d44eb085466385b1f3e99bb79ab9c78a6a76378d97d27fa40712e117e2` |
 | kernel-mainline-6.18-arm64-4k-20261112-6.18.60-local2.tar.gz | `dc0431b2b5fda6d0cc79cad88b0b5f0dd24a3aaf04da09b66dbd8db473c72bbb` |
 | uml-boot-base-aarch64.cpio.gz (1,398,356 bytes) | `4160fae8bd7f98517767c35d6bbaa3818e6711bd96cf9e8c6b387e2a21e5360b` |
 | release-manifest.json | `7f5b687f2779047eb067ac4cb83e71685b40ca075f1181505765ea0f4a8b5f55` |
 
-The boot-base SHA-256 is of the cpio.gz itself (same as `accepted-aarch64.env`). A `SHA256SUMS` file sits next to these objects in Drive. The previous desktop image gz (`a00d0372…`, uncompressed `899fe353…`) is stale: it predates the virgl-capable Mesa, Falkon, and session-script updates.
+The boot-base SHA-256 is of the cpio.gz itself (same as `accepted-aarch64.env`). A `SHA256SUMS` file sits next to these objects in Drive. The previous desktop image gz (`a00d0372…`, uncompressed `899fe353…`) is stale: it predates the virgl-capable Mesa, Falkon, and session-script updates. Keep `alpine-3.24.2-desktop.ext4.gz` (`0ecc5192…`); `alpine-3.24.2-desktop-fast.ext4.gz` is an additional image with the 13 Nov 2026 fast session scripts baked in (DESKTOP_READY ~8.7 s).
 
 ## Kernel local2 (native-window end alignment)
 
@@ -175,16 +176,21 @@ xfwm compositing off; `desktop-ready.sh` drops the 2 s sleep and launches
 Firefox (then Falkon) against example.com.
 
 Guest scripts live in `scripts/desktop-guest/` (`start-desktop.sh`, `desktop-ready.sh`,
-`inittab`, `fstab` with `devpts`). Do not force `MESA_LOADER_DRIVER_OVERRIDE=virtio_gpu`.
+`bwrap-passthrough.sh`, `inittab`, `fstab` with `devpts`). `start-desktop.sh` starts XFCE
+sessionless with `xfwm4 --compositor=off --vblank=off`, installs a bwrap passthrough so
+glycin is not stuck on a hung `bwrap --unshare-all` in UML, and hides glycin-loaders only
+until the window manager is up (then restores them). That cut `DESKTOP_READY` from ~26.8 s
+to ~8.7 s on the Metal/Zink path and ~7.4 s on llvmpipe. The previous startxfce4 path is
+kept only as `notes` history on the bakeoff mini, not in this tree. Do not force `MESA_LOADER_DRIVER_OVERRIDE=virtio_gpu`.
 Keep `LIBGL_ALWAYS_SOFTWARE=0` in the guest. The Simulator host still sets
 `LIBGL_ALWAYS_SOFTWARE` for its own software Virgl provider.
 
 Launch on an iPad Simulator (larger view than the iPhone 17), after symlinking
-the ext4 into the app Documents container and deleting `tmp/kernarium-overlay.ext4`:
+the ext4 into the app Documents container and deleting `tmp/kernarium-overlay.ext4`. Use `alpine-3.24.2-desktop-fast.ext4` for the baked ~8.7 s READY scripts, or overlay `scripts/desktop-guest/start-desktop.sh` onto the previous image:
 
 ```sh
 UDID=6532E3AA-A7DF-48F4-9E87-6C4EA94F4C74   # iPad (A16)
-export SIMCTL_CHILD_KERNARIUM_ROOTFS=alpine-3.24.2-desktop.ext4
+export SIMCTL_CHILD_KERNARIUM_ROOTFS=alpine-3.24.2-desktop-fast.ext4
 export SIMCTL_CHILD_KERNARIUM_EXECUTION_ENGINE=jit
 export SIMCTL_CHILD_KERNARIUM_DISPLAY_WIDTH=1920
 export SIMCTL_CHILD_KERNARIUM_DISPLAY_HEIGHT=1080
