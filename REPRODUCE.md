@@ -109,6 +109,7 @@ Uploaded 6:39 PM ET Nov 12, 2026 to `gdrive:linux-ios-fast/artifacts/` (rclone o
 | File | SHA-256 |
 | --- | --- |
 | alpine-3.24.2-minimal.ext4.gz (8.0 MiB; uncompresses to the 115,687,424-byte slim-init ext4) | `2a5e3b79bab10d07a732e22e09a247702b28ce4a66e617185e21953a0f0d5e2d` |
+| alpine-3.24.2-desktop.ext4.gz (413 MiB; uncompresses to a 4 GiB XFCE ext4, sha256 `899fe3530c8dc6766efdf2ea4c6d82daf89a9cc55013e6a1e103d02f4ac93fde`) | `a00d03724b5f1c9e3115b0548f2966b6a0117c2543ea8e176ffe3e361de949d5` |
 | kernel-mainline-6.18-arm64-4k-20261112-6.18.60-local1.tar.gz | `8ee291d44eb085466385b1f3e99bb79ab9c78a6a76378d97d27fa40712e117e2` |
 | uml-boot-base-aarch64.cpio.gz (1,398,356 bytes) | `4160fae8bd7f98517767c35d6bbaa3818e6711bd96cf9e8c6b387e2a21e5360b` |
 | release-manifest.json | `7f5b687f2779047eb067ac4cb83e71685b40ca075f1181505765ea0f4a8b5f55` |
@@ -149,3 +150,31 @@ is no default route. The hostname stays `(none)` because the OpenRC hostname
 service is skipped. `scripts/patch-alpine-benches.sh` plus a rewritten inittab
 is how the image is updated (copy off virtiofs onto Lima's disk, e2fsck,
 loop-mount, copy back, `chmod u+w`).
+
+## Desktop image (Alpine XFCE)
+
+The official KDE erofs is unpublished. The desktop guest is a 4 GiB Alpine 3.24.2
+ext4 grown from the slim-init image in Lima (copy off virtiofs, `resize2fs`,
+`apk add` XFCE / Xorg / Mesa / Firefox, copy back, `chmod u+w`). Guest scripts
+live in `scripts/desktop-guest/` (`start-desktop.sh`, `desktop-ready.sh`,
+`inittab`, `fstab` with `devpts`).
+
+Launch on an iPad Simulator (larger view than the iPhone 17), after symlinking
+the ext4 into the app Documents container and deleting `tmp/kernarium-overlay.ext4`:
+
+```sh
+UDID=6532E3AA-A7DF-48F4-9E87-6C4EA94F4C74   # iPad (A16)
+export SIMCTL_CHILD_KERNARIUM_ROOTFS=alpine-3.24.2-desktop.ext4
+export SIMCTL_CHILD_KERNARIUM_EXECUTION_ENGINE=jit
+export SIMCTL_CHILD_KERNARIUM_DISPLAY_WIDTH=1920
+export SIMCTL_CHILD_KERNARIUM_DISPLAY_HEIGHT=1080
+xcrun simctl launch --stdout=kernarium-desktop.log --stderr=kernarium-desktop.log \
+  "$UDID" com.imxieyi.Kernarium
+```
+
+Look for `Kernarium: fixed guest display 1920x1080`, `execution engine jit`,
+`===DESKTOP_START===`, `===DESKTOP_READY===`, and the glxgears FPS lines.
+The overlay is disposable; delete it after changing the base image.
+
+`patches/0002-kernarium-display-size-env.md` documents the ContentView change
+for the fixed display size.
