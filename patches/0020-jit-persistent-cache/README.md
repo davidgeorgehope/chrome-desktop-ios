@@ -33,8 +33,10 @@ UML_JIT_PERSISTENT_CACHE_SOURCE=/path/to/alpine-...-labwc.ext4
 UML_JIT_SHARED_STATS=1
 ```
 
-`KERNARIUM_JIT_*` is accepted as an alias. The cache is off when the
-directory env is unset. On Designed-for-iPad, pass the same variables
+`KERNARIUM_JIT_*` is accepted as an alias. The cache is **off by default**:
+it stays off when the directory env is unset or empty, and find/publish
+then skip the page-hash hook so the default path does not pay persist I/O
+or hashing. Leave it off until a warm start clearly beats the persist-off baseline. Persist-on Designed-for-iPad hung in `openssl speed -evp aes-256-cbc` on the 8192-byte column (persist-off completed that column). On Designed-for-iPad, pass the same variables
 through `TEST_RUNNER_` and put the directory in the app container
 `Documents` (the sandbox cannot write `/Volumes/KernariumCS`). Atexit (and every 4096 new records) flushes an
 index beside the append-only `data.jtc`. Corrupt records are skipped.

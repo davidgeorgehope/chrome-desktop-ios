@@ -309,17 +309,25 @@ Persistent JIT translations (`patches/0020-jit-persistent-cache`): apply
 `python3 patches/0020-jit-persistent-cache/apply.py` in the Kernarium
 tree after 0019, then rebuild the macos-integration *side* binary (do
 not bump the official 4K identity) and, for My Mac, the ios-device
-runtime. Set `UML_JIT_PERSISTENT_CACHE` (or `KERNARIUM_JIT_*`) to a
-directory on KernariumCS, and `UML_JIT_PERSISTENT_CACHE_SOURCE` to the
-stable read-only rootfs (not a per-boot `.rw.ext4`). On Designed for
+runtime. The cache is **off by default**: it stays off when
+`UML_JIT_PERSISTENT_CACHE` / `KERNARIUM_JIT_PERSISTENT_CACHE` is unset
+or empty, and find/publish then skip the page-hash hook so the default
+path does not pay persist I/O or hashing. Do not enable it in production
+launchers. A persist-on warm Firefox start did not clearly beat the
+persist-off baseline; persist-on cold is slower; and persist-on Designed
+for iPad hung in `openssl speed -evp aes-256-cbc` on the 8192-byte
+column (persist-off completed that column). To opt in, set the directory
+env to a path on KernariumCS and `UML_JIT_PERSISTENT_CACHE_SOURCE` to
+the stable read-only rootfs (not a per-boot `.rw.ext4`). On Designed for
 iPad, pass the same variables through `TEST_RUNNER_`, but point the
 directory at the app container `Documents` (the sandbox cannot write
 `/Volumes/KernariumCS`). Use the in-container rootfs as
-`*_PERSISTENT_CACHE_SOURCE`. The cache is off when the directory env is
-unset or the path is not writable. Look for `===JIT_PERSIST_STATS===`
+`*_PERSISTENT_CACHE_SOURCE`. Look for `===JIT_PERSIST_STATS===`
 (`hits`, `stores`, `rejected`, `entries`). A content-hash, mtime, UUID,
 or CRC mismatch is a miss or an empty store. Wipe any cache written
-before the host-pointer refusal.
+before the host-pointer refusal. The official 4K path was overwritten
+at 8:15 AM ET by a persist-fix side rebuild; do not overwrite it again,
+and do not use `macos-integration-16k` as a 4K stand-in.
 
 
 Look for `Virgl Zink/KosmicKrisp provider: hardware`, cap set id 4 (Venus),

@@ -868,3 +868,41 @@ Warm Firefox TTP on Designed-for-iPad is not clearly faster than the persist-on 
 
 Shots: `~/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-d4ipad-cold-manual3/` and `persist-ttp-d4ipad-warm-manual/`. Session logs: `kernarium-ipad-persist-cold-session-20261113-083505.log` and `kernarium-ipad-persist-warm-session-20261113-084345.log`.
 
+## Persist-off A/B and default-path hash hook (13 Nov 2026, 8:47–9:00 AM ET)
+
+Date: Fri Nov 13, 2026, America/New_York. Same host: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3. Work stayed on this host. Nothing was installed on a phone. Display resolution, voxl, Screen Sharing, and the official `macos-integration-16k` binary (1:30 AM ET) were not changed.
+
+The persist-on uml-darwin figures above (cold full page **63 s**, warm **46 s**) looked like a regression against the historical ~12–14 s “to page” baseline. Persist was already off unless `UML_JIT_PERSISTENT_CACHE` / `KERNARIUM_JIT_PERSISTENT_CACHE` is set to a directory, but find/publish still hashed every guest code page and entered `ThreadPersistentIdentityScope`. That default-path tax is now skipped when no store is attached (`patches/0020-jit-persistent-cache/apply.py`, and the live Kernarium `jit_executor_cache.cpp`). Persist stays **opt-in**. It is not enabled in the production launchers.
+
+### Official 4K binary
+
+The official 4K `macos-integration` path `.build/presets/macos-integration/bin/uml-darwin` (inode 244909018, 54,280,296 bytes, 1:09 AM ET) was overwritten at **8:15 AM ET** by the persist-fix rebuild (inode 245339732, 54,324,568 bytes). No copy of size 54,280,296 / inode 244909018 remained under bakeoff, KernariumCS, `/opt`, `/usr/local`, or `~/Library`, and no Time Machine local snapshots were listed. That path was **not** overwritten again this pass; a copy of the 8:15 binary was saved as `uml-darwin-persistfix`. The closest pre-0020 4K stand-in is `uml-darwin-arena` (4:07 AM ET, inode 244936914, 54,300,416 bytes). `macos-integration-16k` is a different identity (`UML_GUEST_16K_PAGES=True`) and was not used as a 4K stand-in.
+
+### A/B (same labwc image, native Metal, mem=4G ncpus=8, 8G budget)
+
+Image: `/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-desktop-labwc.ext4` (0444, clean journal). Production-style `start-desktop-labwc-persist.sh` (e10s on, Isolated probe). `UML_GPU_DISPLAY=native`, 1920×1080. Window shots from a machine-targeted shell (`screencapture -x -l WID`); a LaunchAgent has no Screen Recording TCC. `vm.swapusage` stayed **0.00M used** on every run. Chrome / first body / full page times are seconds after process start.
+
+| Config | Window (ET) | READY | Isolated (`from_ready`) | Chrome | First English body | Full multilingual body |
+| --- | --- | --- | --- | --- | --- | --- |
+| Pre-0020 `uml-darwin-arena` 8G, persist off | 8:50:36–8:52:35 AM | **3.98 s** at 8:50:41 AM | **15.07 s** | **21 s** (8:51:02 AM) | **38 s** (8:51:19 AM) | **45 s** (8:51:26 AM) |
+| 8:15 persist-fix binary 8G, persist off (hash hooks still on) | 8:53:02–8:55:00 AM | **4.19 s** at 8:53:07 AM | **17.97 s** | **23 s** (8:53:30 AM) | **32 s** (8:53:39 AM) | **48 s** (8:53:55 AM) |
+| Hook-fix side binary `uml-darwin-hookfix` 8G, persist off | 8:58:51–9:00:50 AM | **3.36 s** at 8:58:57 AM | **14.65 s** | **26 s** New Tab (8:59:17 AM); example.com tab empty at 8:59:25 AM | **41 s** (8:59:32 AM) | **48 s** (8:59:39 AM) |
+| 8:15 binary 8G, persist on, cold | 8:15:34–8:17:12 AM | **4.62 s** at 8:15:39 AM | **23.43 s** | **43 s** (8:16:22 AM) | **51 s** (8:16:30 AM) | **63 s** (8:16:42 AM) |
+| 8:15 binary 8G, persist on, warm | 8:17:50–8:19:27 AM | **4.66 s** at 8:17:55 AM | **18.03 s** | **25 s** (8:18:20 AM) | **32 s** (8:18:27 AM) | **46 s** (8:18:41 AM) |
+
+Hook-fix persist-off had zero `JIT_PERSIST_STATS` lines. Isolated **14.65 s** is back in line with (slightly ahead of) pre-0020 arena **15.07 s**; the unconditional page-hash tax on the 8:15 persist-off run (~3 s Isolated) is gone. Full multilingual body stays in the mid-40s for arena, hook-fix persist-off, and persist-on warm.
+
+Persist-on warm does **not** clearly beat the persist-off baseline: Isolated 18.03 s is worse than hook-fix 14.65 s and tied with the untaxed-off 8:15 run at 17.97 s; chrome 25 s vs 23–26 s is noise; full body 46 s vs 48 s is also noise. Persist-on cold is a real I/O tax (Isolated 18→23 s, full 48→63 s). Persist therefore stays off unless the directory env is set.
+
+The historical ~12–14 s “to page” (2:47–3:53 AM ET, official 4K, typically VNC, mem=4G ncpus=8, often meaning Isolated or first example.com text, with “fully painted (icon + translations)” also quoted at ~12 s) does **not** reproduce today as native full-page multilingual paint. Even pre-0020 arena 8G is Isolated 15.07 s (matches the earlier official 8G Isolated **16.0 s**) but full multilingual body **45 s** under today’s native-screenshot method. macOS was upgraded to 26.7.3 at **6:37 AM ET**, after those 12 s measurements and before every persist/A/B number here. The official 4K binary cannot be re-run, so environment vs official-binary cannot be fully isolated. 8G is not the 63 s cause: every comparable row used 8G. KernariumCS on a sparseimage is the rootfs/cache volume for all of these uml-darwin runs, including arena at 45 s, so it is not unique to persist-on.
+
+The hook-fix binary was side-linked at **8:58 AM ET** as `uml-darwin-hookfix` (inode 245386222, 54,324,576 bytes) without touching the official 4K path (still inode 245339732, 8:15 AM ET) or macos-integration-16k.
+
+Shots: `~/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-ab-arena8g-manual/`, `persist-ttp-ab-newoff8g-manual/`, `persist-ttp-ab-hookoff8g-manual/`. Session logs: `session-ab-arena8g-20261113-085036.log`, `session-ab-newoff8g-20261113-085302.log`, `session-ab-hookoff8g-20261113-085851.log`.
+
+### Designed-for-iPad openssl aes-256-cbc 8192-byte stall
+
+The persist-on D4iPad cold guest (`kernarium-ipad-persist-cold-session-20261113-083505.log`) ran `openssl speed -seconds 3 -evp sha256 aes-256-cbc`, completed the 16/64/256/1024-byte aes-256-cbc columns, then stalled on `Doing aes-256-cbc ops for 3s on 8192 size blocks:` with Kernarium at ~0.3% CPU from about **8:37 AM ET** until SIGTERM at **8:43:15 AM ET** (`Darwin: ELF exit(143)`). Persist-off on the same destination and command (`kernarium-ipad-persist-cold-session-20261113-082816.log`) finished that 8192-byte column (`147060 aes-256-cbc ops in 2.99s` and the 16384-byte column after it) and reached `TEST SUCCEEDED`. Both runs were evicting at the ~1 GiB shared-cache cap; persist-on also had `rejected=4`.
+
+That hang is persist-on only. It was not reproduced with persist off, and it was not re-run on D4iPad after the hook fix (no hypothesis was safe enough to risk another multi-minute stall). Possible causes: a persist-admitted translation that is incorrect on this destination (the leftover-host-pointer refusal range `[0x100000000, 0x200000000)` is shaped like uml-darwin macOS user VAs and may miss Designed-for-iPad JIT-region pointers), or a long stall from `remember()` fsync/index write under the persist mutex during heavy eviction. Persist stays opt-in and should not be turned on for D4iPad until that path is shown safe. The hook-fix change does not alter persist-on behaviour; it only skips hashing when the store is off.
+

@@ -312,7 +312,9 @@ def main() -> None:
         "  auto &cache = SharedTranslationCache::instance();\n"
         "  const auto location = code_page_location(memory, pc);\n"
         "  const ThreadPersistentIdentityScope persist_scope{\n"
-        "      persistent_identity_for(memory, pc)};\n"
+        "      cache.persistent_store() != nullptr\n"
+        "          ? persistent_identity_for(memory, pc)\n"
+        "          : PersistentIdentity{}};\n"
         "  const auto translation = cache.find(shared_codegen_profile(mode), pc,\n"
         "                                      guest_words, location.identity,\n"
         "                                      location.version);\n",
@@ -331,7 +333,9 @@ def main() -> None:
         "  const auto profile = shared_codegen_profile(mode);\n"
         "  const auto location = code_page_location(memory, pc);\n"
         "  const ThreadPersistentIdentityScope persist_scope{\n"
-        "      persistent_identity_for(memory, pc)};\n",
+        "      cache.persistent_store() != nullptr\n"
+        "          ? persistent_identity_for(memory, pc)\n"
+        "          : PersistentIdentity{}};\n",
         "executor publish identity",
     )
 
