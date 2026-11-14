@@ -2984,3 +2984,24 @@ CPU, separate session (11:40 AM ET):
 - A same-session c1-vs-official A/B is running to settle gcc.
 
 Browsers are at parity within noise. This is not yet a clear win.
+
+
+## Candidate c1 gcc A/B, same session (14 Nov 2026, 11:59 AM–12:08 PM ET)
+
+`cpu-ab.sh cpu6`: c1 first (`uml-darwin-port-c1`, md5 61531481, Kernarium `port/page-key` e9ecad6), then official 0022 (`uml-darwin-official-0022-20261113`, md5 6ea8180e). Same harness as before: slim Alpine, 4 CPU / 4G, budget 4G/128M, `cmp-benches.sh` twice per VM. No other VM was running. Swap stayed at 520/2048 MiB; no SWAP_ABORT.
+
+| bench | c1 (cpu6-a, 11:59:33–12:04:11) | official 0022 (cpu6-b, 12:04:11–12:08:59) |
+| --- | --- | --- |
+| gcc -O2 | 56.36 / 56.14 / 55.69 / 55.66 | 58.17 / 57.15 / 57.95 / 58.03 |
+| spawn_1000 | 3.73 / 4.31 | 3.71 / 4.77 |
+| node int | 1.62 / 1.53 | 1.62 / 1.55 |
+| node fp | 1.74 / 1.67 | 1.71 / 1.71 |
+| python | 3.06 / 2.56 | 2.79 / 2.53 |
+| awk | 10.51 / 10.49 | 10.44 / 10.39 |
+| sha256 50MB | 0.92 / 0.92 | 0.96 / 0.93 |
+
+gcc mean: c1 **55.96 s** vs official **57.83 s**, **3.2% faster** (medians 55.92 vs 57.99, 3.6%). The earlier "~6%" figure was fb1 (budget 16384 plus the unversioned key still on by default) against official numbers from mixed earlier sessions. c1 is budget-only; this same-session A/B is the one to trust.
+
+The other benches are at parity, including spawn (step 1 is opt-in, so that is expected). Combined with the 11:40–11:56 AM browser gate (Chromium cold 6.79 vs 6.56, scroll 12.7 vs 12.8; Firefox cold and scroll inside the official spread), **c1 is a modest gcc win at browser parity. It is not a clear net win on the primary target (Chromium is flat), so it does not by itself justify a D4iPad default change.** Official `uml-darwin` (6ea8180e) and the iOS runtimes are untouched. Kernarium is not pushed.
+
+Next: why steps 1 and 2 regress Chromium cold, and whether a variant keeps the 1.7× spawn win without that cost.
