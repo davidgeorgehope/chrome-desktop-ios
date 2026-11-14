@@ -2395,3 +2395,4 @@ Stopped cleanly at 11:11 PM ET (sweep killed, LaunchAgent booted out).
 | Run | Window (ET) | Cold | Scroll fps | Key / click ms | Warm Δup | Shared evict | Peak `phys_footprint` |
 | --- | --- | ---: | ---: | --- | ---: | ---: | ---: |
 | FF ckff-2 | 11:23:28–11:26:17 PM | 24.91 s | 52.43 | 211.0 / 100.0 | 2.05 s | 165k | **5049 MB** |
+| CR ckcr-5 | 11:26:59–11:29:48 PM | 9.28 s | 10.43 | 20.5 / 48.5 | 0.83 s | 0 | **4744 MB** (official 4626–4639) |
