@@ -2565,3 +2565,17 @@ wrapper's own pgrep pattern matched "uml-darwin". Nothing else was running.)
 Kernarium 9a2cd70 on `exclusive/0022-chunk-hybrid` (local only): evict at
 95%, drain to 90% (`UML_JIT_SHARED_CHUNK_EVICT_PCT` / `_LOW_PCT`). Chunk
 test + arm64-jit ctest 61/61 pass.
+
+## Sim hybrid 97/93 round (14 Nov 2026, 1:03 AM ET onward)
+
+Peek iPhone 17 Simulator, phone default 3584M/64M, guest 3072 MiB, one run at a
+time, footprint via `footprint-sampler.sh` (wrapper `sim-one.sh`).
+
+The first official baseline attempt (1:05 AM) failed to build in 10 s: the
+D4iPad packaging had left MesaEGL/MesaGallium/HostBattery/HostVideoEncoder
+device-only. Re-ran `package-ios-linux-device-and-simulator.sh` and put the
+landed KRuntime back (device hybrid 20643a83, Sim official 97092f94).
+
+| Run | Window (ET) | Sim runtime | Cold | Scroll fps | Warm Δup | Shared evict | Peak `phys_footprint` |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| FF simoff-ff-1 (same-session baseline, first after app rebuild) | 1:10:08–1:13:46 AM | official 97092f94 | 28.43 s | 51.66 | 2.52 s | 327k | 5013 MB |
