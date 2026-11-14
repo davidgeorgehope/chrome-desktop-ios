@@ -2928,3 +2928,30 @@ So step 1 does compile about 30% less. Even so, the SIGPROF profile shows more `
 Step 2 adds another 0.8 s, and spawn_1000 goes 2.35 → 2.53. Each A64 BL now carries an extra `direct_link` relocation for the return record. Every compile, and every materialization into a new address space, has to resolve it (find_or_create in the link table). That costs in the compile-heavy and spawn-heavy cases, and pays off only in long-running gcc (about 4%).
 
 Decision so far: neither step lands as a default. Both stay on the branch behind knobs.
+
+## Step 3: dispatch cost for gcc (fairness budget). Register pinning was tried and dropped. 14 Nov 11:17 AM–11:35 AM ET
+
+**Register pinning (tried, dropped).** I let A64 translations bind all 15 host GPRs (x22–x28 are callee-saved, using the extended frame) instead of 8. Results:
+- gcc: 55.6–56.9 s, the same as rs1.
+- spawn: 2.46–2.53.
+- It broke 6 exact-shape codegen tests.
+
+Register pressure inside blocks is not where gcc's time goes, so I reverted it. True cross-link pinning for A64 would mean porting the A32 `keep_gprs_across_links` scheme to a fixed 31→N map, with flushes at every helper. That is a large change for a cost the profile does not show.
+
+**Fairness budget (the dispatch lever).** Step 0's gcc profile showed 29M dispatcher exits per run, 5.1M of them from the 4096-instruction fairness budget. Each one is a full exit to C++ and a re-entry through the prologue. Kernarium commit `e10b990` raises the budget to 16384.
+
+| bench (4 CPU) | official 0022 | pk2 + budget 16384 (fb1) |
+|---|---:|---:|
+| gcc -O2 | 57.6 / 58.1 / 58.3 / 58.9 | 55.4 / 54.4 / 54.8 / 55.1 |
+| spawn_1000 | 4.03 / 4.93 | 2.22 / 2.30 |
+| python / awk | 2.60–2.81 / 10.6–11.1 | 2.51–2.71 / 10.4 |
+
+Chromium cold start:
+- Budget only (fb1 with the versioned key, `UML_JIT_SHARED_LOCATION_VERSION=1`): 7.85 6.37 6.34 6.59 6.50, median 6.50.
+- Official (n=10): median 6.48.
+- So budget-only is at parity with official on Chromium.
+- fb1 with the unversioned key: mean 7.54. The step-1 regression is still there.
+
+**Candidate default (c1):** versioned key (step 1 opt-in via `UML_JIT_SHARED_LOCATION_UNVERSIONED=1`), return stack opt-in (`UML_JIT_RETURN_STACK=1`), budget 16384.
+
+Kernarium commits (local branch `port/page-key`): `3ac159b`, `e0a89c4`, `e10b990`.
