@@ -2186,3 +2186,14 @@ FF 26.86 s / 5425 MB). Note: commit `5b19b76` accidentally included the
 local-only `scripts/macos-metal/vnc_rfb.py`; `7b305ef` untracked it again
 (file kept locally, no secrets in it). It remains in pushed history unless
 David approves a history rewrite.
+
+| Sim CR simphone-cr-2 | 9:35:10–9:37:54 PM | **9.64 s** | 14.70 | 22.2 / 69.4 | 0.96 s | 24k | **4240 MB** |
+| Sim FF simphone-ff-1 | 9:28:43–9:31:41 PM | 29.13 s | 44.88 | 119.5 / 186.0 | 2.40 s | 335k | **5024 MB** |
+| Sim FF simphone-ff-2 | 9:31:59–9:34:52 PM | 27.17 s | 48.65 | 91.0 / 199.0 | 2.14 s | 322k | **5001 MB** |
+
+Simulator rows are at launcher defaults (env shows 3584M / 64M / guest
+3072). With simphone-cr-1 (10.24 s, 4243 MB) the Sim phone profile gives
+Chromium 9.6–10.2 s at 4.24 GB and Firefox 27–29 s at 5.0 GB. Peek booted
+9:28 PM, shut down 9:38 PM ET; iPad (A16) Shutdown throughout; swap
+822.94M, no SWAP_ABORT; no leftover processes; official 0022 md5
+`6ea8180e05fc6736d32530811ba3c439`.
