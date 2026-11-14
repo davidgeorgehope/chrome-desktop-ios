@@ -2405,3 +2405,11 @@ D4iPad verdict: Firefox 5049–5075 MB vs official 5403–5425 MB (**−330 to
 Chromium never evicts at 3.5G, so chunk charging only adds arena slack.
 Footprint is not lower on both browsers, so chunk mode is **not** a clear
 win and does not become the iOS default.
+
+#### Simulator (Peek) chunk+fix 64d6c34, phone default 3584M/64M/3072 (Sim runtime rebuilt 11:38 PM ET; Peek booted 11:39 PM)
+
+| Run | Window (ET) | Cold | Scroll fps | Key / click ms | Warm Δup | Peak `phys_footprint` |
+| --- | --- | ---: | ---: | --- | ---: | ---: |
+| Sim FF simck-ff-1 | 11:39:49–11:43:30 PM | 26.49 s | 51.60 | 162.0 / 77.3 | 2.24 s | **4663 MB** (official 5001–5024, 27.2–29.1 s) |
+
+(The sampler re-resolved the app PID at t=60 s: 41084 → 41631.)
