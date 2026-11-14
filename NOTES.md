@@ -3213,3 +3213,28 @@ Reuse `scratch/jitprof/{pksh-spawn,k-cpu,pksh-gate}.sh`. Same 4 CPU / 4G, budget
 
 Workloads: spawn (`sh` ×1000 `/bin/true`, script-spawn), gcc -O2, shell scripts, node int/fp, python loops, then Chromium and Firefox cold/scroll/warm. Land on uml-darwin only on a clear net win. Only then build an iOS runtime and gate D4iPad-on-Mac + Peek with footprint, vs landed c2 (f9dd3963 / 4420992a) and official 0022. No iOS package in this chunk, to avoid filling the disk.
 
+
+
+## PIC v1 implemented, opt-in, unit tests pass (14 Nov 2026, 1:50–2:05 PM ET)
+
+Design (`ae05213`) is now in `Kernarium-0022-clean` `port/page-key` (still unpushed, on top of `dbbdd7e`). Official `uml-darwin` remains **6ea8180e**. The new binary was copied aside as `uml-darwin-port-pic` (md5 **3c52bd13587e0f49b4a40635cf33fb61**, 14:04 ET after the single-instruction fix). Existing `uml-darwin-port-pksh` was not overwritten. No iOS package. Kernarium was not pushed.
+
+### What landed in the tree (opt-in `UML_JIT_SHARED_PIC=1`, A64 only)
+
+- `JitChainState.reloc_got` at offset 72; struct is 80 bytes. AArch32 extended frame and x22–x28 are unchanged.
+- `Arm64Emitter::load_relocatable_pointer` in PIC mode emits `LDR` of the GOT pointer from `[x19, #72]`, then `LDR` of the slot. `JitRelocation::word` is a dense GOT index, not a literal-pool word.
+- `JitCompiler::set_shared_pic` is set from the env var at executor construction. AArch32 keys stay on today's `store_block` path. Single-instruction fallbacks also force PIC off: they are stored unpatched into a private arena and invoked with a chain that has no GOT.
+- Publish records `SharedTranslation.pic` and stores a process-wide RX copy (`store_shared_executable`, 512 MiB bump arena). Shape/insert accept dense GOT slots instead of zeroed in-block literal cells. `make_packed` does not zero PIC slots (that would have clobbered instructions).
+- `install_pic_block` creates the same per-AS link records, fills a non-moving private GOT slab, points L1 at the shared (or private unpatched) prologue, and uses a 10-instruction trampoline as `internal_entry` when the block has relocations (`MOVZ/MOVK` GOT, `STR [x19, #72]`, `BR` to the shared internal entry). Zero-reloc blocks jump to the shared internal entry directly. PIC templates never go through `store_block`.
+- `execute_native` publishes `block->reloc_got` into the chain before the first prologue.
+
+### Unit tests (macos-unit, 61 suites that already build)
+
+The three suites that still do not compile are unchanged and pre-existing: `arm64-jit-shared-translation-cache`, `arm64-jit-persistent-translation-cache`, `arm64-jit-cache_validation` (they treat packed `span` fields as `vector`). Excluding those:
+
+- Flag off (c2 default in this binary): **61/61 passed** (14:00 ET, 192 s).
+- `UML_JIT_SHARED_PIC=1`, first run: 58/61. Three A64 runtime suites segfaulted in `run_single_instruction` (`fp-link-runtime`, `reservation_alias`, `executor-paths`) — PIC-compiled singles loaded `[x19, #72]` then dereferenced a null GOT (`SIGSEGV` at address 0x8). Fixed by compiling singles with PIC off and restoring the flag afterwards.
+- `UML_JIT_SHARED_PIC=1`, after the fix: **61/61 passed** (14:05 ET, 136 s).
+
+Default (flag off) behavior is the landed c2 path. PIC stays opt-in until uml-darwin measurement vs official 0022 and a fair c2 baseline (same `uml-darwin-port-pic` binary with the flag off).
+
