@@ -2534,6 +2534,7 @@ Kernarium ea13662 (defaults 97/93; tests 61/61 + chunk test pass), runtime md5 2
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | FF h97ff-1 (first after rebuild) | 12:47:52–12:51:11 AM | 20643a83 | 25.32 s | 52.77 | 1.97 s | 320k | 4754 MB |
 | FF h97ff-2 | 12:51:31–12:54:18 AM | 20643a83 | 25.78 s | 52.10 | 1.94 s | 318k | 4776 MB |
+| CR h97cr-1 | 12:55:08–12:57:57 AM | 20643a83 | 9.40 s | 10.92 | 0.99 s | 133k | 4597 MB |
 
 (The 12:20–12:26 AM attempts were refused by the preflight because my
 wrapper's own pgrep pattern matched "uml-darwin". Nothing else was running.)
