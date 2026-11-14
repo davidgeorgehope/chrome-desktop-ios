@@ -2235,4 +2235,52 @@ Fix + new mode:
   survives eviction). Note: `arm64-jit-shared-translation-cache` does not
   compile on 0022-clean already (it still uses vector APIs on the span fields).
 
-Results: (in progress)
+Second commit 166fb47: **L1s copy shared validation words instead of
+pinning the publication.** With the cycle fixed, each L1 block's
+`saved_guest_words` pin still kept a whole 1 MiB chunk resident after the
+shared tier evicted it. Charged to the budget, that starved chunk mode
+(156k rejections, matches 193k -> 29k in the 128M check below). The identity
+prefix now goes into the way's preallocated fallback buffer (the path
+private compiles already use), so evicted chunks drain at once.
+
+Side binary `uml-darwin-0022-chunk-20261113` (md5
+`68483c61286771bfc5750d7f8c6d267b`, in the clean tree's
+macos-integration bin; clean `uml-darwin` restored to `6ea8180e…`).
+Official `uml-darwin` / `uml-darwin-official-0022-20261113` untouched
+(`6ea8180e05fc6736d32530811ba3c439`).
+
+Checks (all ET, 13 Nov):
+- Unit: new `arm64-jit-shared-translation-chunks` PASS. arm64-jit ctest
+  53/61 pass; the 8 failures (memory-preparation, runtime,
+  reservation_alias, indirect-link-runtime, chain-abi-codegen/runtime,
+  fp-link-runtime, sme-mode) fail identically on 0022-clean 9676ead.
+  shared-translation-cache / persistent-translation-cache / cache_validation
+  tests do not compile on 9676ead either.
+- hello PASS 10:03:11 PM; atomic-stress (8 x 200k, mem=2G) PASS
+  10:03:13–10:03:33 PM.
+- Tight budget atomic-stress (`--jit-cache-budget=1152M
+  --jit-executor-cache-budget=128M`, shared tier 128M), all PASS:
+
+| Run (ET) | Binary / mode | Wall | Peak RSS | Shared matches | Evictions | Committed chunks at exit | Chunks returned |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 9:59:08–9:59:32 PM | official 0022 | 24 s | 1867 MiB | 193,323 | 217,316 | (never freed) | 0 |
+| 10:02:10–10:02:34 PM | chunk mode | 24 s | **1515 MiB** | 144,951 | 254,407 | **95 MiB** | 495 |
+| 10:02:34–10:02:59 PM | leak fix only (`CHUNK_BUDGET=0`, PC sweep) | 25 s | 1917 MiB | 193,105 | 217,075 | 498 MiB | **0** |
+
+  The PC-order sweep never empties a chunk even with the cycle fixed, so
+  chunk-coherent eviction is what actually returns memory.
+- uml-darwin desktop (labwc Metal 1920x1080, mem=4G, 8G budget, persist off):
+
+| Run (ET) | Binary | Cold launch | Scroll | Warm 2nd page | Peak RSS |
+| --- | --- | ---: | ---: | ---: | ---: |
+| CR 10:12:27–10:12:49 PM | chunk | 7.78 s | 8.37 fps | 0.64 s | 4021 MiB |
+| FF 10:13:08–10:13:41 PM | chunk | 15.63 s | 10.96 fps (outlier) | 0.99 s | 5069 MiB |
+| FF 10:13:51–10:14:24 PM | official 0022 | 15.66 s | 42.46 fps | 1.30 s | 5432 MiB |
+| FF 10:14:40–10:15:14 PM | chunk | 16.20 s | 48.69 fps | 0.87 s | 5271 MiB |
+| FF 10:15:14–10:15:47 PM | chunk binary, mode off | 15.99 s | 40.38 fps | 0.96 s | 5666 MiB |
+
+  Reference earlier today: Chromium 7.50–7.62 s, Firefox 15.74–15.91 s.
+  No cold or warm loss; at 8G nothing is evicted, so the mac gain is small.
+
+iOS runtime rebuild with the branch: started 10:17 PM ET (official runtime
+xcframework APFS-cloned to `scratch/KRuntime_6_18_4K.xcframework.official0022`).
