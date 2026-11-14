@@ -9,6 +9,8 @@
     <string>/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/launch-d4ipad-0022.sh</string>
     <string>PLACEHOLDER_TAG</string>
     <string>PLACEHOLDER_ROOTFS</string>
+    <string>PLACEHOLDER_JIT_BUDGET</string>
+    <string>PLACEHOLDER_JIT_EXECUTOR_BUDGET</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

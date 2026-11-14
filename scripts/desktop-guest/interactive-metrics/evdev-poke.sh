@@ -34,7 +34,7 @@ if [ -f /proc/bus/input/devices ]; then
   ' /proc/bus/input/devices)
   tablet=$(awk '
     BEGIN { FS="\n"; RS=""; }
-    /VNC Tablet|Name=".*[Tt]ablet/ {
+    /VNC Tablet|Name=".*[Tt]ablet|Name=".*[Tt]ouchscreen/ {
       for (i=1;i<=NF;i++) if (match($i, /event[0-9]+/)) {
         print "/dev/input/" substr($i, RSTART, RLENGTH); exit
       }
@@ -43,7 +43,17 @@ if [ -f /proc/bus/input/devices ]; then
 fi
 [ -z "$kbd" ] && [ -e /dev/input/event0 ] && kbd=/dev/input/event0
 [ -z "$tablet" ] && [ -e /dev/input/event1 ] && tablet=/dev/input/event1
-report "===INTERACTIVE_EVDEV_POKE=== kbd=$kbd tablet=$tablet"
+# Kernarium iOS/D4iPad/Sim expose a virtio multitouch "Kernarium
+# Touchscreen" (ABS 0..32767, MT slots) instead of the VNC tablet
+# (ABS 0..65535). Halve coordinates and add MT events there; the kernel
+# drops MT codes a device does not advertise, so the VNC path is unchanged.
+touch_mt=0
+if [ -n "$tablet" ] && grep -q 'Kernarium Touchscreen' /proc/bus/input/devices 2>/dev/null; then
+  case "$(cat /sys/class/input/${tablet##*/}/device/name 2>/dev/null)" in
+    *Touchscreen*) touch_mt=1 ;;
+  esac
+fi
+report "===INTERACTIVE_EVDEV_POKE=== kbd=$kbd tablet=$tablet touch_mt=$touch_mt"
 
 write_blob() {
   dev=$1
@@ -71,6 +81,29 @@ click_at() {
   x=$1
   y=$2
   tmp=/tmp/evdev-touch.bin
+  if [ "$touch_mt" = 1 ]; then
+    x=$((x / 2)); y=$((y / 2))
+    # BTN_TOUCH first, then ABS_MT_SLOT(0x2f) / TRACKING_ID(0x39) /
+    # POSITION_X(0x35) / POSITION_Y(0x36), mirroring touchscreen.cpp.
+    {
+      evdev_event 1 330 1
+      evdev_event 3 47 0
+      evdev_event 3 57 1
+      evdev_event 3 53 "$x"
+      evdev_event 3 54 "$y"
+      evdev_event 3 0 "$x"
+      evdev_event 3 1 "$y"
+      evdev_event 0 0 0
+      evdev_event 1 330 0
+      evdev_event 3 47 0
+      evdev_event 3 57 -1
+      evdev_event 3 0 "$x"
+      evdev_event 3 1 "$y"
+      evdev_event 0 0 0
+    } > "$tmp"
+    write_blob "$tablet" "$tmp" || true
+    return 0
+  fi
   {
     evdev_event 3 0 "$x"
     evdev_event 3 1 "$y"

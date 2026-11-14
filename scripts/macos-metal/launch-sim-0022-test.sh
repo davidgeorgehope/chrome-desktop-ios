@@ -32,6 +32,10 @@ export TEST_RUNNER_KERNARIUM_ROOTFS="$ROOTFS_NAME"
 export TEST_RUNNER_KERNARIUM_SERIAL_LOG=guest-serial.log
 export TEST_RUNNER_KERNARIUM_VCPU_COUNT=8
 export TEST_RUNNER_UML_JIT_SHARED_STATS=1
+# Optional JIT budget (default: binary default, 1 GiB at mem=4G, which
+# 8 x 256 MiB L1s consume entirely). JIT_BUDGET=4G JIT_EXECUTOR_BUDGET=128M.
+if [ -n "${JIT_BUDGET:-}" ]; then export TEST_RUNNER_KERNARIUM_JIT_CACHE_BUDGET="$JIT_BUDGET"; fi
+if [ -n "${JIT_EXECUTOR_BUDGET:-}" ]; then export TEST_RUNNER_KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET="$JIT_EXECUTOR_BUDGET"; fi
 
 {
   echo "===== $(date) sim-0022 tag=$TAG rootfs=$ROOTFS_NAME (parallel=NO, 1 dest) pid=$$ ====="
@@ -45,7 +49,7 @@ echo "$STAMP" > "$NOTES/sim-0022-session.stamp"
 
 (
   echo "memory sampler sim-0022-$TAG $(date) start_swap=${UML_SWAP_USED_AT_START:-0}M" >"$MEMLOG"
-  for i in $(seq 1 240); do
+  for i in $(seq 1 480); do
     date >>"$MEMLOG"
     swline=$(sysctl vm.swapusage)
     echo "$swline" >>"$MEMLOG"
@@ -59,6 +63,11 @@ echo "$STAMP" > "$NOTES/sim-0022-session.stamp"
     start=${UML_SWAP_USED_AT_START:-0}
     awk -v u="$used" -v s="$start" 'BEGIN { exit (u+0 > s+0 + 2048) }' || {
       echo "SWAP_ABORT used=${used}M start=${start}M limit=+2048M $(date)" | tee -a "$MEMLOG"
+      # Actually stop the guest: TERM, then KILL, the app process.
+      /usr/bin/pkill -TERM -f 'Kernarium\.app/Kernarium' 2>/dev/null || true
+      sleep 5
+      /usr/bin/pkill -KILL -f 'Kernarium\.app/Kernarium' 2>/dev/null || true
+      echo "SWAP_ABORT killed app $(date)" | tee -a "$MEMLOG"
       break
     }
     sleep 2

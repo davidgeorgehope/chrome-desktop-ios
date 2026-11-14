@@ -4,6 +4,10 @@ export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 export LANG=C
 TAG="${1:-ff}"
 ROOTFS_NAME="${2:-alpine-3.24.2-desktop-labwc.ext4}"
+# Optional whole-process JIT budget / private L1 cap (default 4G / 128M since 13 Nov 7:40 PM ET; 2G thrashed the 1 GiB shared tier).
+# The debugger-prepared executable region depends only on the L1 cap.
+JIT_BUDGET="${3:-4G}"
+JIT_EXECUTOR_BUDGET="${4:-128M}"
 NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
 KERNARIUM=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -31,8 +35,8 @@ export TEST_RUNNER_KERNARIUM_GUEST_SESSION_BENCH_DELAY=90
 export TEST_RUNNER_KERNARIUM_GUEST_SESSION_LOG=guest-session.log
 export TEST_RUNNER_KERNARIUM_GUEST_SESSION_NET_PROBE=1
 export TEST_RUNNER_KERNARIUM_GUEST_SESSION_TIMEOUT=900
-export TEST_RUNNER_KERNARIUM_JIT_CACHE_BUDGET=2G
-export TEST_RUNNER_KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET=128M
+export TEST_RUNNER_KERNARIUM_JIT_CACHE_BUDGET="$JIT_BUDGET"
+export TEST_RUNNER_KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET="$JIT_EXECUTOR_BUDGET"
 export TEST_RUNNER_KERNARIUM_ROOTFS="$ROOTFS_NAME"
 export TEST_RUNNER_KERNARIUM_SERIAL_LOG=guest-serial.log
 export TEST_RUNNER_KERNARIUM_VCPU_COUNT=8
@@ -52,7 +56,7 @@ export TEST_RUNNER_UML_JIT_SHARED_STATS=1
 
 (
   echo "memory sampler $TAG $(date) start_swap=${UML_SWAP_USED_AT_START:-0}M" >"$MEMLOG"
-  for i in $(seq 1 200); do
+  for i in $(seq 1 480); do
     date >>"$MEMLOG"
     swline=$(sysctl vm.swapusage)
     echo "$swline" >>"$MEMLOG"
@@ -65,6 +69,11 @@ export TEST_RUNNER_UML_JIT_SHARED_STATS=1
       awk -v u="$used" -v s="$start" 'BEGIN { exit (u+0 > s+0 + 2048) }' || {
         echo "SWAP_ABORT used=${used}M start=${start}M limit=+2048M $(date)" | tee -a "$MEMLOG"
         /usr/bin/pgrep -lf '[Kk]ernarium|[Xx]codebuild' >>"$MEMLOG" 2>/dev/null || true
+        # Actually stop the guest: TERM, then KILL, the app process.
+        /usr/bin/pkill -TERM -f 'Kernarium\.app/Kernarium' 2>/dev/null || true
+        sleep 5
+        /usr/bin/pkill -KILL -f 'Kernarium\.app/Kernarium' 2>/dev/null || true
+        echo "SWAP_ABORT killed app $(date)" | tee -a "$MEMLOG"
         break
       }
     fi

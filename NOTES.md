@@ -1909,3 +1909,76 @@ input latency about the same. Clearly worse on TTP, so not landed.
 Likely cause: verbatim blocks give up block linking and do a full
 register load/spill on every entry. Details are in
 `notes/near-pass-through-prototype.md`.
+
+## iOS targets: interactive harness + Chromium flags on official 0022 (13 Nov 2026, 6:52–7:40 PM ET)
+
+Near pass-through is parked (not landed). This ports the 13 Nov uml-darwin
+winners to Designed-for-iPad (D4iPad, Aqua LaunchAgent + lldb `jit_serve`)
+on official 0022: the Chromium flags from `ea2b7a9`
+(`--disable-gpu-compositing --enable-gpu-rasterization` …) and the
+interactive harness (cold launch, scroll fps, input latency, warm second
+page, Firefox maximize via xulstore + labwc rule). Persist off; Peek and
+iPad (A16) Shutdown during D4iPad runs; one run at a time; preflight and
+SWAP_ABORT on. Official `uml-darwin-official-0022-20261113` md5
+`6ea8180e05fc6736d32530811ba3c439` was only used read-only for bakes.
+
+**Images.** D4iPad/Sim have no `--guest-file`, so the harness is baked.
+`scripts/macos-metal/bake-ios-interactive-image.sh` APFS-clones a base
+image and boots official 0022 once with `UML_BOOT_UPPER=none`;
+`bake-ios-interactive-guest.sh` installs the repo `start-desktop-labwc.sh`
+as `start-desktop.sh`, plus `/usr/local/etc/{interactive-metrics,desktop-browser,chromium-flags}`
+and `/usr/local/share/interactive-metrics/*`, then remounts ro and powers
+off (~5 s each, journal clean, incompat 0x2c2). Work images (originals
+untouched):
+`alpine-3.24.2-desktop-labwc-interactive-ff-20261113.ext4` (from
+`labwc.ext4`) and `alpine-3.24.2-desktop-labwc-interactive-cr-20261113.ext4`
+(from `labwc-chromium-d4ipad-20261113.ext4`), baked both in
+`/Volumes/KernariumCS/rootfs/starter-20261112/` (Sim uses symlinks) and
+in-place as clones in the D4iPad container Documents (no extra disk).
+Rebaked 7:11–7:12 PM ET after the touch fix below.
+
+**Touch fix.** iOS exposes a virtio `Kernarium Touchscreen` (MT slots,
+ABS 0..32767), not the VNC tablet (0..65535). `evdev-poke.sh` fell back
+to the keyboard node, so `click_n=0` (int-ff-1, 7:07–7:10 PM ET). It now
+matches the touchscreen, halves coordinates and writes BTN_TOUCH + MT
+slot/tracking/position like `touchscreen.cpp`; the kernel drops MT codes
+the VNC tablet does not advertise, so uml-darwin is unchanged.
+
+**Launchers.** `launch-d4ipad-0022.sh` / `bootstrap-d4ipad-0022.sh` /
+plist take optional JIT budget and L1 cap args; `launch-sim-0022-test.sh`
+takes `JIT_BUDGET` / `JIT_EXECUTOR_BUDGET` env. SWAP_ABORT previously only
+logged; it now TERMs then KILLs `Kernarium.app/Kernarium`, and the sampler
+covers the 900 s session. `run-d4ipad-interactive.sh` runs one session and
+copies `guest-serial.log`; `parse-ios-interactive.py` prints the row.
+A 7:04 PM ET attempt was refused by preflight (headroom 5941M < 6144M,
+file cache from the image compares); `purge` cleared it.
+
+### D4iPad results (cold = INTERACTIVE_LAUNCH guest up − browser START up)
+
+| Run | Window (ET) | JIT budget / L1 | Cold launch | first_paint_ms | Scroll fps (frames, p95 ms) | Input key / click ms | Warm Δup / nav_ms | Shared insert / evict | Peak RSS |
+| --- | --- | --- | ---: | ---: | --- | --- | --- | --- | ---: |
+| FF int-ff-1 (pre touch fix) | 7:07–7:10 PM | 2G/128M | 38.5 s | 12.0 | 43.42 (87, 50.0) | timeout, key 130.5 / click n=0 | 3.49 s / 1940 | — | — |
+| FF int2-ff-1 | 7:12–7:15 PM | 2G/128M | 38.75 s | 22.0 | 48.91 (98, 49.8) | ok, 500.0 / 218.0 | 3.26 s / 2007 | 2.85M / 2.50M | 6531 MiB |
+| FF int2-ff-2 | 7:15–7:18 PM | 2G/128M | 40.19 s | 16.0 | 34.67 (72, 116.8) | ok, 618.3 / 188.0 | 2.88 s / 0 | 2.91M / 2.56M | 6638 MiB |
+| CR int2-cr-1 | 7:18–7:28 PM | 2G/128M | 22.06 s | 1775.9 | **stalled** at SCROLL_START (guest 0.2% CPU, killed 7:28) | — | — | 1.39M / 0.95M (30 s) | 5207 MiB |
+| CR int2-cr-2 | 7:29–7:32 PM | 2G/128M | 21.62 s | 1595.3 | 3.31 (7, 1399.9) | ok, 75.6 / 233.4 | 3.56 s / 2685 | 2.47M / 2.04M | 6401 MiB |
+| CR jit4G-cr-1 | 7:34–7:37 PM | **4G/128M** | **8.65 s** | 506.4 | 9.36 (19, 438.2) | ok, 22.4 / 59.9 | **0.74 s** / 535 | 1.39M / **18k** | 5525 MiB |
+| CR jit4G-cr-2 | 7:37–7:40 PM | **4G/128M** | **8.53 s** | 656.4 | 12.92 (26, 158.9) | ok, 31.5 / 49.9 | **0.60 s** / 432 | 1.40M / **29k** | 5531 MiB |
+
+uml-darwin official 0022 reference (5:13–5:41 PM ET tables above):
+Chromium cold 7.5–7.6 s from CHROMIUM_START, scroll 9.25–9.47 fps,
+key 7.7–12.9 / click 14.6–16.9 ms, warm 0.60–0.64 s; Firefox cold
+15.8–15.9 s, scroll 40.7–42.2 fps, warm 1.16–1.19 s.
+
+**Profile: the D4iPad gap was shared-translation-cache thrash.** At
+2G/128M with 8 vCPUs the private L1s take 1 GiB and the shared tier gets
+the other 1 GiB. `JIT_SHARED_STATS` showed it pinned at
+`accounted≈max=1073847616` with 88% of insertions evicted (FF 2.50M of
+2.85M; CR 2.04M of 2.47M). uml-darwin runs with an 8G whole budget. The
+debugger-prepared executable region depends only on the L1 cap (still
+39912 pages / 623.6 MiB), so raising the whole budget to 4G (3 GiB shared)
+costs no extra debugger mapping. Result: Chromium evictions fell ~100×,
+cold launch 21.6→8.6 s (uml-darwin 7.5 s), warm second page 3.6→0.6–0.7 s
+(= uml-darwin), clicks 233→50–60 ms, scroll 3.3→9.4–12.9 fps, and peak
+RSS went *down* (6.4→5.5 GiB) because less is retranslated. Swap stayed
+862.94M throughout. **Landed: D4iPad default is now 4G/128M.**
