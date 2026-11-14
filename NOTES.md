@@ -3327,3 +3327,53 @@ Unit test `uml_arm64_jit_pic_reuse_runtime_tests` passes. `uml-darwin-port-pic` 
 **Still not a clear win. Keep `UML_JIT_SHARED_PIC=1` opt-in. Do not land, do not gate on D4iPad or Peek yet.** Next: finish the remaining jump-to-`JitBlockLink*` path (the `0x400154` / `0x413f74` blocks; likely a stale GOT or an `internal_entry` of 0 that still gets used as a branch target), then re-measure spawn / gcc / scripts / node / python / browsers vs c2 (flag off, same `port-pic` binary) and official 0022. Harness: `scripts/kernarium-port/k-boot.sh` (and the existing `k-cpu.sh` / `cmp-benches.sh` once retargeted off scratch).
 
 Kernarium was not pushed. David's phone was not touched.
+
+
+## PIC v1 jump-to-JitBlockLink*: kind asserts, still not booting (14 Nov 2026, 2:50–3:08 PM ET)
+
+Time-boxed follow-up on the jump-to-`JitBlockLink*` path (suspects: (a) dispatcher/exit stub treating a GOT link slot as a `store_pc` slot when `internal_entry==0`; (b) slot index from the publisher's reloc order rather than the installer's; (c) unlink/relink writing a link record into a `store_pc` GOT slot). Goal was to add an always-on kind assert at every GOT write, boot with it, and if the guest was not booting within about 90 minutes, stop and move to fewer dispatcher exits / faster translated code on c2.
+
+### What the asserts showed
+
+Write-time checks live in `install_pic_block` (`Kernarium-0022-clean` local `8ef8b54` on `port/page-key`, not pushed): fill `got[relocation.word]`, abort if `word != index` (publisher vs installer order), if a `guest_pc` slot is filled with a link pointer from the same GOT (or `empty_link_`), or if a `direct_link` value is not a 64-byte-aligned `JitBlockLink*`. `indirect_link` values are `JitIndirectLink*` (8-byte aligned, not 64). A first heuristic that treated any 64-byte-aligned value `>= 2^32` as a host `JitBlockLink*` was a false positive: a TBI translation key is `a64_tbi_key_bit | VA` (bit 61) and can be 64-byte aligned (e.g. `0x2000000000413780`).
+
+Those write-time asserts do **not** fire on the crashing boot path. That rules out (b) and (c) at install time: the GOT is filled with the right kind in the right slot, and no later writer of GOT memory was found (`activate_link` / `deactivate_links` / `refresh_link` only update the `JitBlockLink` record).
+
+The post-exit check (immediately after the JIT function returns, before unpack) **does** fire, every PIC boot, on the same `mount` block as before. A representative 2G/2 CPU hit at 2:59 PM ET (`/tmp/k-harness/pic-got-assert4.log` and later dumps):
+
+- entry key `0x2000000000400154` (A64 TBI at `0x400154`), `instruction_count=7`
+- `event` is `continued`, retired count `1` (`event_raw=0x100000000`) — a normal `return_constant(Event::continued, 1)`, not a host SIGSEGV reflected into `cpu.pc`
+- `chain.reloc_got == block->reloc_got` (the entry GOT; no successor trampoline rebound it)
+- GOT slot 0 `kind=direct_link` is `cpu.pc` (a `JitBlockLink*`); slot 1 `kind=guest_pc` is `0x400170` as it should be
+- the successor record at that pointer is still unlinked: `guest_pc=0x2000000000400170`, `internal_entry=0`, `instruction_count=0`, `allowed_selectors=0`
+- the running template's first exit is the same sequence dumped earlier and is correct on paper: `LDR x12, [x19, #72]; LDR x12, [x12, #0]; … CBZ x13, fallback; BR x13` then fallback `ADD; LDR x8, [x19, #72]; LDR x8, [x8, #8]; STR x8, [x15, #pc]; MOVZ x0, #1, LSL #32; … RET`. Every fallback branch lands on the `ADD`. Slot 1 is the `store_pc` load.
+
+So this is suspect (a) as a *symptom* (a link slot's value is what ends up in `cpu.pc` on the unlinked fallback with retired=1) but not as a literal "CBZ falls through into a path that stores x12": the words store x8 from slot 1. Why that store yields slot 0's value in uml-darwin is still open. 1 vCPU (`NCPUS=1`) fails the same way, so this is not a two-vCPU arena race.
+
+Guest words of that 7-instruction block, captured from `saved_guest_words`:
+
+```
+340000e0  cbz w0, 0x400170
+d5033bbf  dmb ish
+6b00003f  cmp w1, w0
+54000181  b.ne 0x400190
+d2800000  mov x0, #0
+3900001f  strb wzr, [x0]
+d4207d00  brk #1000
+```
+
+A macos-unit test that maps those exact bytes, sets `x0=0` and optional TBI, and runs the first unlinked dispatch expects `cpu.pc == target` (`0x…001c`). It **passes** under `UML_JIT_SHARED_PIC=1` (same `-O3 -DNDEBUG` as macos-integration). The existing `add; b` reuse cases already covered unconditional unlinked fallback and also pass. The boot failure is not reproduced by that isolated executor path.
+
+### Recovery experiment (not a fix)
+
+Temporarily rewriting `cpu.pc` from `translation_key_pc(link->guest_pc)` after the assert (instead of aborting) let the guest get past the old `cannot mount devtmpfs` panic: `EXT4-fs` mounted, `UML_BOOT_SWITCH_ROOT:/sbin/init`, Alpine userspace started, and the slim harness began its benches (`dd_write32`, `sha256_32m`, `apk add tree` / `openssl`). That was a 40 s 2G/2 CPU run at 3:04 PM ET (`/tmp/k-harness/pic-got-recover2.log`). It is **not** a clean boot and is **not** a source of official numbers: the same run still logged 47 recoveries on many blocks and slots (not only `0x400154` slot 0), and there were guest SIGSEGVs (`run-benches.sh`, `grep`, `tree` in `ld-musl-aarch64.so.1`). Recovery was reverted. The tree now aborts on the kind mismatch.
+
+### Product changes (local Kernarium only, not pushed)
+
+`port/page-key` tip **`8ef8b54`** (`jit: PIC GOT kind asserts at write and after native exit`) on top of `35eb2e2`. `uml-darwin-port-pic` copied from the rebuilt `uml-darwin`, md5 **`feeca45b4074135573ae99e065d7442b`**. Official `uml-darwin-official-0022-20261113` remains **`6ea8180e`**. The new fallback unit test is in `tests/unit/arm64/arm64_jit_pic_reuse_runtime_tests.cpp` and passes. No iOS package, no D4iPad-on-Mac / Peek gate.
+
+### Verdict
+
+**Still not a clear win, and the ~90 minute boot-or-stop box is up without a real PIC boot.** Keep `UML_JIT_SHARED_PIC=1` opt-in. Do not land, do not measure spawn/gcc/browsers for PIC (no honest flag-on numbers), do not gate on D4iPad or Peek. Next lever is **fewer dispatcher exits and faster translated code on landed c2** (flag off), not more PIC v1 time. The leftover PIC puzzle is: uml-darwin's unlinked fallback for `0x400154` returns `continued, 1` with `cpu.pc == got[0]` (the unlinked `JitBlockLink*`) even though the template loads slot 1; the same guest words do not do that in the macos-unit executor.
+
+Kernarium was not pushed. David's phone was not touched.
