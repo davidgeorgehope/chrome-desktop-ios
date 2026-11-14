@@ -1964,6 +1964,8 @@ file cache from the image compares); `purge` cleared it.
 | CR int2-cr-2 | 7:29–7:32 PM | 2G/128M | 21.62 s | 1595.3 | 3.31 (7, 1399.9) | ok, 75.6 / 233.4 | 3.56 s / 2685 | 2.47M / 2.04M | 6401 MiB |
 | CR jit4G-cr-1 | 7:34–7:37 PM | **4G/128M** | **8.65 s** | 506.4 | 9.36 (19, 438.2) | ok, 22.4 / 59.9 | **0.74 s** / 535 | 1.39M / **18k** | 5525 MiB |
 | CR jit4G-cr-2 | 7:37–7:40 PM | **4G/128M** | **8.53 s** | 656.4 | 12.92 (26, 158.9) | ok, 31.5 / 49.9 | **0.60 s** / 432 | 1.40M / **29k** | 5531 MiB |
+| FF jit4G-ff-1 | 7:41–7:44 PM | **4G/128M** | **18.66 s** | 7.0 | 52.21 (107, 33.5) | ok, 130.0 / 135.7 | **1.98 s** / 1169 | 1.40M / 226k | 5662 MiB |
+| FF jit4G-ff-2 | 7:44–7:47 PM | **4G/128M** | **18.54 s** | 7.0 | 48.25 (99, 17.4) | ok, 131.0 / 74.7 | **1.76 s** / 0 | 1.41M / 234k | 5669 MiB |
 
 uml-darwin official 0022 reference (5:13–5:41 PM ET tables above):
 Chromium cold 7.5–7.6 s from CHROMIUM_START, scroll 9.25–9.47 fps,
@@ -1980,5 +1982,7 @@ debugger-prepared executable region depends only on the L1 cap (still
 costs no extra debugger mapping. Result: Chromium evictions fell ~100×,
 cold launch 21.6→8.6 s (uml-darwin 7.5 s), warm second page 3.6→0.6–0.7 s
 (= uml-darwin), clicks 233→50–60 ms, scroll 3.3→9.4–12.9 fps, and peak
-RSS went *down* (6.4→5.5 GiB) because less is retranslated. Swap stayed
+RSS went *down* (6.4→5.5 GiB) because less is retranslated. Firefox at
+4G: cold 38.8–40.2→18.5–18.7 s (uml-darwin 15.8–15.9 s), warm 2.9–3.3→1.8–2.0 s,
+scroll 48–52 fps, evictions 2.5M→0.23M, RSS 6.6→5.7 GiB. Swap stayed
 862.94M throughout. **Landed: D4iPad default is now 4G/128M.**
