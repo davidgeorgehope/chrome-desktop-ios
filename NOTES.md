@@ -2413,3 +2413,38 @@ win and does not become the iOS default.
 | Sim FF simck-ff-1 | 11:39:49–11:43:30 PM | 26.49 s | 51.60 | 162.0 / 77.3 | 2.24 s | **4663 MB** (official 5001–5024, 27.2–29.1 s) |
 
 (The sampler re-resolved the app PID at t=60 s: 41084 → 41631.)
+| Sim CR simck-cr-1 | 11:44:00–11:46:45 PM | 9.48 s | 12.48 | 25.7 / 59.7 | 0.90 s | **4317 MB** (official 4240–4243, 9.6–10.2 s) |
+
+Peek shut down 11:47 PM ET.
+
+#### Verdict and restore (11:47–11:50 PM ET)
+
+| Profile | Browser | Official peak fp | Chunk+fix peak fp | Δ | Cold official → chunk |
+| --- | --- | ---: | ---: | ---: | --- |
+| D4iPad | Firefox | 5403–5425 MB | 5049–5075 MB | −330…−376 MB | 26.9 → 24.9–25.3 s |
+| D4iPad | Chromium | 4626–4639 MB | 4705–4744 MB | +66…+118 MB | 9.09–9.26 → 9.19–9.28 s |
+| Sim | Firefox | 5001–5024 MB | 4663 MB | −338…−361 MB | 27.2–29.1 → 26.5 s |
+| Sim | Chromium | 4240–4243 MB | 4317 MB | +74…+77 MB | 9.6–10.2 → 9.5 s |
+
+Chunk mode is a large Firefox win with no speed loss, but Chromium (which
+never evicts at 3.5G) costs 70–120 MB more. Footprint is not lower on both
+browsers, so it is **not landed**:
+- The official runtime is restored in `kernarium-xcframeworks` from
+  `scratch/KRuntime_6_18_4K.xcframework.official0022` (device md5
+  `78ac5040…`, sim `97092f94…`, no chunk symbols). The chunk+fix
+  xcframework is kept at `scratch/KRuntime_6_18_4K.xcframework.chunk64d6c34`.
+- The Simulator app was rebuilt with the official runtime (embedded md5
+  `97092f94`). The D4iPad app re-embeds the restored framework on its next
+  launch, because the launcher always runs xcodebuild.
+- The `Kernarium-0022-clean` worktree is switched back to
+  `exclusive/0022-clean` 9676ead, with the 7 local overlays kept.
+- Nothing was pushed. The only Kernarium remote is upstream imxieyi; there
+  is no fork remote.
+- Candidate correctness fix on the official line: branch
+  `exclusive/0022-statsfix` f4cd2c7, which is 9676ead plus the stats-dump
+  deadlock fix only. It has not been built or run as a binary. A syntax
+  check against the official headers shows no new diagnostics. Official
+  binaries are unchanged (md5 `6ea8180e`).
+- Probable next step: charge chunks only once the shared tier is near its
+  cap, or return the open chunk's slack. That would remove the Chromium
+  overhead.
