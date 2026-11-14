@@ -3429,3 +3429,50 @@ Fairness 16384 already shrank that bucket (step 0 on official had ~2.5–5.1 M f
 
 **Next attack.** The biggest single gcc bucket is **return indirect misses**. The existing 2-cell site plus the 8192-entry A64 table still miss 9.53 M returns on one compile. The software return stack (`UML_JIT_RETURN_STACK=1`) stays opt-in: it already helped gcc about 4% and hurt Chromium/spawn because every A64 BL carries an extra `direct_link` relocation. The next try should cut those RET exits **without** that compile-time reloc tax — an inline / in-stub return cache trained at runtime, or a host RAS path that does not add a reloc per BL. `nonlink` is a close second and needs the tighter reason before a page-cross land. No iOS package, and no D4iPad-on-Mac / Peek gate, until a change is a clear uml-darwin win against this c2 baseline and official 0022 (spawn, gcc, scripts, node/python, Chromium/Firefox cold and footprint).
 
+
+## ic2: 2-way 16K-set A64 indirect table (14 Nov 2026, 3:34–3:55 PM ET)
+
+PIC stays parked. This is the first dispatcher-exit lever on landed c2 (flag off): a runtime-trained 2-way A64 indirect-target table, plus `continued.nonlink` sub-reasons.
+
+**What changed (local Kernarium only, not pushed).** `port/page-key` `e0f296a` (`jit: 2-way 16K-set A64 indirect table and nonlink reasons`) on top of `8ef8b54`. The existing executor-wide A64 table (previously 8192 direct-mapped entries, already probed inline at BR/BLR/RET and trained from the dispatcher) is now **16384 sets × 2 ways (32768 entries, 512 KiB per executor)**. A miss still goes to C++, which trains a way. There is **no new `direct_link` reloc per BL**. Invalidation is unchanged: a way is used only when its `JitBlockLink` was activated in the chain's link epoch. `uml-darwin-port-ic2` was copied from the rebuilt macos-integration `uml-darwin`, md5 **`5a1d0893c03ead5ea561eec7b594b5e0`**. Official `uml-darwin-official-0022-20261113` remains **`6ea8180e`**. c2 `uml-darwin-port-pic` remains **`feeca45b`**. macos-unit `uml_arm64_jit_indirect_link_codegen_tests` and `uml_arm64_jit_indirect_link_runtime_tests` both passed after the change.
+
+`classify_continued_exit` now records, when the destination is already compiled, safe, active, selector-ok, and fairness-ok, why that exit was not a taken link: `page_cross` (fall-through onto a new guest page), `window` (fall-through after a 64-instruction fetch window), `sync` (ISB/DSB/DMB), `branch` (previous insn was a direct or indirect branch), or `other`.
+
+**Profile vs c2 (PIC off, 4G/4CPU, budget 4G/128M, profiler on).** ic2 run 3:35:10–3:39:51 PM ET (`/tmp/k-harness/logs/ic2-disp-prof.prof`). Compared to c2-disp-prof4 (3:20:42–3:25:33 PM ET). `gcc_O2` with ASLR on:
+
+| | c2 | ic2 | change |
+|---|---:|---:|---:|
+| wall s | 57.31 | 55.48 | −3.2% |
+| run_blocks | 24,627,044 | 15,431,274 | −37.4% |
+| indirect_miss | 10,054,505 | 359,143 | −96.4% |
+| … ret | 9,533,179 | 335,868 | −96.5% |
+| … blr | 279,135 | 15,512 | −94.4% |
+| … br | 242,191 | 7,763 | −96.8% |
+| continued.nonlink | 8,568,105 | 8,768,116 | +2.3% (not the table's bucket) |
+| … page_cross | — | 272 | |
+| … window | — | 43,891 | |
+| … sync | — | 0 | |
+| … branch | — | 1 | |
+| … other | — | 8,723,952 | 99.5% of nonlink |
+
+`gcc_O2_again` is the same shape (c2 57.67 s / 10.08 M indirect / 9.56 M ret; ic2 55.10 s / 0.308 M indirect / 0.288 M ret). Spawn/script phases were unchanged in mix (still uncompiled-direct dominated). The 2-way table is a clear hit on the 38.7% return-miss bucket. `nonlink` is now the largest remaining gcc bucket (8.77 M, 56.8% of ic2 `run_blocks`), and it is not page-crossing or fetch-window fall-through.
+
+**Profiler-off wall A/B (same guest, 4G/4CPU, budget 4G/128M, PIC unset).** Sequential: official 3:40:52–3:45:45, c2 3:45:48–3:50:36, ic2 3:50:38–3:55:25 PM ET. Logs `/tmp/k-harness/logs/ab-{official,c2,ic2}.log`.
+
+| phase | official | c2 | ic2 |
+|---|---:|---:|---:|
+| fork_only_1000 (ASLR on / off) | 0.20 / 0.21 | 0.22 / 0.22 | 0.21 / 0.22 |
+| fork_exec_tiny_1000 | 0.28 / 0.25 | 0.27 / 0.27 | 0.28 / 0.28 |
+| fork_exec_true_1000 | 1.40 / 1.54 | 1.59 / 1.83 | 1.56 / 2.11 |
+| sh_true_1000 | 3.63 / 1.96 | 2.26 / 2.62 | 2.13 / 2.93 |
+| sh_tiny_1000 | 0.77 / 0.77 | 0.89 / 0.89 | 0.82 / 1.02 |
+| gcc_O2 | 58.46 / 60.81 | 57.69 / 59.21 | 55.87 / 60.26 |
+| gcc_O2_again | 58.97 / 60.84 | 57.14 / 59.89 | 56.91 / 58.21 |
+
+On the default ASLR-on set, ic2 gcc_O2 is **3.2%** faster than c2 (55.87 vs 57.69) and **4.4%** faster than official (55.87 vs 58.46). gcc_O2_again is within noise of c2 (56.91 vs 57.14) and 3.5% vs official. Spawn/scripts on ASLR-on are even with or slightly better than c2 (sh_true 2.13 vs 2.26; official sh_true 3.63 is the known versioned-key gap). On ASLR-off, ic2 spawn looks worse than c2 (fork_exec_true 2.11 vs 1.83, sh_true 2.93 vs 2.62, sh_tiny 1.02 vs 0.89) and gcc_O2 is not better (60.26 vs c2 59.21). That set is one run and may be noise, but it is not a clear win.
+
+**nonlink: no fix this run.** The counters the user asked for are in. The biggest piece is `other` (8.72 M), not page-cross (272), not the 64-instruction window (44 k), not ISB/DSB, not a leftover branch stub. Selector and generation already have their own reasons (`selector_store` 1.41 M, `inactive` 0). A page-boundary link would not move this bucket. The previous guest word in the `other` cases is a non-control instruction mid-page, which is consistent with a helper / always-C++ slow path returning `continued` to an already-linkable PC. That needs a tighter insn-class probe (load/store vs prefix split) before any fix. Not safe to guess.
+
+**Chromium / Firefox** were not measured in this run (the previous `scratch/jitprof` k-measure copy is gone; I did not start a long desktop session on a reconstructed harness after the wall A/B). **ic2 is not landed** and is not the iOS default. No D4iPad-on-Mac / Peek gate. Official and c2 binaries were not overwritten. Kernarium was not pushed. David's phone was not touched. Swap stayed near 1569–1650/3072 MiB; no SWAP_ABORT.
+
+**Verdict.** The table does what it was supposed to do on the profile (return misses −96.5%, dispatcher entries −37% on gcc) without a BL reloc tax. The wall effect on gcc is real but modest (~3% vs c2 with ASLR on), and ASLR-off spawn is not clearly safe. Leave `uml-darwin-port-ic2` as a local candidate. Next: measure Chromium/Firefox cold and footprint vs c2 and official before any land; then tighten `nonlink.other` and only then consider a fix.
