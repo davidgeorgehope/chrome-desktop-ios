@@ -2156,3 +2156,20 @@ Firefox run was cut off by an interruption at 9:14 PM ET and is rerun
 below. Cleanup at 9:14 PM ET: the Sim batch, its xcodebuild/app and the
 footprint sampler were stopped and Peek shut down; no uml-darwin, lldb
 or LaunchAgent left; official 0022 md5 unchanged.
+
+### Smallest budget that keeps the win (D4iPad, guest 3072, 9:14–9:21 PM ET)
+
+| Run | Window (ET) | Budget / L1 / guest | Cold | Scroll fps | Warm Δup | Shared evict | Payload | Peak `phys_footprint` |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CR sw3584M-64M-g3072-cr-1 | 9:14:55–9:17:46 PM | 3.5G/64M/3072 | **9.26 s** | 8.35 | 1.01 s | 30k | 1848 MB | **4639 MB** |
+| FF sw3584M-64M-g3072-ff-1 | 9:18:05–9:20:55 PM | 3.5G/64M/3072 | 26.86 s | 49.3 | 2.07 s | 306k | 2014 MB | **5425 MB** |
+
+3.5G/64M matches 4G/64M (CR 9.1–9.2 s / 4.6–4.7 GB; FF 26.2–26.4 s /
+5.4 GB) and beats 3G/64M (CR 9.55 s / 4.74 GB, FF 28.9 s / 5.60 GB), so
+**3584M / 64M L1 / guest 3072 MiB is the smallest phone profile that keeps
+the win.** Chromium has ~1.5 GB headroom under ~6.1 GB; Firefox only ~0.7 GB,
+so on a 16 Pro Firefox is marginal and Chromium is the browser to ship.
+**Landed as the iOS-target default** in `launch-d4ipad-0022.sh`,
+`bootstrap-d4ipad-0022.sh`, `run-d4ipad-interactive.sh` and
+`launch-sim-0022-test.sh` (override with `4G 128M 4096` for the faster
+Mac-only profile, whose Firefox peaks at 6.0 GB).

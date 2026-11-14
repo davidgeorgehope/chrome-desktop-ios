@@ -4,12 +4,15 @@ export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 export LANG=C
 TAG="${1:-ff}"
 ROOTFS_NAME="${2:-alpine-3.24.2-desktop-labwc.ext4}"
-# Optional whole-process JIT budget / private L1 cap (default 4G / 128M since 13 Nov 7:40 PM ET; 2G thrashed the 1 GiB shared tier).
+# Whole-process JIT budget / private L1 cap / guest MiB. Default is the
+# phone profile 3584M/64M/3072 (13 Nov 9:21 PM ET): Chromium 9.3 s cold at
+# 4.6 GB peak footprint, under a ~6.1 GB iPhone 16 Pro ceiling. Mac-speed
+# profile is 4G 128M 4096 (Chromium 8.5 s, but Firefox peaks ~6.0 GB).
 # The debugger-prepared executable region depends only on the L1 cap.
-JIT_BUDGET="${3:-4G}"
-JIT_EXECUTOR_BUDGET="${4:-128M}"
+JIT_BUDGET="${3:-3584M}"
+JIT_EXECUTOR_BUDGET="${4:-64M}"
 # Optional guest RAM in MiB (default 4096), e.g. 3072 for a phone-sized run.
-GUEST_MIB="${5:-4096}"
+GUEST_MIB="${5:-3072}"
 NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
 KERNARIUM=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean
 STAMP=$(date +%Y%m%d-%H%M%S)

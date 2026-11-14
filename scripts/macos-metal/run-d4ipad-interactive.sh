@@ -2,7 +2,7 @@
 # Usage: run-d4ipad-interactive.sh TAG ROOTFS
 set -uo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
-TAG=$1; ROOTFS=$2; JB=${3:-4G}; JE=${4:-128M}; GM=${5:-4096}
+TAG=$1; ROOTFS=$2; JB=${3:-3584M}; JE=${4:-64M}; GM=${5:-3072}
 D=/Users/davidhope/linux-ios-bakeoff/notes/ios-interactive
 N=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
 C=/Users/davidhope/Library/Containers/6C8222CA-6C25-43B8-8EAD-1F9880730E07/Data/Documents
