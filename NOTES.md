@@ -3158,3 +3158,58 @@ Landed in `Kernarium-0022-clean` `.build/kernarium-xcframeworks` (device **f9dd3
 
 Kernarium's goal is max-performance full Linux. Chromium is one benchmark among general workloads. The leftover vs crate is still the one written this afternoon: (1) no-materialize / install-once PIC cache, (2) fewer dispatcher exits and faster translated code (register identity, host BL/RET). Those are the next levers. A Chromium-kiosk product mode was considered and dropped.
 
+
+
+## Install-once PIC translation cache: design for the next lever (14 Nov 2026, 1:42–1:50 PM ET)
+
+c2 is landed as the iOS default (NOTES `d7c8723`). The leftover vs crate is still structural: after the unversioned, sharded location index, a new process still **materializes** a private copy of every reused translation. SIGPROF on the static-parent `/bin/true` path (compiles already gone) was memmove **30%**, link-table create/find **16%**, `sys_icache_invalidate` **14%**, shared find **8%**, translated guest code only **8%**. That is the leftover ~2.1× spawn (c2 1.81 s vs crate 0.85 s) and most of the leftover ~1.6× Chromium cold (c2 6.09 s vs crate 3.82 s). gcc and scroll stay a later lever (dispatcher exits / faster translated code).
+
+This chunk is design and path inventory only. No Kernarium code change, no uml-darwin or iOS rebuild (the mini Data volume is at 96% with 19 GiB free; another worker is freeing space). Session `/tmp` diags from the c2 Simulator stall were deleted. Official `uml-darwin` (6ea8180e) and the three KRuntime snapshots (`official0022`, `hybrid9793`, `c2-dbbdd7e`) were left alone. Kernarium was not pushed.
+
+### How materialization works today (`port/page-key` `dbbdd7e`)
+
+`JitExecutor::install_shared_translation` in `jit_executor_cache.cpp`:
+
+1. Find the shared template by backing-page location (c2's unversioned, sharded index).
+2. `slid_relocations()` adds the ASLR slide to every `guest_pc` and to every direct/indirect link key.
+3. `materialize_shared_translation()` pre-allocates this address space's indirect-link slots.
+4. `ExecutableArena::store_block()` **memcpy**s the whole template into the private L1 executable arena, `find_or_create`s a `JitBlockLink` for this block and every direct-link target, patches the in-block 64-bit literal-pool slots with those pointers and the slid guest PCs, then **`invalidate_instruction_cache`** on the copy.
+5. `store_native()` installs the private copy in this executor's L1.
+
+`JitRelocationKind` is only three cases, all recorded by `Arm64Emitter::load_relocatable_pointer` as `LDR` (literal) into a tail pool (or a nearby island if imm19 cannot reach), then rewritten in `store_block`:
+
+- `guest_pc`: a guest virtual address (store_pc, BL return).
+- `direct_link`: a pointer to this address space's `JitBlockLink` for the target key.
+- `indirect_link`: a pointer to this executor's indirect site.
+
+The shared payload (`translation->words`) is an ordinary heap allocation, not executable. Links are per address space because they carry `activation_epoch` and point at that space's records. That is why a new process pays memcpy + relink + icache even when c2 finds every block.
+
+### PIC v1 (this lever's first measurable slice): execute the template once, per-AS GOT
+
+crate's end state is a physically keyed, per-CPU RX cache with `page_va+offset` applied at run time and guarded cross-page chaining, so a new process installs nothing. Porting that in one step would change the link-ownership contract and the compiler together. v1 keeps today's per-AS `JitBlockLink` table but **stops copying and flushing code**.
+
+- At **publish** (once per unique block, not per process): write the template into a process-wide shared **RX** arena. The executable bytes never contain address-space-specific values.
+- Relocatable `LDR` (literal)s become **GOT loads** (`LDR Xt, [xGOT, #imm]`) from a compact per-AS table, one 8-byte slot per relocation. Filling the GOT is a small data write; it does not need an icache flush of the translation.
+- A64 first (Alpine userland, Chromium, Firefox, gcc, spawn are A64). AArch32 keeps today's `store_block` path: the extended frame already uses x22–x28 for guest registers.
+- `xGOT` is a callee-saved register reserved for A64 PIC chains and saved/restored in the prologue, or a new `JitChainState` pointer loaded from x19. x19 is already the chain-state pointer, x20 the budget, x21 the link selector; those stay. AArch32 is unchanged, so the reserved register must not collide with the extended frame. Preferred: add `void *reloc_got` to `JitChainState` (72 → 80 bytes) and load from `[x19, #offset]` so A64 does not steal x22 from a future register-identity port. A two-load GOT hit (state then slot) is acceptable for v1; a reserved register can come later if the load shows up in SIGPROF.
+- `install_shared_translation` on an A64 PIC template: build the GOT, create the same link records as today, point L1 at the **shared RX entry** plus this GOT, and skip `store_block`'s memcpy and icache flush. Failure falls back to a local compile, as today.
+- Opt-in first: `UML_JIT_SHARED_PIC=1`. Do not flip a default until uml-darwin spawn/gcc/node/python plus Chromium/Firefox are a clear win against c2 and official 0022, and then a D4iPad-on-Mac + Peek footprint gate.
+
+Expected from the existing profile: drop the 30% memmove and 14% icache from the no-compile spawn path; the 16% link-table work remains until v2. That should move spawn and Chromium cold, and should leave gcc/scroll flat (they are not translation-bound).
+
+### PIC v2 (after v1 is measured)
+
+- `guest_pc` slots computed as `page_va + offset` at run time (true crate-style), so the GOT no longer stores slid guest PCs.
+- Guarded cross-page chaining, so following a link does not require a per-AS `JitBlockLink` install on every block just in case. That is the rest of "a new process installs nothing."
+- Then the separate leftover: fewer dispatcher exits and faster translated code (host BL/RET, register identity).
+
+### Measurement plan (next chunk, uml-darwin first)
+
+Reuse `scratch/jitprof/{pksh-spawn,k-cpu,pksh-gate}.sh`. Same 4 CPU / 4G, budget 4G/128M, preflight and +2048M swap abort, one VM at a time. Compare:
+
+- official 0022 (`uml-darwin-official-0022-20261113`, md5 6ea8180e), never overwritten;
+- c2 (`uml-darwin-port-pksh` is currently pre-`dbbdd7e` and still has the unversioned key opt-in — either rebuild a `uml-darwin-port-c2` from `dbbdd7e` or run pksh with `UML_JIT_SHARED_LOCATION_UNVERSIONED=1`; do not overwrite official or pksh until the new binary is copied aside);
+- PIC v1 behind the flag, same c2 baseline otherwise.
+
+Workloads: spawn (`sh` ×1000 `/bin/true`, script-spawn), gcc -O2, shell scripts, node int/fp, python loops, then Chromium and Firefox cold/scroll/warm. Land on uml-darwin only on a clear net win. Only then build an iOS runtime and gate D4iPad-on-Mac + Peek with footprint, vs landed c2 (f9dd3963 / 4420992a) and official 0022. No iOS package in this chunk, to avoid filling the disk.
+
