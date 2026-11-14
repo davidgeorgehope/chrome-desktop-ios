@@ -2472,3 +2472,4 @@ returned, hot entries kept). arm64-jit ctest 61/61.
 | Run | Window (ET) | Cold | Scroll fps | Key / click ms | Warm Δup | Shared evict | Chunk evict | Peak `phys_footprint` |
 | --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: |
 | CR hycr-1 | 11:57:08 PM–12:00:33 AM | **11.96 s** | 10.97 | 53.7 / 65.1 | 0.99 s | 185k | 316 | **4430 MB** |
+| FF hyff-1 | 12:01:17–12:04:09 AM | 26.69 s | 45.76 | 84.5 / 112.0 | 1.89 s | 411k | 666 | **4626 MB** |
