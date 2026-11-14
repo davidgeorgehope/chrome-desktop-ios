@@ -2898,3 +2898,33 @@ Gates (uml-darwin-port-rs1, md5 3cda186a): JIT unit tests 61/61, hello PASS, ato
 | awk | 10.57–11.14 | 10.56–10.59 | 10.71–10.82 |
 
 gcc is about 4% faster. The other benches are within noise.
+
+## Desktop browser gate for steps 1 and 2 (Chromium is the primary target), 14 Nov 10:51–11:15 AM ET
+
+Setup: `k-measure.sh`, 4 CPU / 4G, budget 4G/128M, runs alternated one at a time. "cold" is the time from CHROMIUM_START to first paint of the interactive page. "scroll" is fps.
+
+| binary | Chromium cold (s) | mean | Chromium scroll fps (mean) |
+|---|---|---:|---:|
+| official 0022 | 7.31 6.64 6.27 6.53 6.17 7.04 6.71 6.44 | **6.64** | 12.9 |
+| step 1 (pk2) | 8.41 6.95 6.79 6.69 8.18 7.76 7.52 | **7.47** | 12.2 |
+| step 1+2 (rs1) | 8.33 7.95 8.57 | **8.28** | 12.3 |
+| rs1 with `UML_JIT_NO_RETURN_STACK=1` | 7.53 7.35 | 7.44 | 12.7 |
+
+Firefox, 2 runs each:
+- cold: official 16.50 / 15.45 vs rs1 16.81 / 16.97
+- scroll: official 37.2 / 36.3 vs rs1 25.4 / 40.2 (noisy)
+
+**Both steps make Chromium cold start worse.**
+
+Step 1 adds about 0.8 s (bimodal: some runs match official, others are about 1.5 s slower). Shared stats for one Chromium run each:
+
+| | location reuses | misses |
+|---|---:|---:|
+| official | 0.90M | 1.29M |
+| pk2 | 2.36M | 0.89M |
+
+So step 1 does compile about 30% less. Even so, the SIGPROF profile shows more `_platform_memmove` (+44%, from materializing slid templates) and more psynch mutex/cv time, and less compile time. In Kernarium, compiling is cheap (the compile/emit bucket is under 1% of samples). For Chromium, reusing a template by location therefore saves little, and costs memmove plus contention on shared-tier locks across 4 vCPUs. The spawn microbench still gains 1.7×, because there the saved work is about 545 compiles per exec of a tiny process.
+
+Step 2 adds another 0.8 s, and spawn_1000 goes 2.35 → 2.53. Each A64 BL now carries an extra `direct_link` relocation for the return record. Every compile, and every materialization into a new address space, has to resolve it (find_or_create in the link table). That costs in the compile-heavy and spawn-heavy cases, and pays off only in long-running gcc (about 4%).
+
+Decision so far: neither step lands as a default. Both stay on the branch behind knobs.
