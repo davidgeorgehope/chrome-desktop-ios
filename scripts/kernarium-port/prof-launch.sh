@@ -17,14 +17,23 @@ ROOTFS=/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-minimal.ext4
 LOG=$LOGDIR/logs/$TAG.log
 PD=$LOGDIR/logs/$TAG.prof
 mkdir -p "$PD"
-export UML_PREFLIGHT_GUEST_MEM=${UML_PREFLIGHT_GUEST_MEM:-$MEM}
+# Do not inherit leftover 2G k-boot env; callers override with MEM / CACHE_BUDGET.
+export UML_PREFLIGHT_GUEST_MEM=$MEM
 . /Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
 pgrep -f '[u]ml-darwin' >/dev/null && { echo "refuse: uml-darwin already running"; exit 2; }
 unset UML_JIT_PERSISTENT_CACHE UML_JIT_PERSISTENT_CACHE_SOURCE
 unset KERNARIUM_JIT_PERSISTENT_CACHE KERNARIUM_JIT_PERSISTENT_CACHE_SOURCE
 unset UML_JIT_SHARED_PIC
-export UML_JIT_CACHE_BUDGET=${UML_JIT_CACHE_BUDGET:-4G}
-export UML_JIT_EXECUTOR_CACHE_BUDGET=${UML_JIT_EXECUTOR_CACHE_BUDGET:-128M}
+export UML_JIT_CACHE_BUDGET=${CACHE_BUDGET:-4G}
+export UML_JIT_EXECUTOR_CACHE_BUDGET=${EXECUTOR_BUDGET:-128M}
+APKS=${APKS:-$PACK/apks.tar}
+if [ ! -f "$APKS" ]; then
+  APKS=/tmp/k-harness/apks.tar
+fi
+if [ ! -f "$APKS" ]; then
+  echo "missing apks.tar (set APKS=...)" >&2
+  exit 2
+fi
 if [ -n "${SIGPROF:-}" ]; then
   export UML_JIT_SIGPROF=1 UML_JIT_SIGPROF_HZ=${SIGPROF} UML_JIT_SIGPROF_FILE=$PD/hist.txt
 fi
@@ -61,7 +70,7 @@ G=$!
   --guest-file=/boot.env="$PACK/boot.env" \
   --guest-file=/payload/usr/local/bin/run-benches.sh="$HERE/${GUEST:-guest-prof.sh}" \
   --guest-file=/payload/usr/local/share/cpu-benches/cmp-benches.sh="$HERE/cmp-benches.sh" \
-  --guest-file=/payload/usr/local/share/cpu-benches/apks.tar="$PACK/apks.tar" \
+  --guest-file=/payload/usr/local/share/cpu-benches/apks.tar="$APKS" \
   mem="$MEM" ncpus="$NCPUS" ubd0c="$ROOTFS" rootfstype=ext4 > /dev/null 2>&1 < /dev/null
 kill "$G" 2>/dev/null; sleep 1; kill "$W" 2>/dev/null
 pkill -f "tail -n 0 -F $LOG" 2>/dev/null || true

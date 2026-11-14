@@ -6,7 +6,14 @@ P=/usr/local/share/cpu-benches; O=/dev/ttyS0
 up() { cut -d' ' -f1 /proc/uptime; }
 mark() { echo "===PHASE=== $1 $(up)" > $O; sleep 2.5; }
 mkdir -p /tmp/apks && tar -C /tmp/apks -xf $P/apks.tar
-apk add --allow-untrusted --force-non-repository --no-network /tmp/apks/*.apk >/dev/null 2>&1
+if ! apk add -q --allow-untrusted --force-non-repository --no-network /tmp/apks/*.apk; then
+  echo "===INFO=== apk add failed" > $O
+  exit 1
+fi
+if ! command -v gcc >/dev/null; then
+  echo "===INFO=== gcc missing after apk" > $O
+  exit 1
+fi
 W=/tmp/w; mkdir -p $W; cd $W
 cp $P/cmp-benches.sh . ; sed -n '/^awk/,/> big.c$/p' cmp-benches.sh > gen.sh; sh gen.sh
 printf '.globl _start\n_start: mov x0, #0\n mov x8, #93\n svc #0\n' > tiny.S

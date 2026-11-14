@@ -1,5 +1,5 @@
 Harness for the Kernarium port work. Logs default to /tmp/k-harness (not scratch).
-- prof-launch.sh + guest-prof.sh/guest-spawn.sh + phase-deltas.py: per-phase JIT counters and the SIGPROF histogram. Set KBIN; optional LOGDIR, MEM, NCPUS, SIGPROF, GUEST.
+- prof-launch.sh + guest-prof.sh/guest-spawn.sh + phase-deltas.py: per-phase JIT counters and the SIGPROF histogram. Set KBIN; optional LOGDIR, MEM, NCPUS, CACHE_BUDGET, EXECUTOR_BUDGET, APKS, SIGPROF, GUEST. CACHE_BUDGET/EXECUTOR_BUDGET default to 4G/128M and are not inherited from leftover k-boot env. APKS falls back to /tmp/k-harness/apks.tar if notes/cpu-benches/apks.tar is missing. The offline pack must include musl, musl-utils, zstd-libs, and libmagic at the same versions as musl-dev/binutils/file, or `apk add --no-network` returns 46.
 - cpu-ab.sh TAG BIN_A BIN_B: cmp-benches.sh A/B (gcc, node, python, awk, sha, spawn)
 - k-measure.sh: the desktop browser gate (KBIN env)
 

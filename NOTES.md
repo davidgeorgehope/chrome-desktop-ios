@@ -3377,3 +3377,55 @@ Temporarily rewriting `cpu.pc` from `translation_key_pc(link->guest_pc)` after t
 **Still not a clear win, and the ~90 minute boot-or-stop box is up without a real PIC boot.** Keep `UML_JIT_SHARED_PIC=1` opt-in. Do not land, do not measure spawn/gcc/browsers for PIC (no honest flag-on numbers), do not gate on D4iPad or Peek. Next lever is **fewer dispatcher exits and faster translated code on landed c2** (flag off), not more PIC v1 time. The leftover PIC puzzle is: uml-darwin's unlinked fallback for `0x400154` returns `continued, 1` with `cpu.pc == got[0]` (the unlinked `JitBlockLink*`) even though the template loads slot 1; the same guest words do not do that in the macos-unit executor.
 
 Kernarium was not pushed. David's phone was not touched.
+
+## c2 dispatcher-exit profile, PIC flag off (14 Nov 2026, 3:20–3:25 PM ET)
+
+PIC v1 stays parked (open puzzle in the previous NOTES). This is the next lever on landed c2: a fresh `UML_JIT_PROFILE` run of `uml-darwin-port-pic` with `UML_JIT_SHARED_PIC` unset.
+
+**Binary and conditions.** `uml-darwin-port-pic` md5 **`feeca45b4074135573ae99e065d7442b`** (c2 + PIC opt-in + GOT asserts; flag off is the fair c2 baseline). Official `uml-darwin-official-0022-20261113` remains **`6ea8180e`** and was not overwritten. Slim Alpine `alpine-3.24.2-minimal.ext4`, `mem=4G ncpus=4`, cache budget 4G/128M (forced via `CACHE_BUDGET` / `EXECUTOR_BUDGET` so leftover k-boot `2G/64M` is ignored). Guest gcc **15.2.0**. Launch 3:20:42 PM ET, stop 3:25:33 PM ET. Log and snapshots: `/tmp/k-harness/logs/c2-disp-prof4.log` and `c2-disp-prof4.prof/`. Swap stayed at about 1650/3072 MiB; no SWAP_ABORT. David's phone was not touched. Kernarium was not pushed.
+
+**Harness.** Offline `apk add --no-network` on the slim overlay was returning **rc=46** (`unable to select packages`, `masked in: --no-network`) because the recreated `/tmp/k-harness/apks.tar` lacked `musl-1.2.6-r3`, `musl-utils-1.2.6-r3`, `zstd-libs-1.5.7-r2`, and `libmagic-5.47-r2`. `musl-dev-1.2.6-r3` needs `musl=1.2.6-r3`; the image ships `musl`/`musl-utils` r2. After those four packages were added (32 apks, 85 MiB tarball), `apk add` returned 0, installed 32 packages (253.8 MiB), and provided `/usr/bin/gcc` 15.2.0. `prof-launch.sh` now forces 4G/128M, falls back to `/tmp/k-harness/apks.tar` when `notes/cpu-benches/apks.tar` is missing, and `guest-prof.sh` fails the run if gcc is missing instead of reporting 0.01 s dummy times. The first attempted profile (`c2-disp-prof3`) was killed at ~6 s by a leftover diagnostic `sleep 30; pkill` and is not a source of numbers.
+
+The phase labels still say `_aslr2`; the guest's default was actually `randomize_va_space=1`, then the second set ran with it set to 0.
+
+**Wall times (real).** ASLR on / off:
+
+| phase | aslr=1 (s) | aslr=0 (s) |
+|---|---:|---:|
+| fork_only_1000 | 0.21 | 0.22 |
+| fork_exec_tiny_1000 | 0.28 | 0.26 |
+| fork_exec_true_1000 | 1.57 | 1.84 |
+| sh_true_1000 | 2.21 | 2.56 |
+| sh_tiny_1000 | 0.85 | 0.85 |
+| gcc_O2 | 57.31 | 59.86 |
+| gcc_O2_again | 57.67 | 60.70 |
+
+`sh_true_1000` 2.21 s and gcc ~57 s match the earlier c2 ballpark (spawn ~2 s, gcc ~56 s vs crate 12.5 s). These are not a new A/B against official 0022.
+
+**gcc dispatcher mix** (`gcc_O2` with ASLR on; 57.31 s, 35.483 G retired instructions, 24,627,044 `run_blocks`). Compile is noise: 16,827 compiles in 60 ms on the first run, **53 compiles in 1 ms** on `gcc_O2_again` (57.67 s, same 35.483 G retired, 24,854,652 `run_blocks`). The second compile of the same file has the same exit shape, so this is execution, not translation. Whole-run end snapshot: 107.0 M `run_blocks`, 148.9 G retired, 128,826 compiles in 372 ms.
+
+| bucket | first gcc_O2 | share of run_blocks | gcc_O2_again |
+|---|---:|---:|---:|
+| continued | 13,587,420 | 55.2% | 13,791,743 |
+| … nonlink | 8,568,105 | 34.8% | 8,774,322 |
+| … unsafe | 2,823,739 | 11.5% | 2,823,112 |
+| … selector_store | 1,411,817 | 5.7% | 1,411,497 |
+| … fairness | 533,321 | 2.2% | 529,637 |
+| … uncompiled | 131,469 | 0.5% | 133,880 |
+| … selector_fp | 118,969 | 0.5% | 119,295 |
+| … inactive / no_link | 0 | 0 | 0 |
+| indirect_miss | 10,054,505 | 40.8% | 10,078,583 |
+| … ret | 9,533,179 | 38.7% | 9,556,803 |
+| … blr | 279,135 | 1.1% | 279,688 |
+| … br | 242,191 | 1.0% | 242,092 |
+| page_fault | 644,182 | 2.6% | 643,890 |
+| svc | 340,937 | 1.4% | 340,436 |
+
+Fairness 16384 already shrank that bucket (step 0 on official had ~2.5–5.1 M fairness exits on gcc). Syscalls and page faults are small. The two largest gcc buckets are **indirect return misses (9.53 M)** and **continued.nonlink (8.57 M)**.
+
+**Spawn / scripts are a different mix.** `sh_true_1000` ASLR on: 2.21 s, 1,526,560 `run_blocks`, continued 1,087,465 of which **uncompiled 1,060,249**, plus 358,617 indirect misses (305,025 ret). `fork_exec_true_1000` is the same shape (uncompiled 465,702 of 489,865 continued). Short-lived `/bin/true` never warms direct links. That is the spawn profile, not the gcc lever.
+
+**What `nonlink` is, and is not.** `classify_continued_exit` records `nonlink` when the destination is already compiled, has a safe active link, the current selector is allowed, and the fairness window is large enough for the successor — and we still returned to the dispatcher. It is not "uncompiled direct" (that is 0.13 M on gcc) and it is not the leftover fairness budget. Fetch-window fall-through already calls `emit_direct_branch` ("the successor is as static as a jump target"). There is still no dedicated page-crossing counter, so this 8.57 M must not be treated as proven page-boundary unlinked fall-through. A tighter probe (unpatched source site vs always-C++ exits such as ISB / exclusive mismatch / reservation split vs a stub/classifier mismatch) belongs in front of "link across page boundaries where safe."
+
+**Next attack.** The biggest single gcc bucket is **return indirect misses**. The existing 2-cell site plus the 8192-entry A64 table still miss 9.53 M returns on one compile. The software return stack (`UML_JIT_RETURN_STACK=1`) stays opt-in: it already helped gcc about 4% and hurt Chromium/spawn because every A64 BL carries an extra `direct_link` relocation. The next try should cut those RET exits **without** that compile-time reloc tax — an inline / in-stub return cache trained at runtime, or a host RAS path that does not add a reloc per BL. `nonlink` is a close second and needs the tighter reason before a page-cross land. No iOS package, and no D4iPad-on-Mac / Peek gate, until a change is a clear uml-darwin win against this c2 baseline and official 0022 (spawn, gcc, scripts, node/python, Chromium/Firefox cold and footprint).
+
