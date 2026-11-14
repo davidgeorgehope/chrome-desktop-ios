@@ -2284,3 +2284,42 @@ Checks (all ET, 13 Nov):
 
 iOS runtime rebuild with the branch: started 10:17 PM ET (official runtime
 xcframework APFS-cloned to `scratch/KRuntime_6_18_4K.xcframework.official0022`).
+
+D4iPad, chunk runtime, phone default 3584M/64M/3072 (first pass, 10:21–10:37 PM ET):
+Chromium 22:21–22:24 cold 9.42 s / scroll 6.95 fps / warm 0.98 s, footprint not
+sampled (app relaunched after the rebuild, rerun pending); Firefox 22:25–22:27
+cold 26.29 s / scroll 53.97 fps / warm 1.78 s, peak phys_footprint **5044 MB**
+vs official 5403 MB / 26.92 s (index 751 MB, arena committed 2468 MB, 300 chunk
+evictions). 3G Chromium (22:28) stalled after an evdev write (guest 0.1% CPU,
+same as the earlier official 2G stall); serial saved, app stopped ~22:37.
+
+### Unit test aborts fixed (Kernarium `exclusive/0022-chunk-evict` 827bb51, 13 Nov 2026, ~11:40 PM ET)
+
+The 8 aborting arm64-jit tests fail identically on 9676ead (the campaign
+patches, not the chunk code). Test-only updates, results still checked:
+
+- memory-preparation: macOS/Sim hosts use the host JIT route, so `ready`
+  (and the pair published) or `unsupported` are both accepted.
+- runtime: a read-only invocation now links into the store block; the loop
+  runs to the chain bound (x2 = limit/4, then limit/2; replacement add #2
+  gives 2*(limit/4)).
+- reservation_alias: with branch continuation the untaken retry reaches a
+  following `svc`; `continued` or `system_call` accepted (passes unchanged
+  with `UML_JIT_NO_BRANCH_CONTINUE=1`).
+- indirect-link-runtime: the evicted first target hits the executor-wide A64
+  target table (syscall, x0 = 11, misses 3 / trains 3); the missing native FP
+  environment case now drops the environment (`restore_native_fp_environment`)
+  before the run and still falls back.
+- fp-link / chain-abi-runtime: FP state is materialized before every native
+  entry and read-only sources link into store targets, so those links run to
+  the system call (vector and stored values checked); the untaken
+  conditional continues to the svc.
+- chain-abi-codegen: SUBS + early budget exit, a link-record flag `tbz`;
+  direct path 12 words, PIC path 35 (site ways + A64 table); all exits share
+  the cold undo.
+- sme-mode: the test helper reports only link relocations (guest_pc slots
+  hold raw addresses).
+
+`ctest -R ^arm64-jit`: 61/61 pass; the 3 pre-existing compile breaks
+(shared-translation-cache, persistent-translation-cache, cache_validation)
+are unchanged.
