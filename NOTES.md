@@ -2355,3 +2355,37 @@ shard lock before dumping. arm64-jit ctest 61/61 again; device runtime
 rebuilt 11:17 PM ET. Sample and serials saved:
 `notes/ios-interactive/d4ipad-sw3584M-64M-g3072-ckcr-2-*stalled-20261113-231111*`.
 Stopped cleanly at 11:11 PM ET (sweep killed, LaunchAgent booted out).
+
+### D4iPad chunk runtime vs official, phone default 3584M/64M/3072 (summary, 11:25 PM ET)
+
+| Run | Window (ET) | Runtime | Cold | Scroll fps | Warm Δup | Shared evict | Peak `phys_footprint` |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| CR def-cr-2 | 9:22–9:24 PM | official 0022 | 9.09 s | 10.99 | 0.93 s | 33k | 4626 MB |
+| CR sw…-cr-1 | 9:14–9:17 PM | official 0022 | 9.26 s | 8.35 | 1.01 s | 30k | 4639 MB |
+| CR ckcr-1 | 10:21–10:24 PM | chunk 166fb47 | 9.42 s | 6.95 | 0.98 s | 0 | not sampled |
+| CR ckcr-2 | 11:02–11:11 PM | chunk 166fb47 | stalled (stats deadlock) | — | — | 0 | 3411 MB (frozen) |
+| CR ckcr-3 | 11:17–11:20 PM | chunk + fix 64d6c34 | 9.33 s | 9.33 | 0.94 s | 0 | not sampled |
+| FF def-ff-2 | 9:25–9:27 PM | official 0022 | 26.92 s | 49.72 | 2.22 s | 313k | 5403 MB |
+| FF sw…-ff-1 | 9:18–9:20 PM | official 0022 | 26.86 s | 49.3 | 2.07 s | 306k | 5425 MB |
+| FF ckff-1 | 10:25–10:27 PM | chunk 166fb47 | 26.29 s | 53.97 | 1.78 s | 160k | **5044 MB** |
+| CR 3G/64M ckcr-1 | 10:28–10:36 PM | chunk 166fb47 | stalled | — | — | — | — |
+
+- The 3G/64M row is the "10:36 PM host stall" (xcodebuild exit 65, guest
+  143). That was me stopping the frozen run, not a host fault. It is the
+  same stats-dump deadlock as ckcr-2 (the guest sat at 0.1% CPU after an
+  evdev write).
+- The footprint sampler misses the first run after a runtime rebuild because
+  the app relaunches and the PID changes. ckcr-1 and ckcr-3 have no peak
+  `phys_footprint` for that reason.
+- So far, Firefox is about 360–380 MB lower (5044 vs 5403–5425 MB) with no
+  cold loss. Chromium cold is within noise (9.33–9.42 vs 9.09–9.26 s), and its
+  footprint is still unmeasured. That is one Firefox run, so it is **not yet
+  a clear win and has not landed**. The Sim runtime has not been rebuilt.
+- The interrupt at 11:20 PM ET stopped the sweep before ckff-2 started:
+  sweep killed, LaunchAgent booted out, nothing left running. Mini health
+  at 11:21 PM ET: memory free 73%, swap 791/2048 MiB (unchanged all
+  evening), load 4.6. No Simulator booted, no xcodebuild/lldb/uml-darwin
+  running. Official uml-darwin and uml-darwin-official-0022-20261113
+  are md5 6ea8180e. The D4iPad xcframework currently holds the
+  chunk+fix runtime. The official one is backed up at
+  `scratch/KRuntime_6_18_4K.xcframework.official0022`.
