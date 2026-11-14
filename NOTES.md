@@ -2389,3 +2389,9 @@ Stopped cleanly at 11:11 PM ET (sweep killed, LaunchAgent booted out).
   are md5 6ea8180e. The D4iPad xcframework currently holds the
   chunk+fix runtime. The official one is backed up at
   `scratch/KRuntime_6_18_4K.xcframework.official0022`.
+
+### D4iPad chunk+fix 64d6c34, phone default, footprint sampler re-resolves PID (682e457) — 13/14 Nov 2026 overnight
+
+| Run | Window (ET) | Cold | Scroll fps | Key / click ms | Warm Δup | Shared evict | Peak `phys_footprint` |
+| --- | --- | ---: | ---: | --- | ---: | ---: | ---: |
+| FF ckff-2 | 11:23:28–11:26:17 PM | 24.91 s | 52.43 | 211.0 / 100.0 | 2.05 s | 165k | **5049 MB** |
