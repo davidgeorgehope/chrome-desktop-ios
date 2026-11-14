@@ -2493,3 +2493,25 @@ noise. But Firefox scroll is 9–11% below official (and below chunk mode's
 **speed is not clearly "no worse", and hybrid does not land** by the
 round's rule. Next lever: a 95% threshold, or evict only toward 90% from a
 95% trigger, to cut churn.
+
+### Statsfix-only candidate f4cd2c7 (official 0022 plus the deadlock fix), D4iPad sanity
+
+| Run | Window (ET) | Cold | Scroll fps | Warm Δup | Shared evict | Peak `phys_footprint` |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| CR sfcr-1 | 12:15:52–12:19:08 AM | 9.39 s | 8.67 | 0.85 s | 32k | 4629 MB |
+
+The device runtime was built from f4cd2c7 at 12:15 AM ET (md5 9900b530, no
+chunk symbols). `UML_JIT_SHARED_STATS=1` was on through the launcher, and
+116 periodic stats dumps were written with no freeze. Footprint and
+eviction match official (4626–4639 MB, 30–33k). Official binaries are not
+replaced.
+
+Restore at 12:19 AM ET: the official xcframework is back from the backup
+(device 78ac5040, sim 97092f94). The worktree is back on
+`exclusive/0022-clean` 9676ead with its 7 overlays. The D4iPad app
+re-embeds the official runtime on its next launch, and the Sim app is
+already official (97092f94). Scratch is cleaned: the chunk xcframework
+copy, ab-ff.sh, the old sampler copy and the /tmp plists are gone.
+Mini at 12:19 AM ET: memory free 74%, swap 775/2048 MiB, no SWAP_ABORT,
+nothing running, Peek shut down. Official uml-darwin md5 is 6ea8180e.
+Kernarium is not pushed.
