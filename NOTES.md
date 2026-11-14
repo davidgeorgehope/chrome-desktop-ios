@@ -2955,3 +2955,32 @@ Chromium cold start:
 **Candidate default (c1):** versioned key (step 1 opt-in via `UML_JIT_SHARED_LOCATION_UNVERSIONED=1`), return stack opt-in (`UML_JIT_RETURN_STACK=1`), budget 16384.
 
 Kernarium commits (local branch `port/page-key`): `3ac159b`, `e0a89c4`, `e10b990`.
+
+## Candidate c1 gate on uml-darwin (Kernarium `port/page-key` e9ecad6), 14 Nov 11:40–11:56 AM ET
+
+c1 = official ea13662 base + chain budget 16384. Steps 1 and 2 are compiled in but opt-in only. Binary md5 61531481.
+
+Gates:
+- JIT unit tests 61/61 by default, and 61/61 with `UML_JIT_RETURN_STACK=1`. Tests that hard-coded the 4096 budget were updated in e9ecad6.
+- hello PASS, atomic-stress PASS.
+
+Chromium (primary target), 4 CPU / 4G:
+
+| | cold s | mean | scroll fps mean |
+|---|---|---:|---:|
+| official (n=11, 10:51–11:51) | 6.17–7.31 | 6.56 | 12.8 |
+| c1 (n=5) | 6.51 6.29 6.50 7.43 7.21 | 6.79 | 12.7 |
+
+Firefox:
+
+| | cold s | scroll fps |
+|---|---|---|
+| official (n=3) | 16.50 15.45 16.42 | 37.2 36.3 41.8 |
+| c1 (n=3) | 17.26 15.75 15.91 | 46.3 29.1 35.0 |
+
+CPU, separate session (11:40 AM ET):
+- gcc 57.2 / 57.2 / 57.6 / 56.6.
+- spawn_1000 3.83 / 4.38 (back to the official level, as expected with step 1 off).
+- A same-session c1-vs-official A/B is running to settle gcc.
+
+Browsers are at parity within noise. This is not yet a clear win.
