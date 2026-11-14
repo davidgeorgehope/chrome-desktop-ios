@@ -2109,3 +2109,38 @@ when every entry in it is evicted (clock order is by guest PC, not by
 chunk), so freed bytes stay dirty. Less churn (4G) means fewer orphaned
 partial chunks. Halving the private L1 cap (64M) cut footprint ~0.9 GB at
 the same 3G whole budget.
+
+### Private L1 cap, guest size and a lean-Firefox try (D4iPad, 8:48–9:07 PM ET)
+
+| Run | Window (ET) | Budget / L1 / guest | Cold | Scroll fps | Warm Δup | Shared insert / evict | Payload | Peak `phys_footprint` |
+| --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: |
+| CR sw4G-64M-g4096-cr-1 | 8:48–8:51 PM | 4G/64M/4096 | **9.10 s** | 8.95 | 0.91 s | 1.40M / **0** | 1886 MB | **4696 MB** |
+| CR sw4G-64M-g3072-cr-1 | 9:01–9:04 PM | 4G/64M/3072 | **9.21 s** | 8.79 | 0.91 s | 1.40M / **0** | 1889 MB | **4639 MB** |
+| FF sw4G-128M-g4096-ff-1 | 8:55–8:57 PM | 4G/128M/4096 | 20.27 s | 56.7 | 1.84 s | 1.42M / 237k | 2018 MB | **6014 MB** |
+| FF sw4G-64M-g4096-ff-1 | 8:51–8:54 PM | 4G/64M/4096 | 26.36 s | 53.9 | 1.90 s | 1.43M / 37k | 2344 MB | 5397 MB |
+| FF sw4G-64M-g3072-ff-1 | 9:04–9:07 PM | 4G/64M/3072 | 26.22 s | 54.7 | 1.89 s | 1.45M / 61k | 2347 MB | 5368 MB |
+| FF lean sw4G-64M-g4096-fflean-1 | 8:58–9:01 PM | 4G/64M/4096 | 29.60 s | 53.5 | 1.86 s | 1.40M / 7k | 2337 MB | 5255 MB |
+
+- **Chromium fits a phone at 4G/64M.** Cold 9.1–9.2 s (vs 8.5–8.8 s at
+  128M and 7.5 s uml-darwin), warm 0.9 s, zero shared evictions, peak
+  footprint 4.6–4.7 GB: ~1.4 GB under a ~6.1 GB 16 Pro ceiling.
+- **Firefox at the Mac default (4G/128M) peaks at 6.0 GB**: too close to
+  the 16 Pro ceiling. 4G/64M brings it to 5.4 GB but cold launch slips
+  20→26 s; a 64M L1 holds less of Firefox's hot working set, so it
+  re-materializes from the shared tier (Chromium does not care).
+- **Guest 3072 MiB** changes nothing in these short sessions (the guest
+  touches ~1.7–2.4 GB here) but caps long-session page-cache growth at
+  ~1 GB less, which is what keeps a phone under the line over time.
+- **Lean Firefox** (`/usr/local/etc/firefox-lean`: no Fission, 1 content
+  process, no prelaunch, in-process socket/extensions) saves ~0.15 GB but
+  is slower (29.6 s). Not landed; the opt-in stays in
+  `firefox-kernarium-profile.sh` and `EXTRA_ETC=firefox-lean` in the bake.
+
+**Phone profile (recommended, not a Mac default change):** JIT 4G whole /
+64M L1, guest 3072 MiB. Mac D4iPad and Sim keep 4G/128M/4096 for speed.
+The next lever is in the JIT itself, not the budget: charge the 1 MiB
+`TranslationPublishChunk` residency (not just per-entry payload) to the
+budget so it is a true footprint cap, evict chunk-coherently (or age-based)
+so chunks empty, and `madvise(MADV_FREE)` free-listed chunks. That would
+let a smaller budget keep the win instead of inflating `MALLOC_SMALL`.
+Not attempted here; it needs a Kernarium change and an iOS runtime rebuild.
