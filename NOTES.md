@@ -3268,3 +3268,62 @@ No gcc/node/python or Chromium/Firefox numbers for PIC (the VM cannot boot). Tho
 
 Note: mid-measurement, `scratch/jitprof/` disappeared (another worker is freeing disk). Official and `port-pic` binaries, preflight, `notes/cpu-benches`, the slim rootfs, and the KRuntime snapshots were still present when this was written. Recreate a small spawn/cpu harness from the scripts already recorded in NOTES if that directory stays gone.
 
+
+## PIC v1 boot crash: root-cause progress, not booting yet (14 Nov 2026, 2:10–2:46 PM ET)
+
+Continued from `bba518f`. Goal was to fix the PIC v1 mount segfault (host-heap-looking ip when a second AS reuses a published template), add a second-AS reuse unit test, recereate a small harness in this repo (not scratch), and measure vs c2 / official 0022 if it booted.
+
+### Unit test
+
+New standalone test `tests/unit/arm64/arm64_jit_pic_reuse_runtime_tests.cpp` in `Kernarium-0022-clean` (hooked from `engine.cmake`, same WITHOUT_HARNESS style as `jit_fp_link_runtime`). Four cases: `{slide,pooled} ∈ {false,true}×{false,true}`. The program is two linked blocks (`add #1; b` then `add #2; svc`).
+
+Important test-setup bugs that hid location-index reuse (not product bugs):
+
+- Shared cache insertion counters are process-wide. Later subtests must not require a new insertion; they should require a reuse (or use unique VAs).
+- `JitMapping` destructor destroys the generation and drops the MappedBacking. A later mapping of a new `JitBacking` gets a new code-page identity, so a slide at a new VA cannot location-hit the previous publication. VA-hits at the reused `0x20000000` then installed templates with a *dead* identity.
+- Both mappings must stay alive so they share the same `MappedBacking` identity, `StaticGuestMemory::set_generation` must be called before `code_page_stamp`, and each subtest needs a unique first_base so it cannot VA-hit a prior subtest's publications.
+- Persistent-cache env is unset in `main`.
+
+With that, all four cases pass under `UML_JIT_SHARED_PIC=1`: the publishing AS reaches SVC (including a 4-instruction chained re-entry through the PIC trampoline), and the second AS reuses the published templates (including ASLR-style slide and a pooled executor). This path is necessary but not sufficient — it does not reproduce the boot crash.
+
+### Reproduced crash and what the IP really is
+
+`scratch/jitprof` is still gone. Boot repro used a new repo script, `scripts/kernarium-port/k-boot.sh` (logs under `/tmp/k-harness`, not scratch). Official `uml-darwin-official-0022-20261113` remains **6ea8180e**. After the local PIC-hardening rebuild, `uml-darwin-port-pic` is md5 **4aaf990ed445748c61a7362f5e91c0be** (copied from `uml-darwin`, official not overwritten). Preflight with a 2G guest (need 4096M) was used only to recapture the panic; swap was still ~1713–1729 / 3072 MiB; headroom stayed above the 2G+2G gate.
+
+PIC=1, 2G/2 CPU, slim Alpine, 14:32–14:45 ET, still panics while mounting devtmpfs. `/init` usually starts; `mount` dies. Sample ips (all 64-byte aligned, i.e. `alignas(64) JitBlockLink*`):
+
+- earlier: `0xd3cc07580`
+- 14:32 ET: `mount[85]` at `0x4d3807600`
+- 14:34 ET: `mount[86]` at `0xcba8277c0`
+- later runs: `0x5f68277c0`, `0xd3a8277c0`, `0x6208277c0`, …
+- 14:41 ET also saw `init[1]` itself die at `0x61b800080` (so this is not only a second-AS path)
+
+A temporary `PIC_BAD_PC` hook after `execute_native` showed `cpu.pc == block->reloc_got[0]`. For the repeating `mount` block at guest key `0x2000000000400154` (A64 TBI at `0x400154`):
+
+```
+rel[0] word=0 kind=direct_link key=0x2000000000400170 got=<JitBlockLink*>
+rel[1] word=1 kind=guest_pc    key=0x400170
+rel[2] word=2 kind=direct_link key=0x2000000000400190
+rel[3..6] guest_pc fallbacks
+```
+
+The generated GOT loads match that list (x12 slot 0/2 for links, x8 slots 1/3/4/5/6 for `store_pc`). The first linked exit disassembles correctly: `LDR x12,[x19,#72]; LDR x12,[x12,#0]; … LDR x13,[x12,#16]; CBZ x13, fallback; BR x13`. So this is not a slot-assignment bug and not a trampoline-encoding bug. At the moment of the oops, the successor record had `internal_entry == 0` (not yet activated). `cpu.pc` was still that record pointer.
+
+Current best reading: a host or translated jump to the `JitBlockLink*` (or a `store_pc` of that pointer via a stale GOT) is being reported as a guest SIGSEGV. Always-trampoline + refusing PIC templates that have GOT loads but no reloc metadata was not enough. Mixing a reused shared executable with a *new* compile's reloc list was a real install bug (see below) but did not by itself unstick boot — the `0x400154` reloc list and words were already a matched pair.
+
+### Product changes (local Kernarium only, not pushed)
+
+On `port/page-key` in `Kernarium-0022-clean`, on top of `5604e43`:
+
+- `install_candidate` now installs a published PIC canonical with `slide_shared_relocations(*shared, pc)` and that translation's words / `internal_entry_word`. A previous mix of `shared->executable` with `candidate.relocations` could bind a `JitBlockLink*` into a `guest_pc` GOT slot when `publish()` returned a location-canonical after a local compile.
+- Every PIC install goes through a GOT trampoline, including zero-reloc bodies, so a successor cannot inherit a stale `x19.reloc_got`.
+- `install_pic_block` refuses a template that contains `LDR Xt, [x19, #72]` but arrived with an empty reloc list (forces a private compile).
+- The reuse unit test above.
+
+Unit test `uml_arm64_jit_pic_reuse_runtime_tests` passes. `uml-darwin-port-pic` rebuilt and copied (`4aaf99…`). Official still **6ea8180e**. No iOS package, no D4iPad / Peek, no measure of gcc / scripts / node / python / Chromium / Firefox (the guest still does not boot with the flag on).
+
+### Verdict
+
+**Still not a clear win. Keep `UML_JIT_SHARED_PIC=1` opt-in. Do not land, do not gate on D4iPad or Peek yet.** Next: finish the remaining jump-to-`JitBlockLink*` path (the `0x400154` / `0x413f74` blocks; likely a stale GOT or an `internal_entry` of 0 that still gets used as a branch target), then re-measure spawn / gcc / scripts / node / python / browsers vs c2 (flag off, same `port-pic` binary) and official 0022. Harness: `scripts/kernarium-port/k-boot.sh` (and the existing `k-cpu.sh` / `cmp-benches.sh` once retargeted off scratch).
+
+Kernarium was not pushed. David's phone was not touched.
