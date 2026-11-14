@@ -2613,3 +2613,176 @@ official level (FF 321–391k vs 327k).
   6ea8180e). Peek shut down at 1:30 AM ET. Mini at 1:31 AM ET: swap 767/2048
   MiB, memory 71% free, nothing running. Scratch cleaned. New helper
   `notes/ios-interactive/sim-one.sh TAG ff|cr`. Stopped for the night.
+
+## crate vs Kernarium on the Mac mini (14 Nov 2026, 8:30–9:20 AM ET)
+
+[oneamendez/crate](https://github.com/oneamendez/crate) is an arm64-to-arm64
+full-system translator (MPL-2.0). It was built from source at commit
+`bd2efb4ae9d8567d581b1e6c2313ac21a112f1f2` (v0.1.1, 14 Nov 2026 12:28 AM ET)
+and benchmarked against official `uml-darwin` 0022 (md5 6ea8180e). Same
+interactive page, the same markers and the same parser formulas as
+`measure-interactive.sh`. One VM at a time, with the swap guard on.
+Harness: `scripts/crate-compare/`. Raw logs: Google Drive
+`crate-vs-kernarium-bench-20261114.tgz`.
+
+### Security skim (before building)
+- **Dependencies:** only `libc`, `flate2`/`miniz_oxide`, `adler2`, `cfg-if` and
+  `simd-adler32` from crates.io, verified by the Cargo.lock checksums
+  (`--locked`).
+- **build.rs:** the one `build.rs` (crate-host) runs only `pkg-config
+  --variable=libdir slirp` and then links libslirp.
+- **Network:** no outbound network code. The only sockets are the VNC
+  listener (a Unix socket, or TCP that defaults to 127.0.0.1) and slirp
+  port-forwards bound to 127.0.0.1.
+- **Signing:** `tools/crate-run/build.sh` runs `cargo build` plus an ad hoc
+  codesign with the `com.apple.security.hypervisor` entitlement. Nothing else.
+- **Fetch scripts:** none was run. The image was fetched by hand from the
+  `arm64-desktop-images` catalog (release 2026.11.14-7, which points at the
+  2026.11.14-4 debian-xfce assets). The kernel, initrd, the xz part and the
+  decompressed disk all matched the catalog's SHA-256s.
+- **GPU fetch scripts (not run):** crate-ios `fetch-frameworks.sh` pulls a
+  pinned, SHA-checked iOS zip. `build-angle.sh` clones depot_tools and ANGLE,
+  and `build-virgl.sh` curls libepoxy and virglrenderer tarballs.
+- **Toolchain:** `brew install libslirp` (4.9.7) was the only change to the mini.
+
+### Setup and differences
+- **Mac build:** crate-run built in 6 s (rustc 1.99.1). The Mac needs a
+  macOS ANGLE plus virglrenderer, and the published scripts build only iOS
+  frameworks. A depot_tools and ANGLE build on 12 GB of free disk is well over
+  an hour, so crate ran with `--display 2d`. The guest therefore renders in
+  software (Firefox SWGL, Chromium software compositing). **Kernarium runs
+  virgl to the host GPU (Zink/KosmicKrisp)**, so the GPU comparison favours
+  Kernarium.
+- **crate config:** `--backend jit` (never hvf), `--cpus 4 --memory 4096`,
+  `--modes 1920x1080`, slirp networking, VNC on a Unix socket.
+- **crate guest:** Debian 13 Xfce (X11, LightDM autologin) on a stock Debian
+  6.12 kernel, booted with a NoCloud seed ISO (user, temporary SSH key).
+  Browsers: Debian `firefox-esr` 153.7.0esr and `chromium` 156.0.8078.79.
+- **Kernarium config:** official 0022 `uml-darwin` through
+  `measure-interactive.sh` with only `ncpus=4` changed (a copy,
+  `measure-interactive-crate-cmp.sh`). Guest 4G, at 4G/128M and at 8G JIT
+  budget.
+- **Kernarium guest:** Alpine 3.24.2 labwc (Wayland) with the
+  `starter-20261112` images and Alpine's Firefox and Chromium.
+- **Architecture:** UML runs the guest kernel natively on the host and JITs
+  only EL0, one cache per address space. crate translates everything (EL1 too)
+  behind an inline soft-TLB.
+- **Same in both:** the page and the markers, and the Firefox `user.js` and
+  Chromium flags from `desktop-guest/`. A real key and click are injected
+  (VNC on crate, evdev on Kernarium). The browser is maximized (wmctrl on
+  crate, the labwc rule on Kernarium). Each run is a fresh VM, a cold browser
+  profile and a cold translation cache.
+- **Boot to desktop:** host seconds from launch to `===DESKTOP_READY===`
+  (crate: an Xfce autostart entry; Kernarium: the labwc start script).
+
+### Results (medians, with the range across runs)
+
+| Run set | Window (ET) | Boot→desktop | Cold page load | Scroll fps | Warm 2nd page |
+| --- | --- | ---: | ---: | ---: | ---: |
+| crate FF ×6 (crff-3..8) | 8:43–8:48 AM | 7.38 s (7.35–7.43) | **13.9 s** (10.1–14.1) | **0.3** (0.29–18.6)¹ | 0.82 s (0.60–1.00) |
+| crate CR ×3 (crcr-1..3) | 8:48–8:50 AM | 7.28 s (7.20–7.46) | **3.82 s** (3.46–4.03) | **54.7** (53.9–55.6) | **0.47 s** (0.40–0.48) |
+| Kernarium FF 4G/128M ×2 | 8:50–8:52 AM | 3.64 s (2.83–4.45) | 15.8 s (15.7–16.0) | 35.1 (29.5–40.8) | 1.23 s (1.18–1.28) |
+| Kernarium CR 4G/128M ×2 | 8:52–8:54 AM | 3.30 s (2.94–3.66) | 6.96 s (6.47–7.44) | 11.5 (10.9–12.1) | 0.63 s (0.61–0.65) |
+| Kernarium FF 8G ×2 | 8:54–8:56 AM | 3.29 s (3.25–3.34) | 16.6 s (16.1–17.0) | 38.7 (34.1–43.4) | 1.14 s (0.93–1.35) |
+| Kernarium CR 8G ×2 | 8:54–8:57 AM | 3.83 s (3.76–3.90) | 7.83 s (7.82–7.85) | 13.5 (13.3–13.7) | 0.74 s (0.71–0.78) |
+
+¹ crate Firefox's first scroll pass had a single 2.8–3.5 s frame in five of
+six runs. The page's first rAF fires before the content is painted (a
+screenshot at that point shows a blank page). Re-opening the page in the same
+browser (supplemental pass) gave 42.1 and 38.4 fps for Firefox and 59.9–60.8
+fps for Chromium. Kernarium has no such pass, and its first pass is already
+29–43 fps. crff-1/2 (8:40–8:42 AM, window not yet maximized) are left out:
+13.1 s cold, 0.2 fps.
+
+Input latency (event to the next rAF):
+- **crate:** Chromium 3–13 ms; Firefox 14–34 ms (key) and 15–56 ms (click).
+- **Kernarium:** Chromium 9–32 ms; Firefox key 2–173 ms, click 57–206 ms.
+
+### CPU-bound (bonus; `cmp-benches.sh`, the same script in both guests, 4 CPUs)
+crate's own workload scripts are not published, so these are equivalents.
+Each tool's output hash matches between the two guests.
+
+| Workload | crate jit (Debian) | Kernarium 4G/128M (Alpine) | Ratio |
+| --- | ---: | ---: | ---: |
+| gcc -O2, 600-function generated file | 12.5 s | 54.3–56.3 s | 4.4× |
+| gcc again | 12.4–12.5 s | 55.6–56.5 s | 4.5× |
+| `node -e 0` | 0.20–0.41 s | 0.36–0.44 s | ~1.2× |
+| node integer loop (1e8) | 1.07–1.21 s | 1.52–1.60 s | 1.4× |
+| node float loop (3e7 sqrt) | 0.90–1.06 s | 1.74 s | 1.8× |
+| python loop (3e6) | 1.16–1.24 s | 2.75–2.79 s | 2.3× |
+| 1000 `/bin/true` spawns | 0.85–0.86 s | 3.63–4.63 s | 4.8× |
+
+- **Tool versions differ:** gcc 14.2 vs 15.2, node 20.19 vs 24.22, python
+  3.13 vs 3.14.
+- **Not comparable:** the awk and sha256 rows (10.4 s and 0.94 s on
+  Kernarium) measure busybox against mawk/coreutils, not the translator.
+- **Windows:** crate ran 9:00–9:02 AM ET. Kernarium kcpu-1 ran 9:12–9:18 AM
+  ET; an earlier attempt at 9:01 AM failed because the guest script was not
+  executable.
+
+### Verdict
+**On this mini, crate gives the more usable desktop for Chromium, and it is
+far faster on CPU-bound and process-heavy work.**
+- **Chromium:** cold load is 1.8–2× faster, scroll is 4–5× faster even in
+  software rendering, and the warm page is about 35% faster.
+- **Firefox:** cold load is about 2 s faster, but the first scroll pass stalls
+  for 3 s while the first real paint lands. Once painted, steady scroll is
+  about level with Kernarium's GPU path.
+- **Boot:** Kernarium boots to a desktop about 2× faster (3.3 s vs 7.4 s). It
+  starts a minimal Alpine labwc on a native host kernel, where crate boots
+  full Debian with systemd, LightDM and Xfce.
+- **Why:** the gap tracks process creation and code reuse. Kernarium compiles
+  every exec'd process's code again, which shows in spawn ×4.8, gcc ×4.4 (cc1
+  and as are fresh processes each time) and the multi-process browsers'
+  launch. crate translates once per physical page. Pure loops differ much
+  less (node ×1.4), which is where register residency and return prediction
+  show.
+
+### crate techniques and whether they port to Kernarium's JIT (rough expected gains)
+1. **Page-keyed translations (one per physical page, PC = run-time page base
+   plus offset).** The biggest win. Kernarium's private cache is keyed per
+   address space, and the shared tier keys by guest PC, which ASLR defeats.
+   Keying by the backing page (the UML page cache or file frame) would let
+   exec'd processes reuse libc, libxul, libchrome and cc1 translations.
+   - **Expected gain:** 2–4× on spawn/exec-heavy work, 1.5–3× on gcc, and
+     about 30–50% off browser cold launch (Chromium's 7 s is mostly
+     per-process translation).
+   - **Effort:** high. Code must be position-independent (ADR/ADRP and
+     literals relative to `page_va`), invalidation must be per frame, and it
+     needs guarded chaining (item 2).
+2. **Guarded cross-page chaining** (a key of the target VA XOR a context
+   number). It is only needed together with item 1, because Kernarium's links
+   are already per address space.
+   - **Expected gain:** about 5–10% of cycles on top of item 1 (crate measured
+     8–12% on gcc).
+3. **BL-based return prediction** (a host BL into a tail, then the return
+   continuation translated as an entry, and RET through the host return
+   stack). Kernarium lowers RET as an indirect site: two inline cells plus an
+   8K table, steered by the indirect predictor.
+   - **Expected gain:** about 5–10% on call-heavy code (compilers, JS and
+     Python interpreters).
+   - **Effort:** moderate. It touches block-ending rules and the link
+     contract.
+4. **Register identity mapping** (guest Xn in host Xn, with X15–X17 as
+   scratch and X18 kept in state). Kernarium's A64 keeps 8 resident slots with
+   per-block allocation and spills.
+   - **Expected gain:** about 10–20% on tight integer and SIMD loops (node and
+     python loops are 1.4–2.3× slower today, partly for this reason).
+   - **Effort:** high. Every helper and host call must save or restore, and it
+     conflicts with x19–x21 linked-block state.
+   - **Lower-cost alternative:** widen residency to around 16 slots first.
+
+The inline soft-TLB and the per-CPU code caches are already in Kernarium in
+other forms, and nothing about them suggests a large gain.
+
+### Cleanup
+- **Mini scratch:** `scratch/crate-bench` deleted (3.8 GB: the crate clone and
+  build, the cargo home, the 5 GB sparse Debian disk, the seed ISO and the
+  temporary SSH key), plus the temporary `measure-interactive-crate-cmp.sh`
+  in interactive-pack.
+- **Mini health at 9:20 AM ET:** 13 GiB free, swap 528/2048 MiB, no VM
+  running, no Simulator booted.
+- **Official binaries untouched:** `uml-darwin` and
+  `uml-darwin-official-0022-20261113` (6ea8180e), and the iOS runtimes
+  (device 20643a83, Sim 0415aeb3).
+- **Left in place:** Homebrew libslirp.

@@ -1,0 +1,8 @@
+#cloud-config
+# Straight into the owner's Xfce session.
+write_files:
+  - path: /etc/lightdm/lightdm.conf.d/50-autologin.conf
+    content: |
+      [Seat:*]
+      autologin-user=bench
+      autologin-session=xfce
