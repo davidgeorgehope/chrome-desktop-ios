@@ -2515,3 +2515,12 @@ copy, ab-ff.sh, the old sampler copy and the /tmp plists are gone.
 Mini at 12:19 AM ET: memory free 74%, swap 775/2048 MiB, no SWAP_ABORT,
 nothing running, Peek shut down. Official uml-darwin md5 is 6ea8180e.
 Kernarium is not pushed.
+
+## Hybrid high/low-water (95/90) round (14 Nov 2026, 12:20 AM ET onward)
+
+| Run | Window (ET) | Runtime | Cold | Scroll fps | Warm Δup | Shared evict | Peak `phys_footprint` |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| FF offf-1 (same-session baseline) | 12:27:13–12:30:04 AM | official 78ac5040 | 24.62 s | **50.90** | 2.04 s | 307k | 5385 MB |
+
+(The 12:20–12:26 AM attempts were refused by the preflight because my
+wrapper's own pgrep pattern matched "uml-darwin". Nothing else was running.)
