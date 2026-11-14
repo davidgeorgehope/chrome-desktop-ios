@@ -2786,3 +2786,64 @@ other forms, and nothing about them suggests a large gain.
   `uml-darwin-official-0022-20261113` (6ea8180e), and the iOS runtimes
   (device 20643a83, Sim 0415aeb3).
 - **Left in place:** Homebrew libslirp.
+
+## Porting crate's ideas into Kernarium: step 0, profile first (14 Nov 2026, 9:36 AM ET onward)
+
+The rules haven't changed:
+- Kernarium work stays on local branches and is never pushed.
+- The official `uml-darwin`/`uml-darwin-official-0022-20261113` (md5 6ea8180e) and the iOS runtimes stay untouched.
+- One VM runs at a time, with the preflight and swap guard on.
+
+crate is MPL-2.0, so I reimplement from the ideas in its `docs/DESIGN.md` and copy none of its code.
+
+**Harness.** `scratch/jitprof/` on the mini (copied to `scripts/kernarium-port/`). It boots the official 0022 binary on the slim Alpine image at `mem=4G ncpus=4` with a 4G/128M budget and gcc from the offline apks. The guest prints `===PHASE===` markers, and the host snapshots the `UML_JIT_PROFILE` counters (plus `UML_JIT_SIGPROF` at 999 Hz, or `UML_JIT_SHARED_STATS`) at each marker. Each phase runs first with ASLR on (`randomize_va_space=2`), then with it off (`=0`). Runs: p0-official-jit 9:38–9:43 AM, p0-official-sp (SIGPROF) 9:43–9:48 AM, p0-spawn-stats 9:48–9:50 AM ET.
+
+### Spawn: where the time goes (seconds per 1000, guest uptime)
+
+| Phase | ASLR on | ASLR off | Compiles / iteration (on) | Shared-tier reuses / iteration (on) |
+| --- | ---: | ---: | ---: | ---: |
+| fork + `_exit` (static C spawner) | 0.21 | 0.20 | 0 | ~0.3 |
+| fork + exec of a static no-libc binary | 0.28 | 0.25 | 0 | ~0 |
+| fork + exec `/bin/true` (busybox, musl) from a static parent | 1.39 | 1.58 | 1.4 | 586 |
+| busybox `sh` loop: `/bin/true` (**the bench**) | **3.61** | **1.94–2.05** | **545** | 178 |
+| busybox `sh` loop: static binary | 0.78 | 0.77 | 0 | ~400 |
+| busybox `sh` loop: subshell `(:)` (fork only) | 1.20 | 1.23 | 3 | 411 |
+| static parent exec'ing a `#!/bin/sh` script that runs `/bin/true` (×300) | **8.33** | **1.35** | **1376** | 631 |
+
+For reference, crate's whole `sh` loop is 0.85 s.
+
+Answers to the three candidates:
+1. **UML's own fork/exec/mm cost is small.**
+   - A fork is 0.2 ms and an exec of a static binary another 0.07 ms.
+   - The whole `sh` loop around a static binary is 0.78 ms per iteration, about crate's total for the dynamic one.
+   - Host syscalls, TLB and page-table work never rank in the SIGPROF top 20: `madvise`, `mmap` and `mach_vm_map` together are under 2%.
+2. **Retranslation is the biggest cost under ASLR, and it is a bug, not a design limit.**
+   - Kernarium already has a page-keyed tier. It looks a translation up by the backing physical page's stamp plus page offset, with a slide relocation, so the same libc/busybox page can be reused at another ASLR base. That is why a static parent exec'ing `/bin/true` compiles almost nothing (586 location-key reuses per exec).
+   - But the location key also includes the page's **version**, and `unmap_locked()` bumps the version of every executable page with a translation whenever such a mapping is torn down. A forked busybox `sh` child maps busybox's frames with their code bits copied from the parent. When it execs, it moves every busybox text page's version, so the next `/bin/true` at a new random base misses the location index and compiles about 545 blocks again.
+   - `UML_JIT_SHARED_STATS` confirms it: location matches grow by about 4k while misses grow by 545k in that phase. With ASLR off the same-VA key (no version) hits, and the loop drops from 3.6 to 2.0 s.
+   - The version is not needed for correctness here. Both lookups compare the exact guest instruction words the translation consumed (`matches_guest_prefix`), the same check the same-VA key relies on.
+3. **Once nothing recompiles, the next cost is per-process materialization.** Every new address space (fork or exec) starts with an empty private cache. It copies each block's template out of the shared tier (585 blocks for one `/bin/true`, 411 for a forked shell), patches its relocations, creates link records and flushes the icache.
+   - SIGPROF in the static-parent `/bin/true` phase, with profiler I/O excluded: memmove 30%, link-table create/find 16%, `sys_icache_invalidate` 14%, shared find/validate 8%, translated guest code only 8%.
+   - This is the part crate avoids: its code cache is per CPU and keyed by physical page, with `page_va` plus offset at run time, so a new process installs nothing.
+
+### gcc -O2 (big.c, 56–59 s): not translation
+
+| gcc phase | Wall | Compiles | Compile time | Shared reuses | Dispatcher exits (indirect miss / continued) | Guest instructions |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+| first, ASLR on | 56.5 s | 2,518 | 10 ms | 113k | 9.96M / 18.3M | 35.3 G |
+| again, ASLR on | 56.8 s | 4,040 | 12 ms | 1.63M | 8.73M / 17.0M | 29.2 G |
+| first, ASLR off | 58.1 s | 208 | 2 ms | 140k | 9.59M / 17.8M | 34.4 G |
+
+Translation is about 0.02% of gcc. SIGPROF over the gcc phase, excluding profiler I/O and symbolization:
+- **Translated code:** ~55%.
+- **Dispatcher round trips:** ~20%. This is `JitExecutor::find`, `run_block`, the indirect link table and `train_indirect`: about 27M exits per run, mostly indirect-branch misses (returns and calls through tables) and chain breaks (`continued`: uncompiled 2.5M, fairness budget 2.5M, non-link 2.0M, unsafe 0.9M).
+- **Guest page work:** memset/madvise ~6%. The UML kernel itself is a few percent; `svc` is 340k per run and page faults 640k.
+
+crate runs the same file in 12.5 s, so gcc's 4.4× gap is in how fast translated code runs and how often it leaves to the dispatcher. That points at crate's return prediction and register identity mapping, not at page keys.
+
+### Plan from the profile
+1. **Location key without version.** Key the page-keyed tier by (backing frame identity, page offset) and keep validating the exact guest words. This targets the spawn gap that comes from recompiling. Expected: the `sh` loop drops from 3.6 to ~2.0 s, and the script-spawning case from 8.3 to ~1.4 s.
+2. **Return prediction** (host BL plus a return stub that RETs to a predicted entry), to cut indirect exits on gcc.
+3. **More resident guest registers.**
+
+I'll consider the larger per-CPU, physically keyed, run-time position-independent code cache (crate's "install once") only after step 1 has been measured, because it changes the link-ownership contract (links are per address space).
