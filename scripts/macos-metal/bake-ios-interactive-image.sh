@@ -1,5 +1,9 @@
 #!/bin/bash
-chromium|chromium
+# Usage: bake-ios-interactive-image.sh BASE_NAME OUT_NAME firefox|chromium
+# (R=dir overrides the rootfs dir.) APFS-clones BASE to OUT and boots official
+# 0022 once with UML_BOOT_UPPER=none so the interactive harness, Chromium
+# flags and Firefox maximize profile land on the ext4. The guest script is
+# notes/ios-interactive/bake-guest.sh on the mini (repo: bake-ios-interactive-guest.sh).
 set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 D=/Users/davidhope/linux-ios-bakeoff/notes/ios-interactive
