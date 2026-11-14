@@ -2847,3 +2847,33 @@ crate runs the same file in 12.5 s, so gcc's 4.4× gap is in how fast translated
 3. **More resident guest registers.**
 
 I'll consider the larger per-CPU, physically keyed, run-time position-independent code cache (crate's "install once") only after step 1 has been measured, because it changes the link-ownership contract (links are per address space).
+
+## Step 1: shared tier keyed by backing page + offset, without the version (branch `port/page-key`)
+
+Commits on the local Kernarium branch `port/page-key` (off ea13662, never pushed):
+- `d9d496f`: `location_key()` drops the frame version by default (`UML_JIT_SHARED_LOCATION_VERSION=1` puts it back). The words are still compared on reuse, so a recycled frame with different code still misses. Each location bucket is capped at 8 entries.
+- `9e63203`: the location offset comes from `key_fetch_address(pc)` and keeps the AArch32/Thumb/TBI mode bits. Without this, T32 keys (`pc << 1`) aliased, and the AArch32 corpus had 12 exclusive-pair failures; with it the corpus shows 0. Adds a unit test for the unversioned index.
+
+This is crate's idea (one translation per backing page, reused at any VA by slid relocations) applied to Kernarium's existing tier. Kernarium already had the position-independent part (slides). What it lacked was surviving the version bump on `unmap`. The cross-page chaining is unchanged: it was already guarded by the record's key and epoch.
+
+Gates (binary `uml-darwin-port-pk2`, md5 2df9b681): JIT unit tests 61/61 (the 3 suites that don't build were already broken before this branch); hello PASS; atomic-stress 8×200k PASS.
+
+Spawn microbench, s per 1000 (ASLR on, 4 CPU / 4G):
+
+| phase | official | pk1 |
+|---|---:|---:|
+| sh loop of /bin/true | 3.61 | 2.11 |
+| script ×300 (sh -c true) | 8.33 | 1.54 |
+| fork, fork+exec static, subshell | unchanged (noise) | |
+| compiles per iteration | ~545 | ~0 |
+
+CPU A/B (`cmp-benches.sh`, same session, 4 CPU):
+
+| bench | official | pk2 |
+|---|---:|---:|
+| gcc -O2 big.c | 58.85 / 58.30 | 58.59 / 58.48 |
+| spawn_1000 | 4.03 | 2.37 / 2.34 |
+| node int / fp | 1.62 / 1.71 | 1.60 / 1.73 |
+| python / awk / sha | 2.81 / 11.14 / 0.95 | 2.82 / 10.59 / 0.95 |
+
+Spawn is 1.7× faster. gcc is flat; that was expected, since gcc is exec/dispatch-bound, not translation-bound.
