@@ -2323,3 +2323,19 @@ patches, not the chunk code). Test-only updates, results still checked:
 `ctest -R ^arm64-jit`: 61/61 pass; the 3 pre-existing compile breaks
 (shared-translation-cache, persistent-translation-cache, cache_validation)
 are unchanged.
+
+### Firefox scroll re-check, uml-darwin chunk vs official (alternating, 10:57–11:01 PM ET)
+
+| Run (ET) | Binary | Cold | Scroll | Warm | Peak RSS |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 10:57:53 PM | chunk 68483c61 | 16.44 s | 43.41 fps | 0.87 s | 4831 MiB |
+| 10:58:32 PM | official 6ea8180e | 15.96 s | 38.89 fps | 0.91 s | 5128 MiB |
+| 10:59:10 PM | chunk | 15.98 s | 41.68 fps | 1.08 s | 5087 MiB |
+| 10:59:49 PM | official | 15.49 s | 41.93 fps | 1.07 s | 5276 MiB |
+| 11:00:28 PM | chunk | 16.46 s | 39.44 fps | 1.49 s | 5109 MiB |
+| 11:01:07 PM | official | 15.61 s | 41.25 fps | 1.23 s | 5278 MiB |
+
+No scroll regression: the 10.96 fps run was an outlier (chunk 39.4–48.7 over
+4 runs, official 38.9–42.5). Peak RSS is 170–450 MiB lower. Cold is a little
+slower on the mac: chunk 15.63–16.46 s (mean 16.14 over 5) vs official
+15.49–15.96 s (mean 15.68 over 4), about +3%. Swap unchanged at 791 MiB.
