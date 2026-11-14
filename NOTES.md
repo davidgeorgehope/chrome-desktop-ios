@@ -3527,3 +3527,43 @@ gcc is a clear win on both ASLR settings (the previous ASLR-off gcc slip is also
 ic2 cold and footprint match c2 (and beat official by ~600–900 MB). Scroll and warm are one-run noise; nothing there looks like the old return-stack Chromium regression.
 
 **Verdict.** ic2 is a **clear uml-darwin win** against landed c2 and official 0022: gcc is faster, the spawn set is no worse over three runs, and Chromium/Firefox cold + footprint are no worse than c2. Leave `uml-darwin-port-ic2` (`e4217bd5`) as the local candidate. **It is not the iOS default.** D4iPad-on-Mac and Peek gates were not started in this run (no iOS package, no phone install). Official and c2 binaries were not overwritten. Kernarium was not pushed. Next: the usual D4iPad-on-Mac + Peek footprint gate before flipping any iOS default. A later load/store-helper link can attack the 66% `nonlink.other` bucket; do not land a page-cross change for it.
+
+
+## ic2 D4iPad + Peek gate: not landed (14 Nov 2026, 4:41–5:12 PM ET)
+
+ic2 (`aec2625` / `uml-darwin-port-ic2` **`e4217bd5`**) was a clear uml-darwin win on gcc, spawn, and Mac desktop browsers, so it was packaged and gated on D4iPad-on-Mac and Peek against landed c2. **It did not become the iOS default.** Cold start was consistently slower on both destinations and both browsers. Footprint was not a large regression (Firefox a few tens of MB at most; Chromium even or slightly better). Correctness and smoke passed. The previous default was restored.
+
+**Package (4:41:52–4:42:26 PM ET).** Device cmake with `UML_IOS_DEBUGGER_JIT=ON`, Simulator cmake matching the existing sim recipe (no DEBUGGER_JIT override), then `notes/macos-metal-desktop/package-ios-linux-device-and-simulator.sh` so MesaEGL/MesaGallium/HostBattery/HostVideoEncoder keep both slices. Packaged KRuntime: device **`288e2b6cca5b930b126a7f64aad88a80`**, sim **`bbc35be649eb921a09ad89c988214023`**. Snapshot: `scratch/KRuntime_6_18_4K.xcframework.ic2-aec2625`. Before the rebuild, the then-live c2 xcframework (device **`f9dd3963`**, sim **`4420992a`**) was copied to `scratch/KRuntime_6_18_4K.xcframework.c2-dbbdd7e` (it had been missing from scratch after earlier cleanup). `scratch/KRuntime_6_18_4K.xcframework.hybrid9793` was not found. Official 0022 backup (`78ac5040`) and official `uml-darwin` (`6ea8180e`) were left alone. The `src/Kernarium` worktree xcframework was not overwritten. Kernarium was not pushed. David's phone was not touched. rclone USB (pid 14213) and Movies/KidVid jobs were left running. PIC stays parked.
+
+**D4iPad-on-Mac** (phone profile 3584M/64M/3072, 1920×1080, persist off, Peek Shutdown, no uml/xcode overlap). Firefox ×2 and Chromium ×2, 4:42:49–4:56:40 PM ET. Destination `platform=macOS,variant=Designed for iPad`. All four runs: `input=ok`, `INTERACTIVE_DONE`, GuestSessionTests **TEST SUCCEEDED**, `===BENCH_DONE===` (the guest bench block is the usual empty start/done pair). Wrapper rc=0. Compared to the same-day c2 gate (1:04–1:14 PM ET).
+
+| run | cold s | scroll fps (frames, p95 ms) | warm s | peak phys_footprint MB |
+|---|---:|---:|---:|---:|
+| c2 ff (range) | 25.53–25.96 | 49.84–54.19 | 1.76–2.00 | 4174–4213 |
+| **ic2-ff-1 4:42 PM** | 28.37 | 48.87 (99, 49.96) | 1.92 | 4271 |
+| **ic2-ff-2 4:47 PM** | 27.65 | 47.59 (96, 50.00) | 1.93 | 4221 |
+| c2 cr (range) | 7.36–7.55 | 9.96–12.18 | 1.02–1.08 | 3829–3862 |
+| **ic2-cr-1 4:50 PM** | 8.51 | 14.34 (29, 168.00) | 1.26 | 3868 |
+| **ic2-cr-2 4:53 PM** | 8.43 | 10.78 (22, 266.70) | 1.22 | 3832 |
+
+Firefox cold is ~2 s slower than c2 on both runs. Chromium cold is ~1 s slower on both runs. Scroll is in the same band (Chromium ic2-cr-1 is a bit faster). Footprint: Firefox +~50–100 MB vs the c2 band; Chromium overlaps c2 (3832–3868 vs 3829–3862). Swap stayed 1529/3072 MiB; no SWAP_ABORT.
+
+**Peek iPhone 17 Simulator** (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`). Only Peek was booted (4:58:07 PM ET); no other sim. Same phone profile. Firefox ×2 and Chromium ×2, 4:58:10–5:11:51 PM ET. All four: `input=ok`, `INTERACTIVE_DONE`, **TEST SUCCEEDED**, xcodebuild exit=0, shared evict **0**. The sim-one wrapper reported rc=1 because `run-sim-interactive.sh` ends with `grep SWAP_ABORT` under `pipefail` (no abort line → grep 1). That is a false wrapper failure, same class as earlier sessions; the tests passed. Peek was shut down at 5:12:12 PM ET. Compared to the same-day c2 Peek gate (c2sim-cr-1 is the clean Chromium sample; c2sim-cr-2b was discarded).
+
+| run | cold s | scroll fps (frames, p95 ms) | warm s | peak phys_footprint MB | evict |
+|---|---:|---:|---:|---:|---:|
+| c2sim-ff-1 | 28.16 | 44.02 (95, 49.76) | 2.05 | 3784 | 0 |
+| c2sim-ff-2 | 27.84 | 48.78 (98, 50.00) | 2.50 | 3769 | 0 |
+| **ic2sim-ff-1 4:58 PM** | 29.48 | 43.53 (88, 66.54) | 2.03 | 3831 | **0** |
+| **ic2sim-ff-2 5:02 PM** | 28.48 | 46.67 (94, 50.68) | 2.31 | 3781 | **0** |
+| c2sim-cr-1 | 8.38 | 26.22 | — | 3503 | 0 |
+| **ic2sim-cr-1 5:05 PM** | 9.08 | 18.04 (37, 183.30) | 1.19 | 3452 | **0** |
+| **ic2sim-cr-2 5:08 PM** | 9.22 | 20.93 (42, 116.70) | 1.12 | 3499 | **0** |
+
+Peek Firefox cold is ~0.6–1.3 s slower; Chromium cold is ~0.7–0.8 s slower than the clean c2 sample. Peek Chromium scroll (18–21 fps) is below c2 cr-1 (26.22). Footprint is even or slightly better on Chromium (3452–3499 vs 3503) and within ~50 MB on Firefox (3781–3831 vs 3769–3784).
+
+**Verdict: do not land.** The land bar was a pass on both gates with no footprint regression, and also the earlier "browsers no worse / only clear wins" rule. Correctness passed and footprint is not a material regression, but cold start is slower in every paired comparison (D4iPad and Peek, Firefox and Chromium). That is not a clear iOS win against landed c2. At 5:12 PM ET the live `Kernarium-0022-clean/.build/kernarium-xcframeworks/KRuntime_6_18_4K.xcframework` was restored from `scratch/KRuntime_6_18_4K.xcframework.c2-dbbdd7e` (device **`f9dd3963`**, sim **`4420992a`**). The ic2 package remains at `scratch/KRuntime_6_18_4K.xcframework.ic2-aec2625` (`288e2b6c` / `bbc35be6`) and `uml-darwin-port-ic2` (`e4217bd5`) stays the local macOS candidate. Bake scripts were not flipped; they still describe c2 as the iOS default. Official binaries and the official-tree xcframework were not touched.
+
+**nonlink.other / load_store (analysis only, no code change).** Because ic2 did not land, no helper-link fix was implemented or measured. The insn-class probe (gcc_O2 ASLR on, ic2 profiler-on) is unchanged: of 8.72 M `nonlink.other`, load_store is 5,781,927 (66.3%), exclusive 1,412,097 (16.2%), integer 1,529,147 (17.5%). These are not page-cross (272) or fetch-window (44 k). In `jit_compiler_memory.cpp`, several memory ops take `cold_exit(...)` and then `return Action::terminate` — notably non-exclusive ordered stores (STLR / ordered_slow) and exclusive/atomic helpers (`exclusive_slow`). `Action::terminate` skips the end-of-block `emit_direct_branch` that a fetch-window cut uses. When the helper finishes successfully it returns `continued` to the already-compiled fall-through PC, which `classify_continued_exit` records as `nonlink.other` with a load/store or exclusive previous word. A safe follow-up is a **post-helper success stub** that links only helpers with a static successor and no control-flow change (ordinary completed loads/stores). Do not blindly link exclusives (reservation / exclusive-monitor semantics), faulting paths, or helpers that may redirect the PC. Integer `other` is the same class of always-C++ helper and needs its own inventory. No Kernarium commit for this.
+
+Logs: `/tmp/k-harness/logs/{build-ic2-ios,ic2-d4ipad-gate-host,ic2-sim-gate-host}.log`, `notes/ios-interactive/run-d4ipad-ic2.status`, `notes/ios-interactive/run-sim-ic2.status`.
