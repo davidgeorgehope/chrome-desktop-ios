@@ -2144,3 +2144,15 @@ budget so it is a true footprint cap, evict chunk-coherently (or age-based)
 so chunks empty, and `madvise(MADV_FREE)` free-listed chunks. That would
 let a smaller budget keep the win instead of inflating `MALLOC_SMALL`.
 Not attempted here; it needs a Kernarium change and an iOS runtime rebuild.
+
+### Simulator phone-profile check (Peek, 9:09–9:13 PM ET)
+
+| Run | Window (ET) | Budget / L1 / guest | Cold | Scroll fps | Key / click ms | Warm Δup | Shared evict | Peak `phys_footprint` |
+| --- | --- | --- | ---: | ---: | --- | ---: | ---: | ---: |
+| CR simphone-cr-1 | 9:09:56–9:12:51 PM | 4G/64M/3072 | 10.24 s | 11.90 | 27.2 / 53.6 | 1.10 s | 0 | **4243 MB** |
+
+(Sim 4G/128M/4096 was 8.9–9.2 s cold, 16.8–18.4 fps.) The matching
+Firefox run was cut off by an interruption at 9:14 PM ET and is rerun
+below. Cleanup at 9:14 PM ET: the Sim batch, its xcodebuild/app and the
+footprint sampler were stopped and Peek shut down; no uml-darwin, lldb
+or LaunchAgent left; official 0022 md5 unchanged.
