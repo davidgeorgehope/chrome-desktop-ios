@@ -2522,6 +2522,11 @@ Kernarium is not pushed.
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | FF offf-1 (same-session baseline) | 12:27:13–12:30:04 AM | official 78ac5040 | 24.62 s | **50.90** | 2.04 s | 307k | 5385 MB |
 | FF hlff-1 (95/90, 9a2cd70, first after rebuild) | 12:36:38–12:39:57 AM | a1c04956 | 26.29 s | 47.70 | 1.91 s | 411k | 4704 MB |
+| FF hlff-2 (95/90) | 12:41:50–12:44:38 AM | a1c04956 | 26.09 s | 47.44 | 1.98 s | 408k | 4595 MB |
+
+95/90 still over-evicts on Firefox (408–411k vs official 307k) and scroll is
+−6–7% vs the same-session baseline, so the Firefox gate fails; Chromium not run
+at 95/90. Moving to 97/93.
 
 (The 12:20–12:26 AM attempts were refused by the preflight because my
 wrapper's own pgrep pattern matched "uml-darwin". Nothing else was running.)
