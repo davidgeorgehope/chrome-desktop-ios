@@ -11,7 +11,7 @@ ROOTFS_NAME="${2:-alpine-3.24.2-desktop-labwc.ext4}"
 # The debugger-prepared executable region depends only on the L1 cap.
 JIT_BUDGET="${3:-3584M}"
 JIT_EXECUTOR_BUDGET="${4:-64M}"
-# Optional guest RAM in MiB (default 4096), e.g. 3072 for a phone-sized run.
+# Guest RAM in MiB (default 3072, phone profile; 4096 for the Mac profile).
 GUEST_MIB="${5:-3072}"
 NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
 KERNARIUM=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean
