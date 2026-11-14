@@ -2033,3 +2033,54 @@ still evicts ~0.23–0.26M entries at 3 GiB shared (a 6G budget is the next
 probe; not run because D4iPad RSS is already ~5.7 GiB on the 16 GB mini).
 The int2-cr-1 stall at 2G (guest at 0.2% CPU from SCROLL_START) did not
 recur at 4G.
+
+## Can a real iPhone afford JIT 4G + mem=4G? (13 Nov 2026, 8:24 PM ET onward)
+
+Nothing was installed on any phone. Research plus D4iPad measurement only.
+
+**iOS per-app limit.** jetsam enforces a per-process `phys_footprint`
+(dirty + compressed memory, IOSurface/Metal included), not a virtual-size
+limit. The Kernarium app already carries `com.apple.security.cs.allow-jit`,
+`com.apple.developer.kernel.increased-memory-limit` and
+`com.apple.developer.kernel.extended-virtual-addressing`. Public
+measurements (Apple Developer Forums thread 834805, Nov 2026) put the
+live ceiling (`os_proc_available_memory()` + `phys_footprint`) at about
+**6144 MB on an 8 GB iPhone 16 Pro Max** with increased-memory-limit, with
+no change from extended-virtual-addressing. Other reports range from
+~6–7 GB on 8 GB phones; without the entitlement it is ~3.3 GB. Extended
+virtual addressing only buys address space for reservations (the 8 GiB
+`VM_ALLOCATE` reservation below), not resident budget. Plan for ≤ ~5.5 GB
+footprint on a 16 Pro to leave headroom; the iPhone Duo's RAM/limit is not
+public, so assume the same until measured with `os_proc_available_memory()`.
+
+**How the JIT memory is backed (0022 source).** The shared translation
+tier (`jit_shared_translations.cpp`) is ordinary heap (`MALLOC_SMALL`):
+resident as soon as a translation is published, charged against the budget
+with a deliberately conservative per-entry formula (2× vector growth,
+16 bucket pointers, 8 allocator allowances), so `accounted` overstates
+real bytes. Eviction is a clock sweep in guest-PC order over unpinned
+entries, then pinned ones; it is not LRU. Per-executor code arenas sit in
+the large `VM_ALLOCATE` reservation (virtual) and only the touched pages
+are resident. Guest RAM (`mem=4G`) is `shared memory`, resident only as the
+guest touches it; Linux page cache will grow it toward 4 GiB in a long
+session.
+
+**Measured (D4iPad Chromium, 4G/128M, run fp4G-cr-1, 8:25–8:28 PM ET,
+`footprint` every 5 s and `vmmap -summary` every 30 s;
+`scripts/macos-metal/footprint-sampler.sh`).** Timing for that run was
+cold 8.77 s, warm 0.68 s; scroll 5.5 fps is perturbed by the vmmap pause.
+
+| Region (vmmap at t=91 s) | Virtual | Resident | Compressed | Meaning |
+| --- | ---: | ---: | ---: | --- |
+| MALLOC_SMALL | 2.5G | 1.7G | 815M | JIT shared tier (payload 1.94 GB, accounted 3.22 GB) + other heap |
+| shared memory | 3.1G | 2.2G | 80K | guest RAM actually touched (of mem=4G) |
+| VM_ALLOCATE | 8.0G | 263M | 19M | JIT arenas / reservations (mostly virtual) |
+| MALLOC_LARGE | 438M | 181M | 12M | other heap |
+| IOSurface + IOAccelerator | 75M | 73M | 72M | Metal display |
+| **TOTAL footprint** | 17.0G | 5.4G | 0.95G | `phys_footprint` 5.0–5.4 GB, peak 5401 MB |
+
+So the 4G budget's real cost is ~2.5 GB for the shared tier (resident +
+compressed), not 3 GiB, plus guest RAM. Peak 5.4 GB is under a ~6.1 GB
+16 Pro ceiling but leaves < 0.8 GB, and guest page cache growth toward
+mem=4G (+~1.8 GB) would cross it. A phone configuration needs a smaller
+shared tier and/or a smaller guest. Sweep below.
