@@ -2877,3 +2877,24 @@ CPU A/B (`cmp-benches.sh`, same session, 4 CPU):
 | python / awk / sha | 2.81 / 11.14 / 0.95 | 2.82 / 10.59 / 0.95 |
 
 Spawn is 1.7× faster. gcc is flat; that was expected, since gcc is exec/dispatch-bound, not translation-bound.
+
+## Step 2: A64 return-address stack (Kernarium `port/page-key` a7df85b)
+
+This is crate's "BL/RET through the host return stack" idea, built from Kernarium's own parts as a software stack, because guest returns must keep the budget and epoch checks:
+- `JitReturnStack`: a 32-entry ring of `JitBlockLink*` per executor. `JitChainState.return_stack` sits at offset 64, so the state is now 72 bytes.
+- A64 BL and BLR push the stable link record of `pc+4`, resolved at compile time and relocated as `direct_link`, so shared templates slide.
+- RET pops the top entry and enters it only if the record's `activation_epoch` equals the chain epoch AND `record.guest_pc == tag|target`. Otherwise it falls through to the existing 2-cell site and the A64 table.
+- The ordinary linked-entry checks (budget, selector, internal entry) still run. A stale or bad entry costs one miss and never runs wrong code.
+- `UML_JIT_NO_RETURN_STACK=1` turns it off. AArch32 is unchanged.
+- The profile build also counts indirect-miss kinds (ret, blr, br, other).
+
+Gates (uml-darwin-port-rs1, md5 3cda186a): JIT unit tests 61/61, hello PASS, atomic-stress PASS.
+
+| bench (4 CPU) | official | step 1 (pk2) | step 2 (rs1) |
+|---|---:|---:|---:|
+| gcc -O2 | 57.6–58.9 | 57.9–58.6 | 55.6–56.7 |
+| spawn_1000 | 4.03 / 4.93 | 2.34 / 2.37 | 2.53 / 2.54 |
+| python | 2.60–2.81 | 2.82–2.90 | 2.69–3.04 |
+| awk | 10.57–11.14 | 10.56–10.59 | 10.71–10.82 |
+
+gcc is about 4% faster. The other benches are within noise.
