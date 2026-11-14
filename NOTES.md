@@ -2339,3 +2339,19 @@ No scroll regression: the 10.96 fps run was an outlier (chunk 39.4–48.7 over
 4 runs, official 38.9–42.5). Peak RSS is 170–450 MiB lower. Cold is a little
 slower on the mac: chunk 15.63–16.46 s (mean 16.14 over 5) vs official
 15.49–15.96 s (mean 15.68 over 4), about +3%. Swap unchanged at 791 MiB.
+
+### D4iPad stall root cause: stats-dump deadlock (harness-only), fixed on the branch (64d6c34)
+
+D4iPad CR sw3584M-64M-g3072-ckcr-2 (11:02 PM ET) froze at Chromium launch
+(0.5% CPU, phys_footprint flat at 3406 MB for 7 min). `sample` showed
+every vCPU in `install_shared_translation` → `shared_mutex::lock_shared`
+and one in the periodic `dump_shared_translation_stats`. `find()` called
+that dump while still holding its shard shared; `statistics()` takes every
+shard shared again, which queues behind a waiting writer and deadlocks.
+The dump only runs with `UML_JIT_SHARED_STATS=1`, which all our launchers
+set, and the same code is in official 9676ead, so this probably also
+explains the earlier official 2G and the chunk 3G stalls. Fix: release the
+shard lock before dumping. arm64-jit ctest 61/61 again; device runtime
+rebuilt 11:17 PM ET. Sample and serials saved:
+`notes/ios-interactive/d4ipad-sw3584M-64M-g3072-ckcr-2-*stalled-20261113-231111*`.
+Stopped cleanly at 11:11 PM ET (sweep killed, LaunchAgent booted out).
