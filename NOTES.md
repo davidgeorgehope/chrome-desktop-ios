@@ -2173,3 +2173,16 @@ so on a 16 Pro Firefox is marginal and Chromium is the browser to ship.
 `bootstrap-d4ipad-0022.sh`, `run-d4ipad-interactive.sh` and
 `launch-sim-0022-test.sh` (override with `4G 128M 4096` for the faster
 Mac-only profile, whose Firefox peaks at 6.0 GB).
+
+### Phone-profile confirmation at launcher defaults (3584M/64M/3072)
+
+| Run | Window (ET) | Cold | Scroll fps | Key / click ms | Warm Δup | Shared evict | Peak `phys_footprint` |
+| --- | --- | ---: | ---: | --- | ---: | ---: | ---: |
+| D4iPad CR def-cr-2 | 9:22:06–9:24:55 PM | **9.09 s** | 10.99 | 26.2 / 59.4 | 0.93 s | 33k | **4626 MB** |
+| D4iPad FF def-ff-2 | 9:25:13–9:27:59 PM | 26.92 s | 49.72 | 393.0 / 142.0 | 2.22 s | 313k | **5403 MB** |
+
+Both D4iPad configs reproduce the 9:14–9:21 PM pair (CR 9.26 s / 4639 MB,
+FF 26.86 s / 5425 MB). Note: commit `5b19b76` accidentally included the
+local-only `scripts/macos-metal/vnc_rfb.py`; `7b305ef` untracked it again
+(file kept locally, no secrets in it). It remains in pushed history unless
+David approves a history rewrite.
