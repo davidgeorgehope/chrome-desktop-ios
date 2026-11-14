@@ -2466,3 +2466,9 @@ gives the old whole-chunk charging. New unit test
 `hybrid_keeps_byte_charges_until_the_threshold_then_evicts_chunks` (first
 crossing at 818 entries, 49 chunk evictions, accounted ≤ cap, 83 chunks
 returned, hot entries kept). arm64-jit ctest 61/61.
+
+### D4iPad hybrid 6c186ff, phone default 3584M/64M/3072 (device runtime md5 2555dcdf, built 11:57 PM ET)
+
+| Run | Window (ET) | Cold | Scroll fps | Key / click ms | Warm Δup | Shared evict | Chunk evict | Peak `phys_footprint` |
+| --- | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: |
+| CR hycr-1 | 11:57:08 PM–12:00:33 AM | **11.96 s** | 10.97 | 53.7 / 65.1 | 0.99 s | 185k | 316 | **4430 MB** |
