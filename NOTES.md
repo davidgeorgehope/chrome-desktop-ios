@@ -2084,3 +2084,28 @@ compressed), not 3 GiB, plus guest RAM. Peak 5.4 GB is under a ~6.1 GB
 16 Pro ceiling but leaves < 0.8 GB, and guest page cache growth toward
 mem=4G (+~1.8 GB) would cross it. A phone configuration needs a smaller
 shared tier and/or a smaller guest. Sweep below.
+
+### Smaller budgets backfire on footprint (D4iPad sweep, 8:29–8:48 PM ET, one run each, footprint sampled)
+
+| Run | Window (ET) | Budget / L1 | Cold | Scroll fps | Warm Δup | Shared insert / evict | Payload | Peak `phys_footprint` |
+| --- | --- | --- | ---: | ---: | ---: | --- | ---: | ---: |
+| CR fp4G-cr-1 | 8:25–8:28 PM | 4G/128M | 8.77 s | 5.5* | 0.68 s | 1.39M / 20k | 1849 MB | **5401 MB** |
+| CR sw3G-128M-cr-1 | 8:29–8:32 PM | 3G/128M | 10.36 s | 0.9* | 2.39 s | 1.60M / 0.70M | 1233 MB | 5645 MB |
+| FF sw3G-128M-ff-1 | 8:32–8:35 PM | 3G/128M | 27.76 s | 43.9 | 2.57 s | 1.67M / 0.91M | 1349 MB | 6544 MB |
+| CR sw2560M-128M-cr-1 | 8:35–8:38 PM | 2.5G/128M | 16.50 s | 2.2* | 2.97 s | 1.82M / 1.16M | 927 MB | 5999 MB |
+| FF sw2560M-128M-ff-1 | 8:38–8:41 PM | 2.5G/128M | 33.43 s | 47.8 | 2.43 s | 1.95M / 1.40M | 1013 MB | 7069 MB |
+| CR sw3G-64M-cr-1 | 8:42–8:44 PM | 3G/64M | 9.55 s | 7.9 | 1.94 s | 1.48M / 0.34M | 1542 MB | **4740 MB** |
+| FF sw3G-64M-ff-1 | 8:45–8:47 PM | 3G/64M | 28.94 s | 47.5 | 2.50 s | 1.59M / 0.62M | 1682 MB | 5600 MB |
+
+\*Scroll numbers in footprint runs are perturbed by the 30 s `vmmap`
+task suspension; cold launch and warm are not (vmmap first runs ~25 s
+after app start).
+
+The surprise: shrinking the shared tier *raises* footprint. `vmmap` shows
+`MALLOC_SMALL` dirty at 2.4–3.2 GB (plus 0.6–0.8 GB compressed) for 2.5G
+and 3G while live payload is only 0.9–1.3 GB. Eviction churn leaves the
+publish arena fragmented: a `TranslationPublishChunk` is only released
+when every entry in it is evicted (clock order is by guest PC, not by
+chunk), so freed bytes stay dirty. Less churn (4G) means fewer orphaned
+partial chunks. Halving the private L1 cap (64M) cut footprint ~0.9 GB at
+the same 3G whole budget.

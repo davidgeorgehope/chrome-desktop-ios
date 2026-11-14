@@ -1,6 +1,6 @@
 #!/bin/bash
 # Usage: bake-ios-interactive-image.sh BASE_NAME OUT_NAME firefox|chromium
-# (R=dir overrides the rootfs dir.) APFS-clones BASE to OUT and boots official
+# (R=dir overrides the rootfs dir; EXTRA_ETC=name also drops /usr/local/etc/name, e.g. firefox-lean.) APFS-clones BASE to OUT and boots official
 # 0022 once with UML_BOOT_UPPER=none so the interactive harness, Chromium
 # flags and Firefox maximize profile land on the ext4. The guest script is
 # notes/ios-interactive/bake-guest.sh on the mini (repo: bake-ios-interactive-guest.sh).
@@ -31,6 +31,7 @@ LOG=$D/bake-$2-$(date +%Y%m%d-%H%M%S).log
   --guest-file=/payload/usr/local/etc/interactive-metrics=$D/flag \
   --guest-file=/payload/usr/local/etc/desktop-browser=$D/browser-$BROWSER \
   --guest-file=/payload/usr/local/etc/chromium-flags=$G/chromium-flags \
+  ${EXTRA_ETC:+--guest-file=/payload/usr/local/etc/$EXTRA_ETC=$D/flag} \
   --guest-file=/payload/usr/local/share/interactive-metrics/index.html=$M/index.html \
   --guest-file=/payload/usr/local/share/interactive-metrics/warm.html=$M/warm.html \
   --guest-file=/payload/usr/local/share/interactive-metrics/cgi-bin/report=$M/cgi-bin/report \

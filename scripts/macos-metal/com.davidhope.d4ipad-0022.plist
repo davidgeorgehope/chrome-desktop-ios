@@ -11,6 +11,7 @@
     <string>PLACEHOLDER_ROOTFS</string>
     <string>PLACEHOLDER_JIT_BUDGET</string>
     <string>PLACEHOLDER_JIT_EXECUTOR_BUDGET</string>
+    <string>PLACEHOLDER_GUEST_MIB</string>
   </array>
   <key>RunAtLoad</key>
   <true/>

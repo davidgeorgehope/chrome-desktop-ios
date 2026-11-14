@@ -44,6 +44,22 @@ user_pref("app.shield.optoutstudies.enabled", false);
 user_pref("app.normandy.enabled", false);
 EOJ
 
+# Opt-in lean process model (host drops /usr/local/etc/firefox-lean):
+# one content process, no Fission site isolation, no prelaunched spare
+# content process, socket and extension work in the parent. Fewer
+# processes = less cold-start translation and less guest RAM on a phone.
+if [ -f /usr/local/etc/firefox-lean ]; then
+  cat >> "$PROFDIR/user.js" << 'EOL'
+user_pref("fission.autostart", false);
+user_pref("dom.ipc.processCount", 1);
+user_pref("dom.ipc.processCount.webIsolated", 1);
+user_pref("dom.ipc.processPrelaunch.enabled", false);
+user_pref("network.process.enabled", false);
+user_pref("extensions.webextensions.remote", false);
+EOL
+  echo "===FIREFOX_LEAN=== on" | tee /dev/ttyS0 2>/dev/null || true
+fi
+
 # Interactive-metrics (and a usable desktop) want a maximized window so
 # a mid-tablet evdev poke hits content, not the labwc desktop.
 mkdir -p "$PROFDIR"

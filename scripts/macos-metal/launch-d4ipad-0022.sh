@@ -8,6 +8,8 @@ ROOTFS_NAME="${2:-alpine-3.24.2-desktop-labwc.ext4}"
 # The debugger-prepared executable region depends only on the L1 cap.
 JIT_BUDGET="${3:-4G}"
 JIT_EXECUTOR_BUDGET="${4:-128M}"
+# Optional guest RAM in MiB (default 4096), e.g. 3072 for a phone-sized run.
+GUEST_MIB="${5:-4096}"
 NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
 KERNARIUM=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean
 STAMP=$(date +%Y%m%d-%H%M%S)
@@ -28,7 +30,7 @@ unset UML_JIT_PERSISTENT_CACHE KERNARIUM_JIT_PERSISTENT_CACHE \
 
 export TEST_RUNNER_KERNARIUM_DISPLAY_HEIGHT=1080
 export TEST_RUNNER_KERNARIUM_DISPLAY_WIDTH=1920
-export TEST_RUNNER_KERNARIUM_GUEST_MEMORY_MIB=4096
+export TEST_RUNNER_KERNARIUM_GUEST_MEMORY_MIB="$GUEST_MIB"
 export TEST_RUNNER_KERNARIUM_GUEST_SESSION=1
 export TEST_RUNNER_KERNARIUM_GUEST_SESSION_BENCHES=1
 export TEST_RUNNER_KERNARIUM_GUEST_SESSION_BENCH_DELAY=90
