@@ -2475,3 +2475,21 @@ returned, hot entries kept). arm64-jit ctest 61/61.
 | FF hyff-1 | 12:01:17–12:04:09 AM | 26.69 s | 45.76 | 84.5 / 112.0 | 1.89 s | 411k | 666 | **4626 MB** |
 | CR hycr-2 | 12:04:50–12:07:35 AM | 9.41 s | 7.90 | 28.5 / 74.3 | 1.05 s | 159k | — | **4409 MB** |
 | FF hyff-2 | 12:08:17–12:11:04 AM | 26.13 s | 44.45 | 334.0 / 133.0 | 2.10 s | 415k | — | **4626 MB** |
+| CR hycr-3 | 12:11:45–12:14:37 AM | 9.30 s | 7.61 | 24.3 / 58.4 | 0.99 s | 157k | — | **4398 MB** |
+
+hycr-1 was the first run after the rebuild (the app relaunched, PID
+55207 → 55958), and its 11.96 s cold is an outlier; hycr-3 was the
+tiebreak.
+
+| Browser | Official peak fp / cold / scroll | Hybrid peak fp / cold / scroll | Δ footprint |
+| --- | --- | --- | ---: |
+| Chromium | 4626–4639 MB / 9.09–9.26 s / 8.4–11.0 | 4398–4409 MB / 9.30–9.41 s / 7.6–7.9 (plus 4430 MB, 11.96 s outlier) | **−220 to −240 MB** |
+| Firefox | 5403–5425 MB / 26.86–26.92 s / 49.3–49.7 | 4626 MB ×2 / 26.13–26.69 s / 44.5–45.8 | **−777 to −799 MB** |
+
+Hybrid lowers footprint a lot on both browsers, and cold/warm are within
+noise. But Firefox scroll is 9–11% below official (and below chunk mode's
+47–54) on both runs, and Chromium cold is +0.1–0.3 s. Evictions are
+157–185k on CR and 411–415k on FF, against official 30k / 313k. So
+**speed is not clearly "no worse", and hybrid does not land** by the
+round's rule. Next lever: a 95% threshold, or evict only toward 90% from a
+95% trigger, to cut churn.
