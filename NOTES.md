@@ -2293,7 +2293,7 @@ vs official 5403 MB / 26.92 s (index 751 MB, arena committed 2468 MB, 300 chunk
 evictions). 3G Chromium (22:28) stalled after an evdev write (guest 0.1% CPU,
 same as the earlier official 2G stall); serial saved, app stopped ~22:37.
 
-### Unit test aborts fixed (Kernarium `exclusive/0022-chunk-evict` 827bb51, 13 Nov 2026, ~11:40 PM ET)
+### Unit test aborts fixed (Kernarium `exclusive/0022-chunk-evict` 827bb51, 13 Nov 2026, 10:30–10:56 PM ET)
 
 The 8 aborting arm64-jit tests fail identically on 9676ead (the campaign
 patches, not the chunk code). Test-only updates, results still checked:
