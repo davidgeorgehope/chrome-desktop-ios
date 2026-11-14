@@ -2579,3 +2579,4 @@ landed KRuntime back (device hybrid 20643a83, Sim official 97092f94).
 | Run | Window (ET) | Sim runtime | Cold | Scroll fps | Warm Δup | Shared evict | Peak `phys_footprint` |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | FF simoff-ff-1 (same-session baseline, first after app rebuild) | 1:10:08–1:13:46 AM | official 97092f94 | 28.43 s | 51.66 | 2.52 s | 327k | 5013 MB |
+| FF simh97-ff-1 (hybrid ea13662, first after rebuild) | 1:15:44–1:19:10 AM | hybrid 0415aeb3 | 27.74 s | 48.31 | 2.26 s | 391k | 4408 MB |
