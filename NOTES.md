@@ -2581,3 +2581,35 @@ landed KRuntime back (device hybrid 20643a83, Sim official 97092f94).
 | FF simoff-ff-1 (same-session baseline, first after app rebuild) | 1:10:08–1:13:46 AM | official 97092f94 | 28.43 s | 51.66 | 2.52 s | 327k | 5013 MB |
 | FF simh97-ff-1 (hybrid ea13662, first after rebuild) | 1:15:44–1:19:10 AM | hybrid 0415aeb3 | 27.74 s | 48.31 | 2.26 s | 391k | 4408 MB |
 | FF simh97-ff-2 | 1:19:28–1:22:14 AM | hybrid 0415aeb3 | 26.92 s | 48.40 | 2.28 s | 321k | 4398 MB |
+| CR simh97-cr-1 | 1:23:55–1:26:41 AM | hybrid 0415aeb3 | 9.71 s | 14.46 | 0.93 s | 62k | 4208 MB |
+| CR simh97-cr-2 | 1:26:59–1:29:42 AM | hybrid 0415aeb3 | 9.63 s | 20.74 | 0.83 s | 62k | 4213 MB |
+
+Earlier official Sim references (13 Nov, same phone default): FF simphone-ff-1/2
+29.13 / 27.17 s, scroll 44.88 / 48.65, warm 2.40 / 2.14 s, 5024 / 5001 MB; CR
+simphone-cr-1/2 10.24 / 9.64 s, scroll 11.90 / 14.70, warm 1.10 / 0.96 s,
+4243 / 4240 MB.
+
+**Verdict: landed as the Sim default.** Footprint is lower on both browsers:
+Firefox −600 to −615 MB against the same-session baseline, Chromium −27 to
+−35 MB against the official runs. Firefox scroll 48.3–48.4 is 6% under the
+single same-session baseline (51.66), but sits in the middle of the official
+Sim spread (44.9–51.7, mean 48.4) and well clear of the D4iPad 95/90 failure
+pattern (there every run was below every official run). Firefox cold
+26.9–27.7 s vs official 27.2–29.1 s (28.4 same session); warm 2.26–2.28 vs
+2.14–2.52 s. Chromium cold 9.63–9.71 vs 9.64–10.24 s, scroll 14.5–20.7 vs
+11.9–14.7, warm 0.83–0.93 vs 0.96–1.10 s. Shared evictions return to the
+official level (FF 321–391k vs 327k).
+
+- KRuntime xcframework: device hybrid 20643a83, Sim hybrid 0415aeb3 (both
+  Kernarium ea13662, local only). The Sim app in `kernarium-simulator-derived`
+  embeds 0415aeb3. Rollback: `scratch/KRuntime_6_18_4K.xcframework.official0022`
+  (device 78ac5040, Sim 97092f94), then rebuild the Sim app.
+- Packaging note: `build-d4ipad-0022.sh` leaves MesaEGL, MesaGallium,
+  HostBattery and HostVideoEncoder device-only, which breaks Sim builds. Run
+  `package-ios-linux-device-and-simulator.sh` (or `build-sim-0022.sh`) after any
+  D4iPad build. All xcframeworks now carry both slices except KosmicKrisp
+  (device-only by design).
+- Official `uml-darwin` and `uml-darwin-official-0022-20261113` untouched (md5
+  6ea8180e). Peek shut down at 1:30 AM ET. Mini at 1:31 AM ET: swap 767/2048
+  MiB, memory 71% free, nothing running. Scratch cleaned. New helper
+  `notes/ios-interactive/sim-one.sh TAG ff|cr`. Stopped for the night.
