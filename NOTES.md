@@ -3087,3 +3087,74 @@ What crate still does that we do not, with measured attribution:
 - **Do not switch the iOS product to crate today.** crate's Mac numbers are the more usable Chromium (cold 1.8×, scroll 4–5×, and Grok Bot is Chromium inside, so it gets the same). The Grok Build CLI is a native arm64 binary and the terminal is spawn-heavy, so they would feel it too. Tailscale is a long-running daemon, so it cares more about (2) than about spawn. But those numbers are Mac-only, and crate ran **without a GPU stack** (the published scripts build iOS ANGLE/virgl, not macOS). Kernarium already has a working D4iPad path (virgl / KosmicKrisp, phone JIT 3584M/64M, hybrid 97/93, measured footprints). crate is v0.1.1; its iOS memory budget, input, display, and Tailscale/slirp behaviour on a 12 GB-class device are unproven. Both need a JIT, so neither is an App Store build as-is (V8 still generates code; S2Arm's ahead-of-time trick does not apply). Boot still favours Kernarium's native-kernel UML + slim Alpine. Switching is a product rewrite of packaging, launch, budget and device integration, under crate's MPL-2.0, not a drop-in.
 - **A fair switch decision needs a crate-on-iOS spike** (GPU, device memory, Chromium cold/scroll/footprint on the same D4iPad-class setup), in parallel with porting (1). If crate is still 4× on scroll *on the device*, switching becomes the serious option. Until that spike exists, keep porting in Kernarium and treat crate as the measured target, not the shipping runtime.
 
+
+
+## c2 iOS gate on D4iPad-on-Mac and Peek Simulator (14 Nov 2026, 12:43–13:40 ET)
+
+c2 is the sharded 64-way location index (`3ecd109`) plus the unversioned location key as the default (`dbbdd7e` on local `port/page-key`; `UML_JIT_SHARED_LOCATION_VERSION=1` restores the versioned key). Return stack stays off. Official `uml-darwin` / `uml-darwin-official-0022-20261113` (md5 **6ea8180e**) and the official 0022 iOS backup were not touched. Kernarium was not pushed.
+
+Phone-default profile throughout: JIT 3584M/64M, guest 3072 MiB, 8 vCPUs, 1920×1080, persist off, one destination at a time, footprint via `footprint-sampler.sh`.
+
+### D4iPad is Designed-for-iPad on the Mac mini, not a physical iPad
+
+A previous pass treated `xcrun devicectl list devices` showing `iPad.coredevice.local` (iPad mini 6th gen, unavailable) as a blocker. That was an agent misread, not a launch-script destination bug. `launch-d4ipad-0022.sh` already uses `-destination "platform=macOS,variant=Designed for iPad"` (My Mac UDID `00006020-0009715A216B401E`), Aqua `gui/501` LaunchAgent, and lldb `jit_serve`. This session confirmed that destination on the live xcodebuild command line. The other iOS target is Peek iPhone 17 Simulator (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`). Nothing was rebooted; no physical iPad was chased.
+
+### Same-session hybrid 97/93 baseline, then c2, on D4iPad-on-Mac
+
+Current shipping default at the start of the gate was hybrid 97/93 (device **20643a83**, Sim **0415aeb3**), already a footprint win over raw official 0022. A restore point was cloned to `scratch/KRuntime_6_18_4K.xcframework.hybrid9793` before packaging c2. If c2 had not landed, that — not official 0022 (`78ac5040` / `97092f94`) — was the rollback.
+
+Baseline of the then-current hybrid, 12:43:46–12:57:35 ET. Wrapper `rc=1` on all four runs is not a guest failure: `run-d4ipad-interactive.sh` ended on `grep SWAP_ABORT | tail` under `pipefail` when there was no abort (xcodebuild `** TEST SUCCEEDED **`, `d4ipad-0022-last-exit.txt` was 0). The wrapper now exits with that last-exit status. `shared_evict` was not in the D4iPad guest-session path this session (reported `na`); Simulator logs below do have it.
+
+First c2 launch attempt at 12:59:42 ET was refused: reclaimable headroom 5759M < need 6144M. `launch-d4ipad-0022.sh` had hardcoded `UML_PREFLIGHT_GUEST_MEM=4G` even for the 3072 MiB phone guest (need = 4G + 2048M margin). After the device cmake build, headroom was just under that conservative bar. Preflight now uses the actual `GUEST_MIB` (need = 3072+2048 = 5120M). The mid-run swap abort (+2048M from start) is unchanged. The two `rc=3` attempts were discarded. Retry started 13:01:11 ET on c2 device runtime **f9dd3963** (`UML_IOS_DEBUGGER_JIT=ON`, `port/page-key` `dbbdd7e`).
+
+| run | cold s | scroll fps (frames, p95 ms) | warm s | peak footprint MB | peak RSS MiB |
+| --- | ---: | --- | ---: | ---: | ---: |
+| hybrid c2bl-ff-1 12:47 ET | 27.21 | 54.22 (109, 17.40) | 1.99 | 4918 | 4307 |
+| hybrid c2bl-ff-2 12:50 ET | 25.93 | 47.90 (96, 33.60) | 2.10 | 4775 | 4204 |
+| **c2-ff-1 13:04 ET** | **25.53** | 49.84 (100, 50.00) | 2.00 | **4174** | 4235 |
+| **c2-ff-2 13:07 ET** | **25.96** | 54.19 (109, 33.32) | **1.76** | **4213** | 4122 |
+| hybrid c2bl-cr-1 12:53 ET | 9.05 | 7.84 (16, 516.60) | 1.00 | 4610 | 4141 |
+| hybrid c2bl-cr-2 12:57 ET | 8.25 | 7.75 (16, 599.90) | 0.95 | 4582 | 3918 |
+| **c2-cr-1 13:11 ET** | **7.55** | **12.18 (25, 233.40)** | 1.08 | **3829** | 4020 |
+| **c2-cr-2 13:14 ET** | **7.36** | **9.96 (20, 333.30)** | 1.02 | **3862** | 4039 |
+
+Last-night refs, same profile, ET: official FF offf-1 24.62 s / 50.90 fps / 2.04 s / 5385 MB; hybrid 97/93 FF 25.32–25.78 s / 52.1–52.8 fps / 1.94–1.97 s / 4754–4776 MB; official CR ~9.26 s / 8.35 fps / 1.01 s / 4639 MB; hybrid CR 9.16–9.40 s / 8.4–10.9 fps / 0.89–0.99 s / 4593–4597 MB.
+
+D4iPad vs this session's hybrid: Firefox cold is parity once the first-after-idle hybrid 27.21 s is set aside (25.53–25.96 vs 25.93; last-night official 24.62 is still ~1 s faster). Firefox scroll and warm are parity. Chromium cold is a clear win (**7.36–7.55 vs 8.25–9.05**, about 16%, and vs official ~9.26). Chromium scroll is a clear win (9.96–12.18 vs 7.75–7.84). Footprint is the large, unambiguous win: Firefox **4174–4213 vs 4775–4918** (about 560–740 MB) and vs official 5385; Chromium **3829–3862 vs 4582–4610** (about 720–780 MB). Chromium first_paint also collapsed (22.6–38.8 ms vs hybrid 572–627 ms). All eight completed runs were `rc=0` after the wrapper fix.
+
+### Peek Simulator
+
+c2 sim slice **4420992a**, packaged with device+sim (MesaEGL/MesaGallium/HostBattery/HostVideoEncoder keep both slices; a D4iPad-only package would have left them device-only, as last night). Destination `platform=iOS Simulator,id=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`, `-parallel-testing-enabled NO`. Peek was Shutdown during the D4iPad gate and only booted for this block.
+
+No same-session Simulator hybrid baseline (the sim slice was removed by the device-only package, then rebuilt as c2). Comparison is last-night's same-machine, same-profile hybrid 97/93 (01:15–01:29 ET) and official simoff-ff-1.
+
+| run | cold s | scroll fps (frames, p95 ms) | warm s | peak footprint MB | evict | shared ins | peak RSS MiB |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| simoff-ff-1 last night | 28.43 | 51.66 (104, 33.48) | 2.52 | 5013 | 327002 | 1509396 | 4096 |
+| simh97-ff-1 last night | 27.74 | 48.31 (98, 50.28) | 2.26 | 4408 | 391125 | 1447092 | 3429 |
+| simh97-ff-2 last night | 26.92 | 48.40 (97, 50.20) | 2.28 | 4398 | 321446 | 1441849 | 3617 |
+| **c2sim-ff-1 13:20 ET** | 28.16 | 44.02 (95, 49.76) | 2.05 | **3784** | **0** | 809745 | 2554 |
+| **c2sim-ff-2 13:23 ET** | 27.84 | 48.78 (98, 50.00) | 2.50 | **3769** | **0** | 805743 | 2766 |
+| simh97-cr-1 last night | 9.71 | 14.46 (29, 283.40) | 0.93 | 4208 | 61923 | 1385692 | 3060 |
+| simh97-cr-2 last night | 9.63 | 20.74 (42, 183.28) | 0.83 | 4213 | 62451 | 1390509 | 3248 |
+| **c2sim-cr-1 13:26 ET** | **8.38** | **26.22 (53, 91.70)** | 1.20 | **3503** | **0** | 933090 | 2752 |
+| c2sim-cr-2 13:26 ET | — | stalled: `DESKTOP_FAILED labwc no wayland socket` at 13:27:11, then `sleep 3600`. Aborted at 13:35:04. Peak RSS had been 1259 MiB, then 52 MB. Swap grew 504/2048 → 1873/3072 MiB. Not a timing result. | | 1330 | 0 | 74054 | 1258 |
+| **c2sim-cr-2b 13:39 ET** (Peek shutdown/boot retry; leftover swap ~1825/3072) | 11.23 | 18.26 (37, 129.90) | 1.23 | **3501** | **0** | 934590 | 2847 |
+
+Simulator Firefox cold is a slight regression vs last-night hybrid (27.84–28.16 vs 26.92–27.74, about 0.4–0.9 s) and close to official 28.43. Scroll is mixed (ff-1 44.02 vs 48.3; ff-2 48.78, parity). The clear Simulator wins are footprint (**3769–3784 vs 4398–4408**, about 630 MB; vs official 5013) and **shared evictions 0 vs 321k–391k**, with about half the shared insertions. Chromium c2sim-cr-1 is a clean win on cold (**8.38 vs 9.63–9.71**), scroll (**26.22 vs 14.46–20.74**), and footprint (**3503 vs 4208–4213**), also evict 0 (vs 62k). c2sim-cr-2b completed with the same footprint and evict 0, but a slower 11.23 s cold after the stall and a Peek restart under leftover swap; treat cr-1 as the primary Chromium Simulator sample. Peek was shut down after the retry. The mini itself was not rebooted.
+
+### Verdict and landing
+
+**c2 is a clear net win as the iOS default** against the then-shipping hybrid 97/93, with official 0022 cited as the older baseline.
+
+- Chromium cold and scroll improved on D4iPad-on-Mac and on the clean Simulator run.
+- Firefox cold/scroll are parity on D4iPad and only slightly slower on the Simulator; not enough to cancel the rest.
+- Footprint is substantially better on both destinations and both browsers (about 560–780 MB).
+- Simulator evictions went to zero, which is the c2 mechanism showing up: the sharded unversioned location index no longer chews the shared cache the way hybrid 97/93 did (320k–390k Firefox evictions last night).
+
+Landed in `Kernarium-0022-clean` `.build/kernarium-xcframeworks` (device **f9dd3963**, sim **4420992a**), with a snapshot at `scratch/KRuntime_6_18_4K.xcframework.c2-dbbdd7e`. Rollback is still `scratch/KRuntime_6_18_4K.xcframework.hybrid9793`. Official 0022 backup and official `uml-darwin` (6ea8180e) are intact. The separate `src/Kernarium` worktree xcframework was not overwritten. macOS `uml-darwin-port-pksh` (e77bb9bc) is still the pre-`dbbdd7e` binary (unversioned key opt-in there); iOS builds from `dbbdd7e` have the default flip.
+
+### Next performance work (not this gate)
+
+Kernarium's goal is max-performance full Linux. Chromium is one benchmark among general workloads. The leftover vs crate is still the one written this afternoon: (1) no-materialize / install-once PIC cache, (2) fewer dispatcher exits and faster translated code (register identity, host BL/RET). Those are the next levers. A Chromium-kiosk product mode was considered and dropped.
+
