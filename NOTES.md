@@ -2521,6 +2521,11 @@ Kernarium is not pushed.
 | Run | Window (ET) | Runtime | Cold | Scroll fps | Warm Δup | Shared evict | Peak `phys_footprint` |
 | --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | FF offf-1 (same-session baseline) | 12:27:13–12:30:04 AM | official 78ac5040 | 24.62 s | **50.90** | 2.04 s | 307k | 5385 MB |
+| FF hlff-1 (95/90, 9a2cd70, first after rebuild) | 12:36:38–12:39:57 AM | a1c04956 | 26.29 s | 47.70 | 1.91 s | 411k | 4704 MB |
 
 (The 12:20–12:26 AM attempts were refused by the preflight because my
 wrapper's own pgrep pattern matched "uml-darwin". Nothing else was running.)
+
+Kernarium 9a2cd70 on `exclusive/0022-chunk-hybrid` (local only): evict at
+95%, drain to 90% (`UML_JIT_SHARED_CHUNK_EVICT_PCT` / `_LOW_PCT`). Chunk
+test + arm64-jit ctest 61/61 pass.
