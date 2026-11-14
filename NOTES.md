@@ -2535,6 +2535,29 @@ Kernarium ea13662 (defaults 97/93; tests 61/61 + chunk test pass), runtime md5 2
 | FF h97ff-1 (first after rebuild) | 12:47:52–12:51:11 AM | 20643a83 | 25.32 s | 52.77 | 1.97 s | 320k | 4754 MB |
 | FF h97ff-2 | 12:51:31–12:54:18 AM | 20643a83 | 25.78 s | 52.10 | 1.94 s | 318k | 4776 MB |
 | CR h97cr-1 | 12:55:08–12:57:57 AM | 20643a83 | 9.40 s | 10.92 | 0.99 s | 133k | 4597 MB |
+| CR h97cr-2 | 12:58:53–1:01:38 AM | 20643a83 | 9.16 s | 8.41 | 0.89 s | 134k | 4593 MB |
+
+Reference: official FF offf-1 (same session) 24.62 s / 50.90 fps / 2.04 s /
+5385 MB; earlier official FF ff-1 26.86 s / 49.30 / 2.07 s / 5425 MB;
+official CR cr-1 (9:14 PM) 9.26 s / 8.35 / 1.01 s / 4639 MB (range 4626–4639).
+
+**Verdict: landed as the D4iPad (iOS device) default.** 97/93 no longer
+over-evicts Firefox (318–320k vs official 307k; 95/90 was 408–411k). Footprint
+is lower on both browsers: Firefox −610 to −630 MB, Chromium −30 to −46 MB.
+Firefox scroll 52.1–52.8 vs 50.9 (+3–4%), cold 25.3–25.8 s (inside the official
+24.6–26.9 s spread), warm 1.94–1.97 vs 2.04 s. Chromium cold 9.16–9.40 vs
+9.09–9.26 s, scroll 8.4–10.9 vs 8.35, warm 0.89–0.99 vs 1.01 s. The Chromium
+footprint win is small but consistent across both runs.
+
+- The D4iPad xcframework now has the hybrid 97/93 device slice (md5 20643a83,
+  Kernarium ea13662, local branch `exclusive/0022-chunk-hybrid`, not pushed)
+  and the official Sim slice (97092f94, unchanged). Official xcframework backup
+  stays at `scratch/KRuntime_6_18_4K.xcframework.official0022` (device 78ac5040)
+  for rollback.
+- Official `uml-darwin` and `uml-darwin-official-0022-20261113` are untouched
+  (md5 6ea8180e).
+- Mini at 1:03 AM ET: swap 767/2048 MiB, memory 72% free, no Simulator booted,
+  nothing running. Scratch cleaned.
 
 (The 12:20–12:26 AM attempts were refused by the preflight because my
 wrapper's own pgrep pattern matched "uml-darwin". Nothing else was running.)
