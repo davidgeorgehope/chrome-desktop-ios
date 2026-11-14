@@ -2397,3 +2397,11 @@ Stopped cleanly at 11:11 PM ET (sweep killed, LaunchAgent booted out).
 | FF ckff-2 | 11:23:28–11:26:17 PM | 24.91 s | 52.43 | 211.0 / 100.0 | 2.05 s | 165k | **5049 MB** |
 | CR ckcr-5 | 11:26:59–11:29:48 PM | 9.28 s | 10.43 | 20.5 / 48.5 | 0.83 s | 0 | **4744 MB** (official 4626–4639) |
 | FF ckff-3 | 11:30:29–11:33:16 PM | 25.28 s | 47.19 | 82.0 / 135.0 | 1.62 s | 174k | **5075 MB** |
+| CR ckcr-6 | 11:33:57–11:36:47 PM | 9.19 s | 7.47 | 29.2 / 56.4 | 0.96 s | 0 | **4705 MB** |
+
+D4iPad verdict: Firefox 5049–5075 MB vs official 5403–5425 MB (**−330 to
+−376 MB**), cold 24.9–25.3 s vs 26.9 s. Chromium 4705–4744 MB vs official
+4626–4639 MB (**+66 to +118 MB**), cold 9.19–9.28 s vs 9.09–9.26 s.
+Chromium never evicts at 3.5G, so chunk charging only adds arena slack.
+Footprint is not lower on both browsers, so chunk mode is **not** a clear
+win and does not become the iOS default.
