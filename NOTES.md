@@ -3005,3 +3005,85 @@ gcc mean: c1 **55.96 s** vs official **57.83 s**, **3.2% faster** (medians 55.92
 The other benches are at parity, including spawn (step 1 is opt-in, so that is expected). Combined with the 11:40–11:56 AM browser gate (Chromium cold 6.79 vs 6.56, scroll 12.7 vs 12.8; Firefox cold and scroll inside the official spread), **c1 is a modest gcc win at browser parity. It is not a clear net win on the primary target (Chromium is flat), so it does not by itself justify a D4iPad default change.** Official `uml-darwin` (6ea8180e) and the iOS runtimes are untouched. Kernarium is not pushed.
 
 Next: why steps 1 and 2 regress Chromium cold, and whether a variant keeps the 1.7× spawn win without that cost.
+
+
+## Why steps 1 and 2 regress Chromium, and a sharded-index variant (c2) that keeps the spawn win (14 Nov 2026, 12:09–12:32 PM ET)
+
+### Cause (from the existing SIGPROF / shared-stats logs, then a same-session A/B)
+
+It is not location-key lookup cost, and it is not shared-tier cache pressure.
+
+- `LocationKey` hash find was 1.5% of SIGPROF samples on official and 1.3% on step 1 (pk2). Slightly cheaper, not more expensive.
+- Evictions were 0 on both Chromium runs. At first paint, pk2 had *fewer* shared entries (745k vs 1.08M) and a smaller payload (1037 vs 1534 MB).
+- Shared stats at first paint (st-off-cr vs st-pk2-cr): official location hits 489k / misses 1.09M; pk2 location hits 1.36M / misses 0.75M, and same-VA hits fell (1.17M vs 1.71M) because the second Chromium process now finds a slid template instead of compiling under its own VA.
+
+The cost is a lock convoy plus extra template copies:
+
+- SIGPROF over the Chromium run: locks/sync **41.7% → 52.0%**, memmove **9.2% → 12.3%**. malloc (compiling) fell 3.2% → 1.3%.
+- The same-VA directory is already 64-way sharded (padded mutexes) because one lock "serialised [executors] into a convoy that cost more than the compilation it saved." The location index still had a **single** `locations_mutex_`, under a comment that "lookups are compile-path only, so one mutex is enough." With the unversioned key, Chromium's cold start does more than a million location lookups on 4 vCPUs, all through that one mutex. Successful hits also hold the lock longer (prefix compare + `shared_ptr` copy) than a versioned miss.
+- Each location hit still **materializes** a private copy (`store_block` memmove, icache, link table). Compiling was already cheap (<1%), so avoiding 0.33M compiles does not pay for 0.87M extra materializations plus the convoy. Spawn still won 1.7× because that workload was 545 compiles per `/bin/true`.
+
+Step 2 is a separate cost and is unchanged: every A64 BL carries an extra `direct_link` relocation for the return record, paid at compile and at every materialization. It stays opt-in. c2 does not turn it on.
+
+### The variant (c2)
+
+Shard the location index the same way as the guest-PC directory: 64 padded `shared_mutex`es, keyed by `LocationKey` hash, with the per-shard maps pre-reserved. Kernarium `port/page-key` `3ecd109` (local only, not pushed). Binary `uml-darwin-port-pksh`, md5 **e77bb9bc**, on top of c1 (budget 16384, return stack off). The unversioned key is still opt-in (`UML_JIT_SHARED_LOCATION_UNVERSIONED=1`) in this binary.
+
+Gates: JIT unit tests **61/61** (the same 3 suites still don't build); the unversioned location test in `arm64-jit-shared-translation-chunks` passes.
+
+### Chromium A/B, interleaved, same session (12:17:38–12:28:11 PM ET)
+
+`pksh-gate.sh`, 4 CPU / 4G, budget 4G/128M, five rounds of official / c1+unversioned (unsharded) / pksh+unversioned.
+
+| binary | cold s | mean | med | scroll fps mean | warm s mean |
+| --- | --- | ---: | ---: | ---: | ---: |
+| official 0022 (n=5) | 6.62 6.75 6.90 6.22 7.36 | **6.77** | 6.75 | 12.1 | 0.68 |
+| c1 + unversioned, unsharded (n=5) | 8.55 8.19 8.65 7.26 8.28 | **8.19** | 8.28 | 12.6 | 0.76 |
+| **c2 = pksh + unversioned, sharded (n=5)** | 6.37 6.25 5.86 6.05 5.92 | **6.09** | 6.05 | 12.7 | 0.90 |
+
+Unsharded step 1 still costs about **+1.4 s** in this session (reproducing the earlier +0.8 s, here a bit larger). Sharding removes that regression and is **0.68 s faster than official (10%)** on cold start. Every c2 cold is at or under official's median. Scroll is at parity or a little better (12.7 vs 12.1). Warm is a bit slower (0.90 vs 0.68); not enough to cancel the cold win, but real.
+
+### Spawn A/B, same session (12:30:38–12:32:16 PM ET)
+
+ASLR on, 4 CPU / 4G. `sh_true_1000` is the original 1.7× bench (busybox `sh` loop of `/bin/true` ×1000). `sh_c_true_300` is `sh` looping 300 times on a `#!/bin/sh` script that runs `/bin/true` (close to the old script-spawn case). Two VMs each, two of each loop per VM.
+
+| phase | c2 (pksh + unversioned) | official 0022 | ratio |
+| --- | --- | --- | ---: |
+| sh_true_1000 | 1.84 1.78 1.80 1.80, mean **1.81** | 3.49 3.63 3.48 3.71, mean **3.58** | **2.0×** |
+| sh_c_true_300, first in a VM | 1.42 1.41, mean **1.42** | 8.59 8.47, mean **8.53** | **6.0×** |
+| sh_c_true_300, second in a VM | 1.39 1.38, mean **1.39** | 18.46 18.49, mean **18.48** | **13×** |
+
+The official second script-spawn in the same VM is consistently ~18.5 s (reproduced in both official VMs): version bumps from the first 300 execs make the next 300 miss even harder. c2 stays flat. The 2.0× on `sh_true_1000` is a little better than step 1's original 1.7× (3.61 → 2.11), likely the 16384 budget on top of the unversioned key.
+
+### Verdict on uml-darwin
+
+**c2 is a clear net win on uml-darwin** against official 0022: Chromium cold **−10%**, spawn **2.0×** (and 6× on the script-spawn case), gcc expected to keep c1's **3.2%** (budget 16384; sharding is off the gcc path). The return stack stays off. Official `uml-darwin` / `uml-darwin-official-0022-20261113` (md5 6ea8180e) and the iOS runtimes are untouched. Kernarium is not pushed. Swap stayed at 512/2048 MiB; no SWAP_ABORT.
+
+c2 is **not** yet a default: the unversioned key is still opt-in in the binary. Landing it means flipping that default on `port/page-key` and gating D4iPad (Firefox + Chromium + footprint), with rollback from `scratch/KRuntime_6_18_4K.xcframework.official0022`.
+
+### Remaining gap vs crate, and switch vs port (David's set: Chromium, terminal, Tailscale, Grok Bot, Grok CLI)
+
+Crate vs official 0022, same mini, 14 Nov 8:30–9:20 AM ET (crate software rendering; Kernarium virgl/GPU). After c2, the leftover is still large, and it is structural.
+
+| workload | crate | official 0022 | c2 (this afternoon) | leftover vs crate |
+| --- | ---: | ---: | ---: | --- |
+| Chromium cold | 3.82 s (3.46–4.03) | 6.96 s then; 6.77 s today | **6.09 s** | still **~1.6×** |
+| Chromium scroll | 54.7 fps (software!) | 11.5 then; 12.1 today | 12.7 fps | still **~4×** |
+| Chromium warm | 0.47 s | 0.63 then; 0.68 today | 0.90 s | crate still ahead |
+| spawn `sh` ×1000 `/bin/true` | 0.85 s | 3.58 s today | **1.81 s** | still **~2.1×** |
+| gcc -O2 | 12.5 s | 57.8 s (c1 A/B) | not re-run; c1 was 56.0 s | still **~4.5×** |
+| node int / fp, python | 1.1–1.2 / 0.9–1.1 / 1.2 s | 1.5–1.6 / 1.7 / 2.8 s | unchanged (no identity mapping) | **1.4–2.3×** |
+| boot to desktop | 7.4 s (Debian Xfce) | 3.3 s (Alpine labwc) | unchanged | Kernarium still **~2×** faster, different guest |
+
+What crate still does that we do not, with measured attribution:
+
+1. **No per-process materialization (the big remaining spawn / browser-launch lever).** Crate's cache is per-CPU and keyed by physical page; `page_va` plus offset is applied at run time, so a new process installs nothing. After c2 we reuse translations across ASLR/exec, but we still memmove a private copy, rebuild link tables and flush icache for every new address space. Step 0's SIGPROF, once compiles were gone, was memmove 30%, link-table 16%, icache 14%, shared find 8%, translated code only 8%. That is the leftover **2.1× spawn** (1.81 vs 0.85 s) and most of the leftover **1.6× Chromium cold** (6.09 vs 3.82 s). Closing it is crate's "install once" design: a physically keyed, run-time PIC cache. High effort; it changes the link-ownership contract (links are per address space today).
+2. **Faster translated code and far fewer dispatcher exits (the gcc / scroll lever).** gcc is not a translation problem (0.02% of the run, 35 G guest instructions). After the return stack (~4%) and the 16384 budget (~3%), gcc is still **~4.5×** behind (56 vs 12.5 s). Chromium *scroll* is still **~4×** behind *even though crate was in software and we have a GPU*. Cheap knobs did not move this: 15-register in-block pinning was a no-op and was dropped; the software return stack is weaker than crate's host BL/RET through the hardware return stack; 29 M dispatcher exits/gcc run remain (indirect misses, chain breaks). Register identity mapping (guest Xn in host Xn) and true host-RET prediction are the intended ports; they are large changes, and they are what should show on tight loops (node 1.4×, python 2.3×) and on V8/Chromium C++ (scroll).
+3. **Guarded cross-page chaining** only matters together with (1). Not yet relevant.
+
+**Switch vs port, for this use on iOS:**
+
+- **Port, don't stop.** c2 is a real, shippable uml-darwin win for the terminal (spawn 2×) and a modest Chromium cold win (10%), and it does not require changing products. The next port that can still move Chromium *a lot* is (1), the PIC / no-materialize cache. Until that lands, we will not catch crate on Chromium scroll or gcc. Pretending otherwise would be wrong.
+- **Do not switch the iOS product to crate today.** crate's Mac numbers are the more usable Chromium (cold 1.8×, scroll 4–5×, and Grok Bot is Chromium inside, so it gets the same). The Grok Build CLI is a native arm64 binary and the terminal is spawn-heavy, so they would feel it too. Tailscale is a long-running daemon, so it cares more about (2) than about spawn. But those numbers are Mac-only, and crate ran **without a GPU stack** (the published scripts build iOS ANGLE/virgl, not macOS). Kernarium already has a working D4iPad path (virgl / KosmicKrisp, phone JIT 3584M/64M, hybrid 97/93, measured footprints). crate is v0.1.1; its iOS memory budget, input, display, and Tailscale/slirp behaviour on a 12 GB-class device are unproven. Both need a JIT, so neither is an App Store build as-is (V8 still generates code; S2Arm's ahead-of-time trick does not apply). Boot still favours Kernarium's native-kernel UML + slim Alpine. Switching is a product rewrite of packaging, launch, budget and device integration, under crate's MPL-2.0, not a drop-in.
+- **A fair switch decision needs a crate-on-iOS spike** (GPU, device memory, Chromium cold/scroll/footprint on the same D4iPad-class setup), in parallel with porting (1). If crate is still 4× on scroll *on the device*, switching becomes the serious option. Until that spike exists, keep porting in Kernarium and treat crate as the measured target, not the shipping runtime.
+
