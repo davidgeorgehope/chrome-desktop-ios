@@ -1986,3 +1986,50 @@ RSS went *down* (6.4→5.5 GiB) because less is retranslated. Firefox at
 4G: cold 38.8–40.2→18.5–18.7 s (uml-darwin 15.8–15.9 s), warm 2.9–3.3→1.8–2.0 s,
 scroll 48–52 fps, evictions 2.5M→0.23M, RSS 6.6→5.7 GiB. Swap stayed
 862.94M throughout. **Landed: D4iPad default is now 4G/128M.**
+
+### Simulator results (Peek iPhone 17, parallel=NO, one destination; 8:01–8:20 PM ET)
+
+Peek was booted at 7:48 PM ET, but `simctl bootstatus` hung and the
+first attempt (7:55–8:00 PM ET) failed with “Simulator device failed to
+launch … system shell probably crashed” (SpringBoard not up); discarded.
+After a clean shutdown and reboot at 8:01 PM ET the runs below went one
+at a time via `run-sim-interactive.sh` (`UML_ALLOW_HEAVY=1` only for the
+start preflight; SWAP_ABORT on and now kills the app). Swap 854.94→846.94M,
+no SWAP_ABORT. Peek shut down at 8:22 PM ET; iPad (A16) stayed Shutdown.
+
+| Run | Window (ET) | JIT budget / L1 | Cold launch | first_paint_ms | Scroll fps (frames, p95 ms) | Input key / click ms | Warm Δup / nav_ms | Shared insert / evict (max) | Peak RSS |
+| --- | --- | --- | ---: | ---: | --- | --- | --- | --- | ---: |
+| CR simdef-cr-1 | 8:01–8:04 PM | default (1G/256M) | 22.95 s | 2195.6 | 1.92 (5, 883.1) | ok, 184.5 / 144.2 | 5.99 s / 3689 | 3.09M / 3.09M (105792 B) | 2744 MiB |
+| FF simdef-ff-1 | 8:05–8:07 PM | default (1G/256M) | 46.82 s | 46.0 | 28.00 (56, 199.9) | ok, 504.3 / 333.0 | 4.63 s / 2406 | 3.76M / 3.76M (105792 B) | 2917 MiB |
+| CR sim4G-cr-1 | 8:08–8:10 PM | **4G/128M** | **9.24 s** | 730.7 | **18.39** (37, 250.0) | ok, 27.9 / 44.9 | **0.82 s** / 530 | 1.38M / 15k (3 GiB) | 3448 MiB |
+| CR sim4G-cr-2 | 8:11–8:13 PM | **4G/128M** | **8.92 s** | 563.3 | **16.83** (34, 379.4) | ok, 34.4 / 42.7 | **0.69 s** / 481 | 1.37M / 3k | 3536 MiB |
+| FF sim4G-ff-1 | 8:14–8:16 PM | **4G/128M** | **19.77 s** | 4.0 | **54.12** (115, 17.4) | ok, 6.0 / 91.3 | **2.01 s** / 1118 | 1.44M / 261k | 3827 MiB |
+| FF sim4G-ff-2 | 8:17–8:20 PM | **4G/128M** | **20.50 s** | 34.0 | **50.36** (101, 33.3) | ok, 23.0 / 220.0 | **2.05 s** / 0 | 1.44M / 261k | 3776 MiB |
+
+The Simulator default was worse than D4iPad: the 1 GiB default whole
+budget is eaten by eight private L1s, the shared tier is 105,792 bytes,
+and **every** insertion is evicted (no cross-process reuse of libxul /
+libchrome translations). At 4G/128M: Chromium cold 23.0→8.9–9.2 s, scroll
+1.9→16.8–18.4 fps, warm second page 6.0→0.7–0.8 s, key/click 185/144 →
+28–34/43–45 ms; Firefox cold 46.8→19.8–20.5 s, scroll 28→50–54 fps, warm
+4.6→2.0 s. (Peak RSS is the sampled app process only; Peek itself holds
+several GiB.) **Landed: `launch-sim-0022-test.sh` now defaults to
+4G/128M** (`JIT_BUDGET=default` restores the binary default).
+
+### Summary vs uml-darwin official 0022 (two-run ranges)
+
+| Metric | uml-darwin | D4iPad 2G (before) | D4iPad 4G | Sim default (before) | Sim 4G |
+| --- | --- | --- | --- | --- | --- |
+| Chromium cold launch | 7.5–7.6 s | 21.6–22.1 s | **8.5–8.7 s** | 23.0 s | **8.9–9.2 s** |
+| Chromium scroll fps | 9.25–9.47 | 3.31 (1 stall) | 9.4–12.9 | 1.92 | 16.8–18.4 |
+| Chromium warm 2nd page | 0.60–0.64 s | 3.56 s | 0.60–0.74 s | 5.99 s | 0.69–0.82 s |
+| Firefox cold launch | 15.8–15.9 s | 38.8–40.2 s | **18.5–18.7 s** | 46.8 s | **19.8–20.5 s** |
+| Firefox scroll fps | 40.7–42.2 | 34.7–48.9 | 48.3–52.2 | 28.0 | 50.4–54.1 |
+| Firefox warm 2nd page | 1.16–1.19 s | 2.9–3.3 s | 1.8–2.0 s | 4.6 s | 2.0 s |
+
+The Chromium cold-launch gap is closed to within ~1–1.7 s of uml-darwin
+on both iOS targets; the remaining Firefox gap is ~3–5 s, and Firefox
+still evicts ~0.23–0.26M entries at 3 GiB shared (a 6G budget is the next
+probe; not run because D4iPad RSS is already ~5.7 GiB on the 16 GB mini).
+The int2-cr-1 stall at 2G (guest at 0.2% CPU from SCROLL_START) did not
+recur at 4G.

@@ -32,10 +32,17 @@ export TEST_RUNNER_KERNARIUM_ROOTFS="$ROOTFS_NAME"
 export TEST_RUNNER_KERNARIUM_SERIAL_LOG=guest-serial.log
 export TEST_RUNNER_KERNARIUM_VCPU_COUNT=8
 export TEST_RUNNER_UML_JIT_SHARED_STATS=1
-# Optional JIT budget (default: binary default, 1 GiB at mem=4G, which
-# 8 x 256 MiB L1s consume entirely). JIT_BUDGET=4G JIT_EXECUTOR_BUDGET=128M.
-if [ -n "${JIT_BUDGET:-}" ]; then export TEST_RUNNER_KERNARIUM_JIT_CACHE_BUDGET="$JIT_BUDGET"; fi
-if [ -n "${JIT_EXECUTOR_BUDGET:-}" ]; then export TEST_RUNNER_KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET="$JIT_EXECUTOR_BUDGET"; fi
+# JIT budget. The binary default (1 GiB at mem=4G) is consumed by the
+# 8 private L1s, leaving a ~100 KiB shared tier that evicts every insert
+# (13 Nov 8:01 PM ET: Chromium cold 23 s, scroll 1.9 fps). 4G/128M gives a
+# 3 GiB shared tier (Chromium cold 9 s, scroll 17-18 fps). Override with
+# JIT_BUDGET / JIT_EXECUTOR_BUDGET; JIT_BUDGET=default keeps the binary default.
+JIT_BUDGET="${JIT_BUDGET:-4G}"
+JIT_EXECUTOR_BUDGET="${JIT_EXECUTOR_BUDGET:-128M}"
+if [ "$JIT_BUDGET" != default ]; then
+  export TEST_RUNNER_KERNARIUM_JIT_CACHE_BUDGET="$JIT_BUDGET"
+  export TEST_RUNNER_KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET="$JIT_EXECUTOR_BUDGET"
+fi
 
 {
   echo "===== $(date) sim-0022 tag=$TAG rootfs=$ROOTFS_NAME (parallel=NO, 1 dest) pid=$$ ====="
