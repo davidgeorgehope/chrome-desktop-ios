@@ -2448,3 +2448,21 @@ browsers, so it is **not landed**:
 - Probable next step: charge chunks only once the shared tier is near its
   cap, or return the open chunk's slack. That would remove the Chromium
   overhead.
+
+## Hybrid shared-tier budget (Kernarium `exclusive/0022-chunk-hybrid` 6c186ff off 64d6c34, 14 Nov 2026, ~12:00 AM ET onward)
+
+Why chunk mode cost Chromium memory: the byte budget over-charges about
+1.65x payload. Official CR hits its 3.22 GB cap (payload 1.94 GB) and
+evicts about 30k entries. Chunk charging counts the true committed arena
+(2.22 GB + 0.82 GB index), stays under the cap, and evicts nothing, so it
+keeps about 70–120 MB more.
+
+Hybrid keeps the byte charges. Past 90% of the cap
+(`UML_JIT_SHARED_CHUNK_EVICT_PCT`), a publisher evicts up to 4 coldest
+whole chunks after its insert, with one reclaimer at a time and outside the
+shard lock. A full tier reclaims whole chunks first, then falls back to the
+PC sweep. `UML_JIT_SHARED_CHUNK_BUDGET=0` gives the byte budget and `1/full`
+gives the old whole-chunk charging. New unit test
+`hybrid_keeps_byte_charges_until_the_threshold_then_evicts_chunks` (first
+crossing at 818 entries, 49 chunk evictions, accounted ≤ cap, 83 chunks
+returned, hot entries kept). arm64-jit ctest 61/61.
