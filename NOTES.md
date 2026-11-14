@@ -3238,3 +3238,33 @@ The three suites that still do not compile are unchanged and pre-existing: `arm6
 
 Default (flag off) behavior is the landed c2 path. PIC stays opt-in until uml-darwin measurement vs official 0022 and a fair c2 baseline (same `uml-darwin-port-pic` binary with the flag off).
 
+
+
+## PIC v1 uml-darwin measurement: not a win, keep opt-in (14 Nov 2026, 2:06–2:15 PM ET)
+
+Unit tests were already recorded in `50a7b92`. This chunk ran the first uml-darwin A/B and stopped short of iOS.
+
+Copied binary: `Kernarium-0022-clean/.build/presets/macos-integration/bin/uml-darwin-port-pic` (md5 **3c52bd13587e0f49b4a40635cf33fb61**). Official `uml-darwin-official-0022-20261113` remains **6ea8180e**. Fair c2 baseline is the same `port-pic` binary with the flag off (tree is `dbbdd7e` plus the PIC opt-in; unversioned location key is already the default). Kernarium was committed locally only on `port/page-key` (PIC JIT sources); it was not pushed. Pre-existing dirty non-JIT files were left unstaged.
+
+### Spawn (4 CPU / 4G, budget 4G/128M, preflight +2048M swap abort, slim Alpine, 14:06 ET)
+
+Swap used was still 1761/3072 MiB; headroom 6430–7044M vs need 6144M; preflight allowed the runs. No SWAP_ABORT.
+
+| tag | binary | sh_true_1000 a/b | sh_c_true_300 a/b |
+|---|---|---|---|
+| **sp-picbin-c2-1** 14:06 ET | port-pic, flag off (c2) | **2.03 / 2.00** | **1.61 / 1.58** |
+| **sp-picbin-pic-1** 14:06 ET | port-pic, `UML_JIT_SHARED_PIC=1` | — | guest panicked at 0.41 s |
+| **sp-picbin-off-1** 14:06 ET | official 0022 (6ea8180e) | **3.64 / 3.74** | **8.80 / 19.20** |
+
+c2 vs official is the same picture as this afternoon: spawn about 1.8×, script-spawn much faster, official's second script-spawn in the same VM still blows up (~19 s, previously ~18.48). PIC on never reached the spawn payload.
+
+PIC boot log: `mount[103]: segfault at d3cc07580 ip 0000000d3cc07580 sp 00007fffc52b7d10 error 10`, then `UML_BOOT_ERROR:cannot mount devtmpfs`, `Kernel panic - not syncing: Attempted to kill init!`. `/init` started; the first `mount` (devtmpfs) died. The fault address looks like a host heap pointer used as a branch target (UML reports it as a guest SIGSEGV). Unit tests, including the A64 runtime suites, did not catch this; they do not fork a second guest address space that reuses a published PIC template the way `init` then `mount` does. Trampoline MOVZ/MOVK/STR/BR encodings were disassembled and are correct in isolation.
+
+No gcc/node/python or Chromium/Firefox numbers for PIC (the VM cannot boot). Those were not rerun for c2/official in this chunk; prior c2 vs official figures still stand. Did **not** package an iOS runtime or start a D4iPad-on-Mac / Peek gate.
+
+### Verdict
+
+**Not a clear win. Keep `UML_JIT_SHARED_PIC=1` opt-in. Do not land as the iOS default.** Flag-off remains landed c2. Next work is to fix the multi-AS reuse crash (mount at early boot) before measuring again.
+
+Note: mid-measurement, `scratch/jitprof/` disappeared (another worker is freeing disk). Official and `port-pic` binaries, preflight, `notes/cpu-benches`, the slim rootfs, and the KRuntime snapshots were still present when this was written. Recreate a small spawn/cpu harness from the scripts already recorded in NOTES if that directory stays gone.
+
