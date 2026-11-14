@@ -2201,3 +2201,38 @@ Chromium 9.6–10.2 s at 4.24 GB and Firefox 27–29 s at 5.0 GB. Peek booted
 9:28 PM, shut down 9:38 PM ET; iPad (A16) Shutdown throughout; swap
 822.94M, no SWAP_ABORT; no leftover processes; official 0022 md5
 `6ea8180e05fc6736d32530811ba3c439`.
+
+## JIT shared tier: free publications, chunk budget, chunk-coherent eviction (branch only, 13 Nov 2026, 9:40 PM ET onward)
+
+Kernarium branch `exclusive/0022-chunk-evict` (local only, never pushed), off
+`exclusive/0022-clean` 9676ead. Commit 1720a1b (9:5x PM ET).
+
+**Root cause found first: shared publications were never freed.** A packed
+publication's `guest_words` member was an owning alias of the publication's
+own control block (`shared_ptr{owner, guest}`), i.e. a self-reference. Its
+count never reached zero, so no `SharedTranslation` destructor ran, no arena
+chunk's `live` hit 0, and no chunk ever reached the freelist. "Eviction" only
+removed index entries; resident shared-tier memory was every translation
+ever published. That is why smaller budgets *raised* footprint (more churn =
+more republication = more leaked chunks). Unit test before the fix:
+874 evictions, 0 chunks returned; after: 2000 evictions, 16 returned.
+
+Fix + new mode:
+- `guest_words` is now a non-owning alias; the three L1 sites that keep the
+  words (`saved_guest_words`) pin via `owned_guest_words(translation)`
+  (aliasing the translation's control block). Unused test: `use_count()==1`.
+- Chunk budget (default in `instance()`; `KERNARIUM_/UML_JIT_SHARED_CHUNK_BUDGET=0`
+  turns it off): budget = index overhead + committed 1 MiB chunks
+  (process-wide). Over budget, `reclaim_chunks` evicts every cache entry of
+  the coldest retired chunk (min last-hit tick, then oldest), up to 16 chunks
+  per insert; the PC clock sweep runs only for an explicit shard cap.
+- Chunks are mmap'd; an emptied chunk gets `madvise(MADV_FREE_REUSABLE)`
+  (drops out of phys_footprint at once), `MADV_FREE_REUSE` on reuse.
+- Stats line adds `chunk_mode arena_committed arena_free chunks_taken
+  chunks_returned chunk_evictions`.
+- New unit test `arm64-jit-shared-translation-chunks` (8 MiB budget, 2760
+  publications: committed peak 7 MiB, hot chunk kept, cold chunk evicted, pin
+  survives eviction). Note: `arm64-jit-shared-translation-cache` does not
+  compile on 0022-clean already (it still uses vector APIs on the span fields).
+
+Results: (in progress)
