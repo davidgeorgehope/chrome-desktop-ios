@@ -3476,3 +3476,54 @@ On the default ASLR-on set, ic2 gcc_O2 is **3.2%** faster than c2 (55.87 vs 57.6
 **Chromium / Firefox** were not measured in this run (the previous `scratch/jitprof` k-measure copy is gone; I did not start a long desktop session on a reconstructed harness after the wall A/B). **ic2 is not landed** and is not the iOS default. No D4iPad-on-Mac / Peek gate. Official and c2 binaries were not overwritten. Kernarium was not pushed. David's phone was not touched. Swap stayed near 1569–1650/3072 MiB; no SWAP_ABORT.
 
 **Verdict.** The table does what it was supposed to do on the profile (return misses −96.5%, dispatcher entries −37% on gcc) without a BL reloc tax. The wall effect on gcc is real but modest (~3% vs c2 with ASLR on), and ASLR-off spawn is not clearly safe. Leave `uml-darwin-port-ic2` as a local candidate. Next: measure Chromium/Firefox cold and footprint vs c2 and official before any land; then tighten `nonlink.other` and only then consider a fix.
+
+## ic2: lazy mmap + epoch tag, spawn 3×, browsers (14 Nov 2026, 4:03–4:36 PM ET)
+
+Follow-up to the first ic2 table (`e0f296a` / `5a1d0893`). The 16K-set × 2-way A64 table stays, but it is no longer value-initialized or `fill_n`'d on every cache reset.
+
+**What changed (local Kernarium only, not pushed).** `port/page-key` `aec2625` (`jit: lazy mmap A64 indirect table with epoch tag`). The 512 KiB table is `mmap(MAP_ANON)` so pages are demand-zeroed on first train. Stored keys carry the link epoch in bits 48–60 (1..8191, never zero, TBI bit 61 and the AArch32 ISA bits left alone), so a probe misses a stale entry before it loads the record pointer. `clear_cache()` and a 13-bit tag wrap rewind the mapping instead of a 512 KiB fill. macos-unit `uml_arm64_jit_indirect_link_codegen_tests` and `uml_arm64_jit_indirect_link_runtime_tests` passed. Rebuilt macos-integration `uml-darwin` was copied only to `uml-darwin-port-ic2`, md5 **`e4217bd527e1874df0cadb561f4faf5b`**. Official remains **`6ea8180e`**. c2 `uml-darwin-port-pic` remains **`feeca45b`**. PIC off, 4G/4CPU, budget 4G/128M throughout. rclone USB and Movies/KidVid jobs were left running.
+
+**Spawn set, 3 interleaved runs each, profiler off** (4:04:35–4:11:40 PM ET). Means of three, times in seconds. `_aslr2` is the default (guest `randomize_va_space=1`); `_aslr0` is ASLR off.
+
+| phase | official mean (runs) | c2 mean (runs) | ic2 mean (runs) |
+|---|---:|---:|---:|
+| fork_only_1000 ASLR on | 0.21 (0.20, 0.22, 0.20) | 0.21 (0.21, 0.22, 0.21) | 0.22 (0.24, 0.21, 0.21) |
+| fork_exec_tiny_1000 ASLR on | 0.28 (0.28, 0.28, 0.29) | 0.29 (0.29, 0.30, 0.28) | 0.30 (0.30, 0.31, 0.28) |
+| fork_exec_true_1000 ASLR on | 1.48 (1.51, 1.50, 1.44) | 1.65 (1.68, 1.65, 1.63) | 1.66 (1.72, 1.68, 1.57) |
+| sh_true_1000 ASLR on | 3.78 (3.80, 3.73, 3.81) | 2.41 (2.36, 2.46, 2.40) | **2.39** (2.49, 2.40, 2.27) |
+| sh_tiny_1000 ASLR on | 0.81 (0.83, 0.81, 0.80) | 0.91 (0.96, 0.91, 0.87) | 0.91 (0.92, 0.94, 0.87) |
+| fork_only_1000 ASLR off | 0.20 (0.20, 0.21, 0.20) | 0.20 (0.21, 0.21, 0.19) | 0.22 (0.23, 0.22, 0.22) |
+| fork_exec_tiny_1000 ASLR off | 0.27 (0.27, 0.26, 0.27) | 0.28 (0.28, 0.28, 0.27) | 0.28 (0.30, 0.28, 0.27) |
+| fork_exec_true_1000 ASLR off | 1.67 (1.69, 1.66, 1.65) | 1.88 (1.93, 1.85, 1.86) | 1.92 (1.98, 1.94, 1.85) |
+| sh_true_1000 ASLR off | 2.14 (2.14, 2.16, 2.13) | 2.66 (2.70, 2.62, 2.65) | **2.64** (2.75, 2.63, 2.55) |
+| sh_tiny_1000 ASLR off | 0.83 (0.83, 0.85, 0.81) | 0.91 (0.91, 0.95, 0.88) | 0.93 (0.93, 0.95, 0.90) |
+
+The earlier single-run ASLR-off spawn regression (ic2 sh_true 2.93 vs c2 2.62, sh_tiny 1.02 vs 0.89, fork_exec_true 2.11 vs 1.83) is gone. ic2 is even with c2 within a couple of percent; official remains faster on raw spawn and slower on `sh_true` with ASLR on (the known versioned-key gap).
+
+**Profiler-off gcc_O2 wall** (4:13:32–4:26:16 PM ET, one run each):
+
+| phase | official | c2 | ic2 |
+|---|---:|---:|---:|
+| gcc_O2 ASLR on | 59.10 | 58.47 | **54.87** (−6.2% vs c2, −7.2% vs official) |
+| gcc_O2_again ASLR on | 59.61 | 57.65 | **56.13** (−2.6% vs c2, −5.8% vs official) |
+| gcc_O2 ASLR off | 60.86 | 60.26 | **57.53** (−4.5% vs c2, −5.5% vs official) |
+| gcc_O2_again ASLR off | 60.61 | 60.11 | **57.95** (−3.6% vs c2, −4.4% vs official) |
+
+gcc is a clear win on both ASLR settings (the previous ASLR-off gcc slip is also gone).
+
+**nonlink.other by instruction class** (ic2 profiler on, gcc_O2 ASLR on phase delta). `other` is still 8.72 M of 8.77 M nonlink. Of that: **load_store 5,781,927 (66.3%)**, exclusive 1,412,097 (16.2%), integer 1,529,147 (17.5%), fp_simd / system / sve_sme / other 0. These are helper / always-C++ memory and integer paths that return `continued` to an already-linkable PC, not page-cross or fetch-window fall-through. No safe fix in this run (exclusive must not be blindly linked; a load/store-helper link needs its own design).
+
+**Chromium / Firefox cold + footprint** (4:32:34–4:36:54 PM ET). Guest 4G, 4 CPU, budget 4G/128M, persist off, 1920×1080 Metal, `measure-interactive` with a 240 s wait. Cold is wall seconds from `CHROMIUM_START`/`FIREFOX_START` to `INTERACTIVE_LAUNCH`. Peak `phys_footprint` is from `footprint -p` on that run's `uml-darwin` PID only (the first two samplers were left running past process exit because the wrapper exited non-zero after a successful `INTERACTIVE_DONE`; peaks below exclude later PIDs). One run each.
+
+| run | cold s | scroll fps (frames, p95 ms) | warm first_paint ms | peak phys_footprint MB |
+|---|---:|---:|---:|---:|
+| chromium official | 8 | 11.53 (24, 169.6) | 228 | 4475 |
+| chromium c2 | 6 | 12.63 (26, 143.1) | 195 | 3876 |
+| chromium ic2 | 6 | 12.29 (26, 197.3) | 297 | 3866 |
+| firefox official | 16 | 33.38 (—, 146.9) | 65 | 4982 |
+| firefox c2 | 17 | 27.47 (55, 83.1) | 134 | 4060 |
+| firefox ic2 | 17 | 42.17 (85, 66.2) | 15 | 4055 |
+
+ic2 cold and footprint match c2 (and beat official by ~600–900 MB). Scroll and warm are one-run noise; nothing there looks like the old return-stack Chromium regression.
+
+**Verdict.** ic2 is a **clear uml-darwin win** against landed c2 and official 0022: gcc is faster, the spawn set is no worse over three runs, and Chromium/Firefox cold + footprint are no worse than c2. Leave `uml-darwin-port-ic2` (`e4217bd5`) as the local candidate. **It is not the iOS default.** D4iPad-on-Mac and Peek gates were not started in this run (no iOS package, no phone install). Official and c2 binaries were not overwritten. Kernarium was not pushed. Next: the usual D4iPad-on-Mac + Peek footprint gate before flipping any iOS default. A later load/store-helper link can attack the 66% `nonlink.other` bucket; do not land a page-cross change for it.
