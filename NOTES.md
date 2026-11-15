@@ -3658,3 +3658,44 @@ Target, approved 6:34 PM ET: UDID `00008140-000E44300EE1401C`, CoreDevice `29AAC
 ### Verdict
 
 crate is the Linux-on-iPhone app track. On D4, Chromium cold and scroll, gcc, and `sh_true` are clearly faster than today's c2 baselines, with the fairness caveats above. **Do not switch the landed Kernarium iOS default off c2.** Firefox on crate D4 timed out. The phone 4 GB guest booted with JIT and has not been jetsamed; the phone suite still needs David to tap Allow, then a repeat of cold / scroll / warm / footprint / gcc_O2 / spawn with desktop screenshots.
+
+
+## crate on Daddy's iPhone 16 Pro: David's session, light measurements only (14 Nov 2026, 7:36–7:45 PM ET)
+
+David opened crate at **7:36:40 PM ET** (pid **2503**, helper 2505; he mentioned it at 7:38 PM ET and called it "pretty good"). He had presumably already tapped Allow (no Local Network sheet this launch; JIT and the VM started immediately). He also deleted **LinuxRunner** himself; a user-app listing at 7:44 PM ET confirmed it is gone. It was not reinstalled. Henge, Voxl Pocket, and Grok Bot were left alone.
+
+The 4 GB VM was **already stopped** when we looked, and the phone screen was off (two 1206×2622 screenshots at 7:43–7:44 PM ET were identical black frames). Per the brief, the suite was **not** started and crate was not relaunched.
+
+### What this launch did
+
+crate.log (unchanged on a later pull) for pid 2503, iOS 26.6.1:
+
+- memory: physical 8,014,741,504; limit **6,442,450,944** (6 GiB); available ~6,440,418,792
+- JIT: builtInStikJIT, 1024 MB claimed at `118564000` in **1.60 s**; helper blessed 65,536 pages and detached
+- `vm: starting Debian: 4 CPUs, 4096 MiB, code 1024 MiB`
+- virtio-gpu 3D, ANGLE Vulkan / MoltenVK on Apple A18 Pro, OpenGL ES 3.1, scanout **1080×600**, VM created in **0.15 s**
+- `[ 53.159] vm: The VM was stopped.` `[ 53.237] vm: freed, footprint 1722 MiB`
+
+Stop time is about **7:37:33 PM ET**. That 1722 MiB figure is the process footprint after the VM was freed, not a peak-during-browser sample. No `footprint` binary on the phone; we did not start a sampler.
+
+Guest serial (`Library/Caches/console.log`, 537 lines) still ends at LightDM starting and `debian login:` — the same serial quiet we saw on the earlier boot. Autologin and Xfce **did** run: the VM-stop preview (`preview.jpg`, 1080×600, guest clock 2026-11-14 19:37) shows an Xfce session as `cratebench`, Chromium on https://google.com with the `--no-sandbox` banner (the bakeoff Chromium flags), and Firefox-esr in the window list. So the desktop was usable in under a minute of guest time even though serial never moved past the login prompt. There were no `===INTERACTIVE_===` / `===T===` / `DESKTOP_READY` markers, so this is not a suite result. Chromium was on Google, not the metrics page, which also fits David using the machine rather than a completed bench run.
+
+CoreDevice's wireless tunnel dropped to `disconnected` around 7:41 PM ET during a later file listing (`0xE8000003` / failed to allocate RSD). Logs and the preview were pulled, and the black lock-screen shots taken, over a short pymobiledevice3 `--native` RSD tunnel, which was then stopped so remoted can reconnect. The daily-phone DDI was not replaced. crate was left running (pid 2503) with the VM stopped.
+
+### Phone suite table
+
+| workload | iPhone 16 Pro crate (7:36–7:37 PM ET session) | prior D4 crate (same disk, unmatched host) |
+| --- | ---: | ---: |
+| Chromium cold | not measured | 2.48 s (cr-2; first_paint 130.9 ms) |
+| Chromium scroll | not measured | 58.80 fps (118 frames, p95 16.80 ms) |
+| Chromium warm | not measured | first_paint 71.0 ms, nav 282.8 ms |
+| Firefox cold / scroll / warm | not measured (Firefox-esr was open in the panel at stop) | timed out 180 s ×2 |
+| footprint | **1722 MiB after VM free** (not peak-during-browser) | 1614–1652 MiB after VM free on D4 |
+| gcc_O2 aslr2 | not measured | 12.76 s / again 12.64 s |
+| spawn (`fork_exec_true` / `sh_true`) | not measured | 0.98 s / 0.86 s |
+
+To collect the actual phone numbers, the 4 GB VM needs to be started again and left up through cold / scroll / warm / gcc_O2 / spawn, with the metrics page — not while David is using it.
+
+### Screenshot
+
+- `notes/crate-ios-shots/phone-preview.jpg` — VM-stop preview, 1080×600, Chromium on google.com in Xfce at 7:37 PM ET.
