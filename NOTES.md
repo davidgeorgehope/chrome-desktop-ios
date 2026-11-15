@@ -3567,3 +3567,94 @@ Peek Firefox cold is ~0.6–1.3 s slower; Chromium cold is ~0.7–0.8 s slower t
 **nonlink.other / load_store (analysis only, no code change).** Because ic2 did not land, no helper-link fix was implemented or measured. The insn-class probe (gcc_O2 ASLR on, ic2 profiler-on) is unchanged: of 8.72 M `nonlink.other`, load_store is 5,781,927 (66.3%), exclusive 1,412,097 (16.2%), integer 1,529,147 (17.5%). These are not page-cross (272) or fetch-window (44 k). In `jit_compiler_memory.cpp`, several memory ops take `cold_exit(...)` and then `return Action::terminate` — notably non-exclusive ordered stores (STLR / ordered_slow) and exclusive/atomic helpers (`exclusive_slow`). `Action::terminate` skips the end-of-block `emit_direct_branch` that a fetch-window cut uses. When the helper finishes successfully it returns `continued` to the already-compiled fall-through PC, which `classify_continued_exit` records as `nonlink.other` with a load/store or exclusive previous word. A safe follow-up is a **post-helper success stub** that links only helpers with a static successor and no control-flow change (ordinary completed loads/stores). Do not blindly link exclusives (reservation / exclusive-monitor semantics), faulting paths, or helpers that may redirect the PC. Integer `other` is the same class of always-C++ helper and needs its own inventory. No Kernarium commit for this.
 
 Logs: `/tmp/k-harness/logs/{build-ic2-ios,ic2-d4ipad-gate-host,ic2-sim-gate-host}.log`, `notes/ios-interactive/run-d4ipad-ic2.status`, `notes/ios-interactive/run-sim-ic2.status`.
+
+
+## crate-ios D4iPad A/B and iPhone 16 Pro install (14 Nov 2026, 5:30–7:16 PM ET)
+
+David approved switching Linux-on-iPhone to crate-ios and installing it on **Daddy's iPhone 16 Pro** at 6:34 PM ET. Kernarium engine work stays paused. The landed iOS default remains **c2** (`f9dd3963` / `4420992a`). Official `uml-darwin` / `uml-darwin-official-0022-20261113` (`6ea8180e`) were not touched. Kernarium was not pushed. Henge, LinuxRunner, Voxl Pocket, and Grok Bot were not modified. rclone USB / Movies jobs were left alone. The mini was not rebooted. The mounted DDI (17F113) was not replaced.
+
+Scratch crate-ios is at `linux-ios-bakeoff/scratch/crate-ios`, tip **`7c351b0`** (v0.1.3), dirty with the local fixes in `patches/crate-ios/`. Do not push that clone to upstream. Crate is MPL-2.0: this tree holds a patch set and our own seed/bench/waiter scripts (`scripts/crate-ios/`), not a vendored copy of crate sources.
+
+### Why the first phone build could not do 4 GB, and how Henge can
+
+The wildcard `iOS Team Provisioning Profile: *` for team `4P2629648N` does **not** include `com.apple.developer.kernel.increased-memory-limit` or `extended-virtual-addressing`. The first device build, signed as upstream `com.amendez.crate` with that wildcard, logged a process limit of 3,539,992,576 bytes (~3.54 GB). A 4 GB guest plus 1024 MB of JIT cannot fit in that.
+
+`com.amendez.crate` cannot be registered to `4P2629648N` ("not available"). Explicit App ID profiles already used by Henge, LinuxRunner, and Kernarium on this team **do** include both entitlements. Henge on this 16 Pro (8 GB, 7643–7644 MiB physical) logs "increased memory limit: yes; extended addressing: yes; limit 6141 MB."
+
+The working device build is **`com.davidhope.crate`** / helper `com.davidhope.crate.jithelper`, signed with "iOS Team Provisioning Profile: com.davidhope.crate" (`-allowProvisioningUpdates`, team `4P2629648N`). Entitlements: `get-task-allow` plus both memory entitlements. The helper must not inherit the kernel entitlements (do not set `CODE_SIGN_ENTITLEMENTS` globally). crate.log after that rebuild, 6:57:47 PM ET: limit **6,442,450,944** bytes (exactly 6 GiB), available ~6,440,385,952.
+
+Caveat vs Henge: Henge can keep guest RAM out of the jetsam limit once a debugger is attached (or page it to a file). Crate still counts guest RAM plus resident JIT pages against the process limit (JIT pages are made resident at claim time). 4 GB guest + 1024 MB JIT leaves about 1 GiB of headroom under the 6 GiB cap. If jetsam kills it, step the guest down to 3.5 GB.
+
+### D4iPad-on-Mac crate suite (5:30–6:31 PM ET)
+
+Same mini (Mac14,12 M2 Pro). Crate: 4 vCPUs, 4096 MiB guest, 1024 MB JIT, Debian 13 Xfce (X11), virtio-gpu 3D via virglrenderer + ANGLE Vulkan / MoltenVK (Apple M2 Pro), scanout **1328×928** (fits 1330×924 pt). JIT claimed in 5.31 s; VM created in 1.31 s. Console: `/tmp/k-harness/logs/crate-d4-console.log` (copy of the D4 container Caches/console.log). `===BENCH_DONE===` at 6:31:10 PM ET (23:31:10 UTC), guest up 691.84 s.
+
+Chromium cr-1 waited 180 s with no metrics (the first window did not reach the page). cr-2 is the reported sample. Wall cold is `INTERACTIVE_LAUNCH` up minus `CHROMIUM_START` up (248.62 − 246.14 = **2.48 s**). Chromium was started with `--disable-gpu-compositing --enable-gpu-rasterization` plus the usual sandbox/background flags. Firefox ff-1 and ff-2 both hit the 180 s wait and were stopped with no `INTERACTIVE_*` markers.
+
+Comparison baselines, **unmatched**, same day: c2 D4iPad browser gate 1:04–1:14 PM ET (8 vCPUs, 3072 MiB, JIT 3584M/64M, Alpine labwc Wayland, 1920×1080, persist off, device runtime `f9dd3963`). c2 gcc/spawn from `c2-disp-prof4` 3:20–3:25 PM ET on macOS `uml-darwin-port-pic` with PIC off, md5 `feeca45b`, 4 CPUs / 4 GiB (ab-c2.log around 3:45 PM ET is in the same band: gcc 57.69 / 57.14, `sh_true` 2.26). gcc/spawn were not rerun on D4 c2 today. There was no `footprint` sampler on the crate D4 run; crate.log after VM stop reported a freed process footprint of 1614–1652 MiB, which is not a peak-during-browser number and is not comparable to c2's 3829–3862 MB Chromium peak.
+
+| workload | crate D4 (this run) | c2 same-day baseline | notes |
+| --- | ---: | ---: | --- |
+| Chromium cold | **2.48 s** (cr-2; first_paint 130.9 ms) | 7.36–7.55 s | unmatched display, vCPU, RAM, distro, compositor |
+| Chromium scroll | **58.80 fps** (118 frames, 2006.9 ms, p95 16.80 ms) | 9.96–12.18 fps | crate near vsync; c2 at 1920×1080 |
+| Chromium warm | first_paint 71.0 ms, nav 282.8 ms | 1.02–1.08 s | different warm metric shape; crate is page nav |
+| Firefox cold / scroll / warm | timed out 180 s ×2 | 25.53–25.96 s / 49.84–54.19 fps / 1.76–2.00 s | crate Firefox never reached the metrics page |
+| gcc_O2 aslr2 | **12.76 s** / again **12.64 s** | 57.31 s / 57.67 s (prof4) | same Mac, 4 CPU / 4 GiB; UML vs full-system VM |
+| fork_only_1000 aslr2 | 0.18 s | 0.21 s | |
+| fork_exec_tiny_1000 aslr2 | 0.31 s | 0.28 s | |
+| fork_exec_true_1000 aslr2 | **0.98 s** | 1.57 s | |
+| sh_true_1000 aslr2 | **0.86 s** | 2.21 s | |
+
+### Why crate is so much faster than c2
+
+Crate engine v0 has no public statistics API ("Not in v0, planned: … statistics"), so this breakdown uses today's c2 `UML_JIT_PROFILE`, the D4 wall times, and the architectural difference. It is not a same-counter A/B.
+
+Two different designs. crate is a full-system VM (Debian, virtio-gpu, virgl + ANGLE/MoltenVK). c2 is UML: guest processes are host processes, with a userspace ARM64 JIT, and on D4 today Alpine labwc at 1920×1080.
+
+Compile time is not why c2 is slower. c2-disp-prof4 compiled 128,826 blocks in **372 ms** total (111,884 blocks / 310 ms already done by the end of the first `gcc_O2`). The leftover is time spent *out of* translated code.
+
+Dispatcher exits, especially RET. Full-run profile (PIC off, 4G/4CPU, 3:20–3:25 PM ET, md5 `feeca45b`), retired **148.89 billion** guest instructions:
+
+- `exit.indirect_miss` 41,934,450, of which **RET 39,617,487 (94.5%)**, BLR 1,164,676, BR 1,152,287
+- `exit.continued` 60,622,314 (`nonlink` 35,277,483; `unsafe` 11,498,717; `uncompiled` 5,179,913; `selector_store` 5,700,325; `fairness` 2,481,547; `selector_fp` 484,315)
+- `exit.svc` (syscalls) 1,597,485
+- `exit.page_fault` 2,885,065
+- cache_hit 103,162,130 / miss 3,877,184; shared_reuse 3,678,310; evictions 0
+
+That is the gcc lever: crate stayed in translated code well enough to run `gcc_O2` in **12.76 s vs 57.31 s (~4.5×)** on the same Mac at 4 CPUs / 4 GiB. Earlier NOTES already called this out (return-stack / host BL/RET, register identity, fewer continued non-link exits). Those ports are still the c2 engine work, and they are paused.
+
+Scroll is a GPU path plus that same CPU gap. D4 crate Chromium held **58.80 fps** (p95 16.80 ms, essentially vsync) on a 1328×928 virgl/ANGLE scanout. c2 D4 Chromium was 10–12 fps at 1920×1080. The resolution and compositor are unmatched, and Chromium itself was launched with `--disable-gpu-compositing`, so this is not a clean compositor-for-compositor comparison. The window is still presented through virgl + ANGLE Vulkan / MoltenVK, which c2 did not have in this gate.
+
+Spawn and Chromium cold are the other leftover from this afternoon's NOTES: after c2, a new process still materializes a private copy of reused translations (SIGPROF on the no-compile `/bin/true` path was memmove 30%, link-table 16%, icache 14%, translated code only 8%). crate's cache is physically keyed and does not install a new copy per process. That shows up here as `sh_true` **0.86 vs 2.21 s** and Chromium cold **2.48 vs 7.36–7.55 s**, with the usual unmatched-harness caveats. PIC v1, which was meant to close the materialize gap, remains parked.
+
+### Phone install (`com.davidhope.crate` on Daddy's iPhone 16 Pro)
+
+Target, approved 6:34 PM ET: UDID `00008140-000E44300EE1401C`, CoreDevice `29AAC2A9-E6D4-5090-AA07-297089BD5FE6`, iOS 26.6.1, iPhone17,1, 256 GB, Developer Mode on. Not "David's iPhone" and not any other phone.
+
+- Built from the scratch clone with the local patches, signed team `4P2629648N`, installed with `devicectl`. Data container `EF64AE62-2031-4135-8F53-AB775383F3DE`.
+- Pairing file was copied from Henge's `Documents/StikJIT/pairingFile.plist` (501 bytes) into crate's Documents. Never printed. Temp copies shredded. StikDebug is not installed as a visible app; JIT is built-in StikJIT. LocalDevVPN (`com.jkcoxson.LocalDevVPN`) was launched with `localdevvpn://enable?scheme=crate` after the first claim timed out on 10.7.0.1:49152. ExpressVPN was left alone.
+- Prefs: 4 GB RAM, 8 GB disk, 1024 MB code region, `builtInStikJIT`, turn on at launch, machine `2CE8C8C8-89C9-40E8-88EC-32FE1C3EB8E2`. UserDefaults written via AFC can be overwritten by a stale cfprefsd cache; the safe sequence was: terminate crate, write the plist, terminate cfprefsd (they respawn), verify, then launch. This matters because `removeStrayFiles()` deletes UUID VM folders that are not in the machines list.
+- The 8 GiB Debian disk (ext4 UUID `61cdfc67-124b-43bb-a341-2256920976f1`, same image as the D4 run, with autologin / home chown / crate-bench baked in) finished copying into the container at 7:03:04 PM ET.
+- Relaunch with `--start` at 7:05:06 PM ET, pid **2105**. JIT on, 1024 MB claimed at `11cc00000` in **1.58 s** (legacy.js blessed 65,536 pages). VM: "starting Debian: 4 CPUs, 4096 MiB, code 1024 MiB"; "running, created in 0.78 s"; virtio-gpu 3D, ANGLE Vulkan / MoltenVK on Apple A18 Pro, OpenGL ES 3.1, scanout **1080×600** (fits 402×724 pt portrait). **Not jetsamed** through 7:16 PM ET (still pid 2105, disk.img mtime still advancing).
+- Console reached LightDM starting and `debian login:` by 5.768873 s guest time, then went quiet (783 lines, no `DESKTOP_READY` / bench markers). Guest I/O was still happening behind that. A Local Network TCC sheet has been in front of the UI since boot: “Allow ‘crate’ to find devices on local networks?” HID tap is not possible on the mounted DDI 17F113 (`com.apple.coredevice.displayservice` needs 27A5194q+). Do not replace the DDI on the daily phone. Accessibility can see “Allow, Button” but the CLI cannot activate it.
+- **Phone Chromium/Firefox/gcc/spawn suite was not collected.** It is blocked on that Allow tap (and on confirming the guest actually reaches Xfce + crate-bench; serial has been quiet).
+- Old `com.amendez.crate`, installed earlier today, was uninstalled at **7:12:19 PM ET** only after the new 4 GB VM was running. Remaining dev apps: Grok Bot, Henge 0.3.0/101, LinuxRunner 1.1.1/905, Voxl Pocket, crate `com.davidhope.crate`.
+
+### How to open it
+
+1. Unlock Daddy's iPhone 16 Pro and open the **crate** app (one icon; `com.davidhope.crate`). Not Henge, not LinuxRunner, not the old crate.
+2. If “Allow ‘crate’ to find devices on local networks?” is still up, tap **Allow**. That sheet has been in front of the display since 7:05 PM ET. Only David can dismiss it.
+3. Leave LocalDevVPN connected. JIT is set to turn on at launch; this boot already claimed 1024 MB and auto-started the 4 GB Debian VM.
+4. If the Linux display is not on screen after Allow, tap Start on the Debian 13 Xfce machine.
+5. Leave crate in the foreground (4 GB + 1024 MB JIT is tight under the 6 GiB cap if the app is backgrounded).
+6. Developer trust is already OK (same team as Henge).
+
+### Screenshots (copied to this repo)
+
+- `notes/crate-ios-shots/d4-chromium-metrics.png` — D4 crate Chromium on the metrics page (scroll 58.80 fps).
+- `notes/crate-ios-shots/d4-desktop.png` — D4 Debian 13 Xfce desktop.
+- `notes/crate-ios-shots/phone-boot.png`, `phone-after-allow.png`, `phone-later.png` — Daddy's iPhone, all still showing the Local Network prompt (last pulled 7:14 PM ET). Same prompt was still up at 7:16 PM ET.
+
+### Verdict
+
+crate is the Linux-on-iPhone app track. On D4, Chromium cold and scroll, gcc, and `sh_true` are clearly faster than today's c2 baselines, with the fairness caveats above. **Do not switch the landed Kernarium iOS default off c2.** Firefox on crate D4 timed out. The phone 4 GB guest booted with JIT and has not been jetsamed; the phone suite still needs David to tap Allow, then a repeat of cold / scroll / warm / footprint / gcc_O2 / spawn with desktop screenshots.

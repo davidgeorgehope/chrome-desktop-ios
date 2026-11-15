@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kernarium interactive metrics</title>
+<style>
+  html, body { margin: 0; background: #f4f1e8; color: #111; font: 18px/1.4 sans-serif; }
+  #bar { position: sticky; top: 0; background: #222; color: #fff; padding: 8px 16px; z-index: 2; }
+  #target { width: 80vw; max-width: 720px; height: 200px; margin: 24px auto; background: #1a6; color: #fff;
+            display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  #target.armed { background: #c40; }
+  .stripe { height: 160px; }
+  .stripe:nth-child(odd) { background: #d9d3c4; }
+  .stripe:nth-child(even) { background: #ece7db; }
+</style>
+</head>
+<body>
+<div id="bar">Kernarium interactive metrics — launch / scroll / input</div>
+<p id="status" style="padding: 0 16px;">starting…</p>
+<div id="target">click or type here</div>
+<div id="runway">
+<script>
+(function () {
+  const stripes = 80;
+  const runway = document.getElementById("runway");
+  for (let i = 0; i < stripes; i++) {
+    const d = document.createElement("div");
+    d.className = "stripe";
+    d.textContent = "scroll stripe " + i;
+    runway.appendChild(d);
+  }
+
+  function post(line) {
+    return fetch("/cgi-bin/report", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: line + "\n",
+    }).catch(function () {});
+  }
+
+  const t0 = performance.now();
+  let firstPaint = null;
+  let launchPosted = false;
+
+  function reportLaunch() {
+    if (launchPosted) return;
+    launchPosted = true;
+    const paint = firstPaint === null ? (performance.now() - t0) : firstPaint;
+    const vis = (document.visibilityState || "na") +
+      " hidden=" + (document.hidden ? "1" : "0") +
+      " hasFocus=" + (document.hasFocus() ? "1" : "0");
+    const line = "===INTERACTIVE_LAUNCH=== first_paint_ms=" + paint.toFixed(1) +
+      " nav=" + performance.timing.toString() +
+      " title=Kernarium interactive metrics vis=" + vis;
+    document.getElementById("status").textContent = line;
+    post(line);
+  }
+
+  requestAnimationFrame(function () {
+    firstPaint = performance.now() - t0;
+    reportLaunch();
+    setTimeout(runScroll, 400);
+  });
+
+  function runScroll() {
+    post("===INTERACTIVE_SCROLL_START===");
+    const start = performance.now();
+    let frames = 0;
+    let last = start;
+    const deltas = [];
+    const duration = 2000;
+    function step(now) {
+      frames += 1;
+      if (last) deltas.push(now - last);
+      last = now;
+      window.scrollBy(0, 48);
+      if (now - start < duration) {
+        requestAnimationFrame(step);
+      } else {
+        window.scrollTo(0, 0);
+        const elapsed = now - start;
+        const fps = frames / (elapsed / 1000);
+        deltas.sort(function (a, b) { return a - b; });
+        const p95 = deltas.length ? deltas[Math.min(deltas.length - 1, Math.floor(deltas.length * 0.95))] : 0;
+        const vis = (document.visibilityState || "na") +
+          " hidden=" + (document.hidden ? "1" : "0") +
+          " hasFocus=" + (document.hasFocus() ? "1" : "0");
+        const line = "===INTERACTIVE_SCROLL=== fps=" + fps.toFixed(2) +
+          " frames=" + frames + " duration_ms=" + elapsed.toFixed(1) +
+          " p95_frame_ms=" + p95.toFixed(2) + " vis=" + vis;
+        document.getElementById("status").textContent = line;
+        post(line).then(function () { armInput(); });
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  function armInput() {
+    const target = document.getElementById("target");
+    target.className = "armed";
+    target.textContent = "click or type now";
+    target.tabIndex = 0;
+    try { target.focus(); } catch (e) {}
+    try { window.focus(); } catch (e) {}
+    document.getElementById("status").textContent =
+      "armed for real keydown/mousedown (synthetic events ignored for the metric)";
+    let keySamples = [];
+    let clickSamples = [];
+    let done = false;
+    const params = new URLSearchParams(location.search);
+    const inputTimeout = parseInt(params.get("input_timeout_ms") || "20000", 10);
+    const deadline = setTimeout(function () { finish("timeout"); }, isFinite(inputTimeout) ? inputTimeout : 20000);
+
+    function measure(kind, ev) {
+      if (done) return;
+      if (ev.isTrusted === false) return;
+      const tEvent = performance.now();
+      requestAnimationFrame(function () {
+        const dt = performance.now() - tEvent;
+        if (kind === "key") keySamples.push(dt);
+        else clickSamples.push(dt);
+        const line = "===INTERACTIVE_INPUT_SAMPLE=== kind=" + kind +
+          " raf_ms=" + dt.toFixed(2) + " trusted=1";
+        post(line);
+        if (keySamples.length >= 1 && clickSamples.length >= 1) finish("ok");
+      });
+    }
+
+    function avg(xs) {
+      if (!xs.length) return "";
+      return (xs.reduce(function (a, b) { return a + b; }, 0) / xs.length).toFixed(2);
+    }
+
+    function finish(why) {
+      if (done) return;
+      done = true;
+      clearTimeout(deadline);
+      const vis = (document.visibilityState || "na") +
+        " hidden=" + (document.hidden ? "1" : "0") +
+        " hasFocus=" + (document.hasFocus() ? "1" : "0");
+      const line = "===INTERACTIVE_INPUT=== why=" + why +
+        " key_raf_ms=" + (avg(keySamples) || "na") +
+        " click_raf_ms=" + (avg(clickSamples) || "na") +
+        " key_n=" + keySamples.length + " click_n=" + clickSamples.length +
+        " vis=" + vis;
+      document.getElementById("status").textContent = line;
+      post(line).then(function () {
+        post("===INTERACTIVE_WARM_NAV=== from=" + location.pathname + " to=/warm.html").then(function () {
+          location.assign("/warm.html");
+        });
+      });
+    }
+
+    window.addEventListener("keydown", function (ev) { measure("key", ev); }, true);
+    window.addEventListener("keypress", function (ev) { measure("key", ev); }, true);
+    target.addEventListener("mousedown", function (ev) { measure("click", ev); }, true);
+    window.addEventListener("mousedown", function (ev) { measure("click", ev); }, true);
+    post("===INTERACTIVE_READY_FOR_INPUT===");
+  }
+})();
+</script>
+</div>
+</body>
+</html>

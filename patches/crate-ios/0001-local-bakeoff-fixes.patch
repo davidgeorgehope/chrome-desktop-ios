@@ -1,0 +1,352 @@
+diff --git a/Resources/Crate.entitlements b/Resources/Crate.entitlements
+index caa3d58..e385036 100644
+--- a/Resources/Crate.entitlements
++++ b/Resources/Crate.entitlements
+@@ -2,9 +2,11 @@
+ <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+ <plist version="1.0">
+ <dict>
+-	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
++	<key>get-task-allow</key>
+ 	<true/>
+ 	<key>com.apple.developer.kernel.increased-memory-limit</key>
+ 	<true/>
++	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
++	<true/>
+ </dict>
+ </plist>
+diff --git a/Sources/Crate/App/CrateApp.swift b/Sources/Crate/App/CrateApp.swift
+index e54e59f..a387d7d 100644
+--- a/Sources/Crate/App/CrateApp.swift
++++ b/Sources/Crate/App/CrateApp.swift
+@@ -35,7 +35,7 @@ struct CrateApp: App {
+ 
+     var body: some Scene {
+         WindowGroup {
+-            RootView(launchTab: options.tab, forceRail: options.rail)
++            RootView(launchTab: options.tab, forceRail: options.rail, autoStart: options.start)
+                 .environment(store)
+                 .environment(jit)
+                 .environment(runner)
+@@ -53,6 +53,8 @@ struct LaunchOptions {
+     var samples = false
+     /// The open Duo's tab column, on any device.
+     var rail = false
++    /// Local bakeoff flag: start the first installed VM once JIT is on.
++    var start = false
+ 
+     static func parse(_ arguments: [String]) -> LaunchOptions {
+         var options = LaunchOptions()
+@@ -66,6 +68,7 @@ struct LaunchOptions {
+             case "--empty": options.empty = true
+             case "--samples": options.samples = true
+             case "--rail": options.rail = true
++            case "--start": options.start = true
+             default: break
+             }
+         }
+@@ -76,5 +79,9 @@ struct LaunchOptions {
+     /// real JIT state overrides when it's on.
+     func applyToDefaults() {
+         if let jit { UserDefaults.standard.set(jit, forKey: SettingsKey.previewJIT) }
++        if let raw = ProcessInfo.processInfo.environment["CRATE_CODE_REGION_MB"],
++           let mb = Int(raw), mb > 0 {
++            UserDefaults.standard.set(mb, forKey: SettingsKey.codeRegionMB)
++        }
+     }
+ }
+diff --git a/Sources/Crate/App/RootView.swift b/Sources/Crate/App/RootView.swift
+index f62cb3b..27c4cdb 100644
+--- a/Sources/Crate/App/RootView.swift
++++ b/Sources/Crate/App/RootView.swift
+@@ -30,7 +30,9 @@ enum AppTab: String, CaseIterable, Identifiable {
+ 
+ /// The three tabs, and the running VM over them.
+ struct RootView: View {
++    @Environment(MachineStore.self) private var store
+     @Environment(JITSession.self) private var jit
++    @Environment(MachineRunner.self) private var runner
+     @AppStorage(SettingsKey.jitAtLaunch) private var jitAtLaunch = true
+     @AppStorage(SettingsKey.jitMethod) private var jitMethod = JITMethod.standard.rawValue
+ 
+@@ -42,10 +44,13 @@ struct RootView: View {
+     /// A tab to open on regardless, from a launch argument.
+     private let launchTab: AppTab?
+     private let forceRail: Bool
++    /// Local bakeoff: open and boot the first installed VM once JIT is on.
++    private let autoStart: Bool
+ 
+-    init(launchTab: AppTab? = nil, forceRail: Bool = false) {
++    init(launchTab: AppTab? = nil, forceRail: Bool = false, autoStart: Bool = false) {
+         self.launchTab = launchTab
+         self.forceRail = forceRail
++        self.autoStart = autoStart
+     }
+ 
+     /// The tabs go in a column on the right whenever the Duo is open in
+@@ -66,7 +71,12 @@ struct RootView: View {
+         .readFoldSignals($fold)
+         .environment(\.hasHinge, fold.hasHinge)
+         .fullScreenCover(item: $running) { machine in
++            // Designed-for-iPad / some iOS 26 covers drop @Observable
++            // environment values unless they are passed again here.
+             MachineScreen(machine: machine)
++                .environment(store)
++                .environment(jit)
++                .environment(runner)
+         }
+         // Over the tabs; the VM screen, when it's up, shows its own.
+         .sheet(isPresented: running == nil ? Bindable(jit).showingSetup : .constant(false)) {
+@@ -75,6 +85,7 @@ struct RootView: View {
+         }
+         .task { openLaunchTab() }
+         .onChange(of: jit.state, initial: true) { launchSettled() }
++        .onChange(of: jit.isOn, initial: true) { startFirstIfRequested() }
+     }
+ 
+     private var tabs: some View {
+@@ -103,7 +114,7 @@ struct RootView: View {
+ 
+     /// With nothing attached and "Turn on JIT when crate opens" set, JIT goes
+     /// on at launch, once the launch's own check settles. No VM starts by
+-    /// itself: that's left to Start.
++    /// itself: that's left to Start, unless --start was passed (local bakeoff).
+     private func launchSettled() {
+         guard !didLaunch, jit.state != .checking else { return }
+         didLaunch = true
+@@ -111,6 +122,12 @@ struct RootView: View {
+             Task { await jit.turnOn(JITMethod(rawValue: jitMethod) ?? .standard, interactive: false) }
+         }
+     }
++
++    private func startFirstIfRequested() {
++        guard autoStart, jit.isOn, running == nil, let first = store.machines.first else { return }
++        running = first
++        AppLog.write("auto-start: \(first.id.uuidString)")
++    }
+ }
+ 
+ extension EnvironmentValues {
+diff --git a/Sources/Crate/App/TabRail.swift b/Sources/Crate/App/TabRail.swift
+index c119a81..a8b480c 100644
+--- a/Sources/Crate/App/TabRail.swift
++++ b/Sources/Crate/App/TabRail.swift
+@@ -92,14 +92,19 @@ private struct FoldSignalReader: ViewModifier {
+     @Binding var signals: FoldSignals
+ 
+     func body(content: Content) -> some View {
++#if CRATE_HAS_IOS27_SDK
+         if #available(iOS 27.1, *) {
+             content.modifier(HingeReader(signals: $signals))
+         } else {
+             content
+         }
++#else
++        content
++#endif
+     }
+ }
+ 
++#if CRATE_HAS_IOS27_SDK
+ @available(iOS 27.1, *)
+ private struct HingeReader: ViewModifier {
+     @Binding var signals: FoldSignals
+@@ -123,3 +128,5 @@ private struct HingeReader: ViewModifier {
+             }
+     }
+ }
++
++#endif
+diff --git a/Sources/Crate/Home/MachineScreen.swift b/Sources/Crate/Home/MachineScreen.swift
+index 48f4f66..6559496 100644
+--- a/Sources/Crate/Home/MachineScreen.swift
++++ b/Sources/Crate/Home/MachineScreen.swift
+@@ -109,6 +109,7 @@ struct MachineScreen: View {
+                 Toggle("Terminal", systemImage: "apple.terminal", isOn: shows(.console))
+             }
+             if showing == .display {
++#if CRATE_HAS_IOS27_SDK
+                 if #available(iOS 27.0, *) {
+                     keyboardItem.visibilityPriority(.high)
+                     ToolbarOverflowMenu { screenshotButton }
+@@ -116,6 +117,10 @@ struct MachineScreen: View {
+                     keyboardItem
+                     ToolbarItem(placement: .secondaryAction) { screenshotButton }
+                 }
++#else
++                keyboardItem
++                ToolbarItem(placement: .secondaryAction) { screenshotButton }
++#endif
+             }
+         } else {
+             ToolbarItem(placement: .cancellationAction) {
+@@ -281,6 +286,7 @@ struct MachineScreen: View {
+     /// they span the fold, the smaller change. `folds` is read so this is
+     /// asked again each time the hinge moves.
+     private static func aboveFold(in proxy: GeometryProxy, after folds: Int) -> CGRect? {
++#if CRATE_HAS_IOS27_SDK
+         guard #available(iOS 27.1, *) else { return nil }
+         for fold in proxy.reservedRegions(kind: .division) where fold.isActive {
+             let frame = fold.frame
+@@ -291,6 +297,9 @@ struct MachineScreen: View {
+             }
+         }
+         return nil
++#else
++        return nil
++#endif
+     }
+ 
+     /// The fold, for the log: the simulator can't fold, so a fold on the
+@@ -428,14 +437,19 @@ private struct FollowsHinge: ViewModifier {
+     @Binding var isOpen: Bool
+ 
+     func body(content: Content) -> some View {
++#if CRATE_HAS_IOS27_SDK
+         if #available(iOS 27.1, *) {
+             content.modifier(HingeReader(folds: $folds, isOpen: $isOpen))
+         } else {
+             content
+         }
++#else
++        content
++#endif
+     }
+ }
+ 
++#if CRATE_HAS_IOS27_SDK
+ @available(iOS 27.1, *)
+ private struct HingeReader: ViewModifier {
+     @Binding var folds: Int
+@@ -454,6 +468,7 @@ private struct HingeReader: ViewModifier {
+         }
+     }
+ }
++#endif
+ 
+ /// With iPhone Duo open and the bars down the side (its inner display in
+ /// landscape), the VM's screen runs on under them to the display's edge, the
+@@ -464,14 +479,19 @@ private struct UnderSideBar: ViewModifier {
+     let isOn: Bool
+ 
+     func body(content: Content) -> some View {
++#if CRATE_HAS_IOS27_SDK
+         if #available(iOS 27.1, *) {
+             content.modifier(UnderVerticalBar(isOn: isOn))
+         } else {
+             content
+         }
++#else
++        content
++#endif
+     }
+ }
+ 
++#if CRATE_HAS_IOS27_SDK
+ @available(iOS 27.1, *)
+ private struct UnderVerticalBar: ViewModifier {
+     let isOn: Bool
+@@ -486,6 +506,7 @@ private struct UnderVerticalBar: ViewModifier {
+         return verticalEdge == .leading ? .leading : .trailing
+     }
+ }
++#endif
+ 
+ /// The VM's name as the title, except where iOS puts the bars down the side,
+ /// on iPhone Duo: a title there is a strip of its own across the top, height
+@@ -494,14 +515,19 @@ private struct MachineTitle: ViewModifier {
+     let title: String
+ 
+     func body(content: Content) -> some View {
++#if CRATE_HAS_IOS27_SDK
+         if #available(iOS 27.1, *) {
+             content.modifier(TitleUnlessBarsVertical(title: title))
+         } else {
+             content.navigationTitle(title)
+         }
++#else
++        content.navigationTitle(title)
++#endif
+     }
+ }
+ 
++#if CRATE_HAS_IOS27_SDK
+ @available(iOS 27.1, *)
+ private struct TitleUnlessBarsVertical: ViewModifier {
+     let title: String
+@@ -513,3 +539,5 @@ private struct TitleUnlessBarsVertical: ViewModifier {
+             .toolbar(removing: verticalEdge == nil ? nil : .title)
+     }
+ }
++
++#endif
+diff --git a/project.yml b/project.yml
+index 386e1ce..d15be79 100644
+--- a/project.yml
++++ b/project.yml
+@@ -65,7 +65,7 @@ targets:
+           - localdevvpn
+         # LocalDevVPN comes back to crate:// once it has connected.
+         CFBundleURLTypes:
+-          - CFBundleURLName: com.amendez.crate
++          - CFBundleURLName: com.davidhope.crate
+             CFBundleURLSchemes:
+               - crate
+         # Picture in Picture, which floats the pairing code over Settings and
+@@ -121,7 +121,7 @@ targets:
+         com.apple.developer.kernel.extended-virtual-addressing: true
+     settings:
+       base:
+-        PRODUCT_BUNDLE_IDENTIFIER: com.amendez.crate
++        PRODUCT_BUNDLE_IDENTIFIER: com.davidhope.crate
+         DEVELOPMENT_TEAM: L29MY952CB
+         CODE_SIGN_STYLE: Automatic
+         CODE_SIGN_IDENTITY[sdk=iphoneos*]: Apple Development
+@@ -183,7 +183,7 @@ targets:
+             codesign --force --sign "$EXPANDED_CODE_SIGN_IDENTITY" --timestamp=none "$DEST/StikJIT.framework"
+     settings:
+       base:
+-        PRODUCT_BUNDLE_IDENTIFIER: com.amendez.crate.jithelper
++        PRODUCT_BUNDLE_IDENTIFIER: com.davidhope.crate.jithelper
+         DEVELOPMENT_TEAM: L29MY952CB
+         CODE_SIGN_STYLE: Automatic
+         CODE_SIGN_IDENTITY[sdk=iphoneos*]: Apple Development
+@@ -199,3 +199,38 @@ targets:
+         CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]: NO
+         CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]: NO
+         EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
++
++  # Local D4iPad probe only (not upstream): keeps the app alive so a debugger
++  # can attach and bless crate's brk #0x69 code region on My Mac.
++  CrateD4Probe:
++    type: bundle.unit-test
++    platform: iOS
++    sources:
++      - path: Tests/CrateD4Probe
++    dependencies:
++      - target: Crate
++    settings:
++      base:
++        PRODUCT_BUNDLE_IDENTIFIER: com.davidhope.crate.d4probe
++        DEVELOPMENT_TEAM: 4P2629648N
++        CODE_SIGN_STYLE: Automatic
++        CODE_SIGN_IDENTITY[sdk=iphoneos*]: Apple Development
++        GENERATE_INFOPLIST_FILE: YES
++        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Crate.app/Crate
++        BUNDLE_LOADER: $(TEST_HOST)
++        CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]: NO
++        CODE_SIGNING_REQUIRED[sdk=iphonesimulator*]: NO
++
++schemes:
++  Crate:
++    build:
++      targets:
++        Crate: all
++        CrateJITHelper: [build]
++        CrateD4Probe: [test]
++    test:
++      targets:
++        - CrateD4Probe
++      gatherCoverageData: false
++      environmentVariables:
++        CRATE_CODE_REGION_MB: "64"
