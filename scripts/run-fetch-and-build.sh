@@ -1,7 +1,8 @@
 #!/bin/bash
 set -u
-export PATH="/Volumes/ChromiumBuild/depot_tools:/Users/davidhope/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
-ROOT=/Volumes/ChromiumBuild
+# Checkout + out/ live under ROOT. Override to use a different disk, e.g. the USB volume.
+ROOT="${CHROMIUM_BUILD_ROOT:-/Users/davidhope/chromium-build}"
+export PATH="$ROOT/depot_tools:/Users/davidhope/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 FETCH_LOG=$ROOT/logs/fetch.log
 BUILD_LOG=$ROOT/logs/build.log
 mkdir -p "$ROOT/logs" "$ROOT/chromium"
@@ -11,7 +12,7 @@ logf() { echo "$(date '+%Y-%m-%d %H:%M:%S %Z') $*" | tee -a "$FETCH_LOG" "$STATU
 logb() { echo "$(date '+%Y-%m-%d %H:%M:%S %Z') $*" | tee -a "$BUILD_LOG" "$STATUS"; }
 : > "$STATUS"
 echo $$ > /tmp/chromium-fetch-build.pid
-logf "FETCH_BUILD_WRAPPER_PID $$"
+logf "FETCH_BUILD_WRAPPER_PID $$ ROOT=$ROOT"
 
 # depot_tools
 if [ ! -x "$ROOT/depot_tools/fetch" ]; then
@@ -84,7 +85,17 @@ ios_chromium_bundle_id = "com.davidhope.deskbrowser.blink"
 EOF
 )
 echo BUILD_RUNNING > /tmp/chromium-build.status
-if [ "${RESUME_BUILD:-}" = 1 ] && [ -f "$OUT/build.ninja" ]; then
+# FORCE_GN_GEN=1 regenerates ninja files after moving the checkout to a new path.
+if [ "${FORCE_GN_GEN:-}" = 1 ]; then
+  logb "FORCE_GN_GEN $OUT"
+  if ! gn gen "$OUT" --args="$ARGS" >>"$BUILD_LOG" 2>&1; then
+    logb "GN_GEN_FAILED"
+    echo FAILED > /tmp/chromium-build.failed
+    echo FAILED > /tmp/chromium-build.status
+    exit 1
+  fi
+  logb "GN_GEN_OK"
+elif [ "${RESUME_BUILD:-}" = 1 ] && [ -f "$OUT/build.ninja" ]; then
   logb "RESUME_BUILD skip gn gen (build.ninja present)"
 else
   logb "START_GN_GEN $OUT"
