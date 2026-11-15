@@ -3699,3 +3699,121 @@ To collect the actual phone numbers, the 4 GB VM needs to be started again and l
 ### Screenshot
 
 - `notes/crate-ios-shots/phone-preview.jpg` — VM-stop preview, 1080×600, Chromium on google.com in Xfce at 7:37 PM ET.
+
+
+## crate-ios external display, mouse, and trackpad (14 Nov 2026, 8:05–8:20 PM ET)
+
+Implemented the four-step fix for David's work-desk goal: full-screen Linux
+desktop on an external monitor, phone as an optional trackpad, hardware
+keyboard and mouse, desktop-mode browsers. Crate remains MPL-2.0: the work
+is in our patch set on crate-ios `7c351b0`, not copied into Kernarium.
+Henge's source was read for approach only (GPL-2.0); no Henge files were
+copied. No GitHub fork was created (the patch lives here). Kernarium / c2
+were not touched. Official `uml-darwin` was not touched. The mini was not
+rebooted. Peek was booted for the Simulator test and shut down afterwards.
+The 16 Pro was not installed this session: it was not idle (Signal, Slack,
+Gmail, Messages, YouTube, WhatsApp and others were running; crate was not
+in the process list). Henge, Voxl Pocket, Grok Bot, and LocalDevVPN were
+left alone. LinuxRunner stays uninstalled. The mounted DDI was not replaced.
+
+### What was patched
+
+Scratch tree: `/Users/davidhope/linux-ios-bakeoff/scratch/crate-ios` (dirty
+on `7c351b0`; do not push to `oneamendez/crate-ios`).
+
+Patch: `patches/crate-ios/0002-external-display-mouse-trackpad.patch`
+(applies on clean `7c351b0` and supersedes `0001-local-bakeoff-fixes.patch`,
+which it includes). New files, all MPL-2.0 headers:
+
+- `ExternalDisplay.swift` — scene delegate (the name Info.plist looks up,
+  no `@objc` rename), coordinator, full-screen host, idle placeholder,
+  monitor-native `fitPixels`.
+- `HardwareMouse.swift` — `GCMouse` motion, left/right/middle, wheel.
+- `PointerLock.swift` — real `UIViewController.prefersPointerLocked` (no
+  method swizzle).
+- `TrackpadView.swift` — finger trackpad; ignores `.indirectPointer` so a
+  hardware mouse is left to `HardwareMouse`.
+- `GuestKeyboard.swift` / `GuestPointer.swift` — first responder + shared
+  absolute 0…1 tablet pointer (crate v0 has no relative mouse API).
+
+`DisplayBridge` now has multiple outputs, `locksToExternal`, `fitPixels`,
+and a 4095 per-side cap (was 2560; 3840×2160 fits). Unplug clears the lock
+so the phone view can `fit()` again. Mode list also offers 1920×1080 and
+3840×2160. Info.plist declares
+`UIWindowSceneSessionRoleExternalDisplayNonInteractive` →
+`Crate.ExternalDisplaySceneDelegate`, keeps
+`UIApplicationSupportsMultipleScenes` false, and sets
+`UIApplicationSupportsIndirectInputEvents`. That plist path is the one
+iOS 26.6.1 on the 16 Pro needs (the iOS 27 SwiftUI accessory is stubbed
+behind `CRATE_HAS_IOS27_SDK`, which this Xcode 26.6 / 17F113 build does
+not set). Desktop sites are the large landscape guest mode, not a UA
+change: Debian Chromium/Firefox are already desktop browsers.
+
+### Builds
+
+`com.davidhope.crate` 0.1.3 / 5, team `4P2629648N`,
+`-allowProvisioningUpdates`. Built Info.plist has the scene manifest and
+`Crate.ExternalDisplaySceneDelegate`.
+
+- **D4iPad** (`platform=macOS,arch=arm64,id=00006020-0009715A216B401E`):
+  **BUILD SUCCEEDED**, signed with the `com.davidhope.crate` profile.
+  Opening the existing Designed-for-iPad `.XCInstall` wrapper after a
+  manual rsync failed (`RBSRequestErrorDomain` 5 / POSIX 162) because that
+  wrapper was created for `com.amendez.crate` v4; it was restored
+  afterwards and the 4 GB D4 VM was not started. A proper Xcode/D4 install
+  of the new bundle ID is still needed to launch this build on My Mac.
+- **Peek iPhone 17 Simulator** (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`,
+  iOS 26.5): **BUILD SUCCEEDED**, installed, launched. JIT is ineligible
+  in the Simulator (`debugged=false eligible=false`), so no guest was
+  started and the phone stayed on Home / “No VMs Yet”. External display
+  was driven with `simctl io screenConfig` (the same path as Simulator
+  I/O > External Displays): TVOut **1920×1080** and **3840×2160**. crate.log
+  recorded `connecting offered 1920x1080` / `connected 1920x1080` and the
+  same at `3840x2160`, plus `disconnected` on power-off. The external
+  window is crate's scene, not a mirror of the phone (a black full-screen
+  with “Start a machine to show the desktop here.”). After the test, TVOut
+  was powered off and Peek was shut down.
+
+An earlier Simulator pass showed a stale `UIScreen.currentMode` of 720×480
+while the framebuffer was already 1920×1080. `nativePixels` now takes the
+larger of `currentMode` and the scene's coordinate space × scale, and
+`windowScene(_:didUpdate:)` re-offers the size.
+
+### Screenshots
+
+- `notes/crate-ios-shots/sim-phone-idle.png` — Peek, crate Home, 1206×2622.
+  The phone is not in trackpad mode because no VM is running.
+- `notes/crate-ios-shots/sim-external-idle.png` — TVOut 1920×1080, crate's
+  external scene with the idle placeholder (not a mirror).
+- `notes/crate-ios-shots/sim-external-4k.png` — the same scene at
+  3840×2160.
+
+### What still needs David and a physical monitor
+
+The Simulator cannot bless JIT or boot the Debian guest, so this pass did
+not show a live desktop, the trackpad layout, or desktop Chromium/Firefox
+on the external window. On Daddy's iPhone 16 Pro, once it is idle and this
+build is installed, plugging in a USB-C / HDMI monitor (and unplugging it)
+is what verifies:
+
+1. The guest resizes to the monitor's own mode (up to 4K) and Chromium /
+   Firefox layout as desktop sites, full-screen on the monitor, not
+   letterboxed 1080×600.
+2. Unplug falls back to the phone size and the phone shows the desktop
+   again; replug brings the monitor size back.
+3. A hardware mouse moves the guest pointer, with buttons and wheel
+   mapped. Pointer lock is requested; on an iPhone iOS will not hide the
+   system cursor, but `GCMouse` motion should still arrive. (Lock can
+   engage on iPadOS when the app is full-screen, and possibly on D4.)
+4. A hardware keyboard still types into the guest while the phone is in
+   trackpad mode (first responder stays on the phone scene).
+5. The phone becomes a trackpad (move, tap, two-finger right click,
+   hold-to-drag, two-finger scroll) only while the desktop is on the
+   monitor.
+6. AirPlay / a dock vs a direct USB-C monitor, if those are how the desk
+   is actually hooked up.
+
+Do not install this build on the 16 Pro while it is in use. David already
+approved crate-ios installs on that phone; wait until it is idle, then
+install `com.davidhope.crate` 0.1.3/5 and leave Henge and the other apps
+alone.

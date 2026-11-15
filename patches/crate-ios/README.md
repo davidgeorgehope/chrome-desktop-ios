@@ -39,3 +39,37 @@ The JIT helper is built-in StikJIT and needs a pairing file at
 `CrateD4Probe` is a hosted stay-alive test so an lldb waiter can bless
 `brk #0x69` pages on Designed-for-iPad. On a device, built-in StikJIT
 does that job instead.
+
+
+## 0002: external display, hardware mouse, phone trackpad
+
+`0002-external-display-mouse-trackpad.patch` applies on clean `7c351b0` and
+**supersedes** `0001-local-bakeoff-fixes.patch` (it includes those bakeoff
+fixes plus the display/input work). New and modified sources stay MPL-2.0.
+Do not copy this into Kernarium. Henge (GPL-2.0) was used as an approach
+only; no Henge files are in the patch.
+
+What 0002 adds on top of 0001:
+
+- Info.plist scene manifest for
+  `UIWindowSceneSessionRoleExternalDisplayNonInteractive` →
+  `$(PRODUCT_MODULE_NAME).ExternalDisplaySceneDelegate`, with
+  `UIApplicationSupportsMultipleScenes` left false (without that entry,
+  iOS 26 only mirrors and the app hears nothing).
+- `UIApplicationSupportsIndirectInputEvents`. GameController is linked.
+- Full-screen external scene at the monitor's size (`fitPixels`, cap raised
+  from 2560 to 4095 so 3840×2160 fits). Unplug clears `locksToExternal` so
+  the guest falls back to the phone view's size.
+- Hardware mouse (`GCMouse`) with pointer lock requested via a real
+  `UIViewController` (`prefersPointerLocked`). Buttons and wheel mapped
+  through the existing absolute tablet API (crate has no relative mouse).
+  An iPhone never actually locks the system pointer; motion still arrives.
+- Phone trackpad while the desktop is on the monitor: move, tap, two-finger
+  right click, hold-to-drag, two-finger scroll.
+- `GuestKeyboard` keeps a first responder for a hardware keyboard in
+  trackpad mode (the external scene is NonInteractive, so keys stay on the
+  phone scene).
+- Guest mode list includes 1920×1080 and 3840×2160, always landscape, so
+  Chromium/Firefox render desktop sites.
+
+See `README-0002.md` and the NOTES entry from 14 Nov 2026, 8:05–8:20 PM ET.
