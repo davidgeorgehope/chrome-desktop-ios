@@ -3817,3 +3817,72 @@ Do not install this build on the 16 Pro while it is in use. David already
 approved crate-ios installs on that phone; wait until it is idle, then
 install `com.davidhope.crate` 0.1.3/5 and leave Henge and the other apps
 alone.
+
+
+## crate-ios external display fill fix + resolution setting (17 Nov 2026, 10:18–10:44 AM ET)
+
+David's report (16 Pro, JIT via StikJIT + LocalDevVPN working): on his
+monitor the left ~third is black and the desktop shows on the right, cut
+off. Monitor: YXK PM1562, 15.6" 1920×1080 16:9 60 Hz (the Amazon listing he
+first linked, B0H4V1MDSP, is the 16" 1920×1200 16:10 model; both tested).
+His VM card showed Display 1280 × 800 and Edit Settings… greyed out.
+
+**Root cause** (reproduced in the Simulator before the fix): in
+`ExternalDisplaySceneDelegate.showDesktop` the picture view got a frame of
+the scene's size plus flexible-width/height autoresizing, and was added to
+the host controller's view before that view was in the window. A new view
+controller's view starts at the iPhone's screen size (402×874 pt), so the
+autoresizing margins went negative; when the window resized the host to
+1920×1080 the picture view became **3438×1286**, and the aspect-fit picture
+inside it started at **x≈576** (30% black on the left; ~36% for a 1280×800
+guest), right and bottom off-screen. crate.log: `view (0,0,3438,1286) in
+super 1920x1080 … picture (575.9, 0, 2286.2, 1286)`. The 1280 × 800 on the
+card is only the VM's fallback mode (Match Screen was already on); it was
+not the cause. Edit Settings… was greyed because upstream enables it only on
+devices with a hinge (its only setting was iPhone Duo's toolbar overlap).
+
+**Fix**: `patches/crate-ios/0003-external-display-fill-and-resolution-setting.patch`
+(on top of 0002; see `patches/crate-ios/README.md`). Picture view pinned
+with constraints; layer `bounds` + `.resizeAspect` (centred, equal bars if
+shapes differ); guest offered the scene's bounds × scale, currentMode only as
+fallback; >4095 shrinks both sides; geometry/mode/overscan logging; Edit
+Settings… always enabled with Display → Resolution (Match Screen or fixed
+1280×800…3840×2160, locked while running). Mouse/trackpad are unaffected
+(absolute 0…1 over the guest picture). No Henge code; MPL-2.0.
+
+**Simulator** (Peek iPhone 17, iOS 26.5, `simctl io … screenConfig
+geometry`, Debug `CRATE_EXTERNAL_TEST_PATTERN`): before — 1920×1080 shows
+the exact symptom (`notes/crate-ios-shots/ext-before-1920x1080.png`). After —
+1280×720, 1920×1080, 1920×1200, 2560×1440, 3440×1440, 3840×2160 all fill
+edge to edge; fixed 1280×800 on 1920×1080 centred with 96 px bars each side
+(`ext-after-*.png`, `ext-fixed1280x800-on-1920x1080.png`). The Simulator
+reports overscanCompensation `scale` with zero insets, and one available
+mode equal to the geometry. The real phone's values will be in crate.log
+(`external display: … available […] … overscan …`).
+
+**Device build**: `com.davidhope.crate` 0.1.3 / **6**, team 4P2629648N,
+profile "iOS Team Provisioning Profile: com.davidhope.crate" (contains the
+16 Pro's UDID), entitlements increased-memory-limit +
+extended-virtual-addressing + get-task-allow, `codesign --verify --deep
+--strict` OK. Built 10:42 AM ET at
+`~/crate-devbuild/dd/Build/Products/Debug-iphoneos/Crate.app` on the mini
+(IPA: `~/crate-devbuild/crate-0.1.3-6-extdisplay.ipa`). Built through a
+one-shot `gui/501` LaunchAgent: over SSH codesign fails with
+`errSecInternalComponent`, and in the GUI session a build from the USB
+volume (`~/linux-ios-bakeoff` → `/Volumes/ChromiumBuild`) hangs silently, so
+the tree was rsynced to the internal `~/crate-devbuild/crate-ios`. Not
+installed (David is at work in NYC). Install when the phone is on the
+mini's network (LocalDevVPN state does not matter for this):
+
+    xcrun devicectl device install app --device 00008140-000E44300EE1401C \
+      ~/crate-devbuild/dd/Build/Products/Debug-iphoneos/Crate.app
+
+Same bundle ID, so it upgrades in place (VMs, pairing file and settings stay).
+
+**Remote install over Tailscale (10:16–10:18 AM ET, read-only)**: phone is
+`iphone171-1` 100.73.94.66; `tailscale ping` pongs via DERP nyc (46–98 ms,
+no direct path); TCP 62078 and 49152 accept, but lockdownd resets the
+connection on the first QueryType (pymobiledevice3 `create_using_tcp`, no
+autopair), and `devicectl list devices` does not show the phone. Not
+workable as-is; iOS also runs only one VPN, so Tailscale on means
+LocalDevVPN (and JIT) off.

@@ -73,3 +73,50 @@ What 0002 adds on top of 0001:
   Chromium/Firefox render desktop sites.
 
 See `README-0002.md` and the NOTES entry from 14 Nov 2026, 8:05–8:20 PM ET.
+
+
+## 0003: external display fills the monitor; per-VM resolution setting
+
+`0003-external-display-fill-and-resolution-setting.patch` applies on top of
+`0002` (clean `7c351b0` + 0002 + 0003 reproduces the scratch tree exactly).
+MPL-2.0; no Henge code.
+
+Root cause of "left third black, desktop cut off on the right" on a monitor:
+`showDesktop` gave the picture view a frame of the monitor's size and
+flexible autoresizing, then put it in the host controller's view *before*
+that view was in the window. A fresh view controller's view starts at the
+iPhone's own screen size (402×874 pt), so the margins went negative; when
+the window grew the host to 1920×1080 the picture view became 3438×1286,
+and the aspect-fit picture inside it started at x≈576 (30% black on the
+left, ~36% for a 1280×800 guest), with the right and bottom off-screen.
+Reproduced in the Simulator before the fix
+(`notes/crate-ios-shots/ext-before-1920x1080.png`, logged
+`view 3438x1286 in super 1920x1080, picture x 575.9`).
+
+What 0003 changes:
+
+- Picture view pinned to the host's edges with constraints; window frame set
+  to the scene's bounds.
+- The layer is `bounds`-sized with `contentsGravity = .resizeAspect`, so a
+  guest that doesn't match the monitor's shape is centred with equal bars
+  (never one side).
+- The guest size offered to the VM comes from the scene's bounds × scale
+  (what is actually drawn); `currentMode` is only a fallback. Over 4095 a
+  side both sides shrink together, keeping the monitor's shape.
+- `crate.log` now records currentMode, preferredMode, availableModes,
+  scene points/scale, nativeBounds/nativeScale, overscanCompensation and
+  insets, plus the picture view's frame vs the window and the guest size.
+- Edit Settings… is no longer greyed out (upstream enabled it only on
+  devices with a hinge, since its only setting was iPhone Duo's). The sheet
+  adds Display → Resolution: **Match Screen** (default; follows the phone or
+  the monitor's native mode through virtio-gpu preferred modes) or a fixed
+  size (1280×800 … 3840×2160). Locked while that VM runs. The card shows
+  "Fits screen" or the fixed size.
+- Debug-only `CRATE_EXTERNAL_TEST_PATTERN=1|WxH` draws a test card on the
+  monitor through the same view a VM uses (the Simulator has no JIT).
+  Test script: `scripts/crate-ios/ext-display-simtest.sh`.
+
+Simulator results (Peek iPhone 17, iOS 26.5, external display via
+`simctl io … screenConfig geometry`): 1280×720, 1920×1080, 1920×1200,
+2560×1440, 3440×1440, 3840×2160 all fill edge to edge (content bbox = full
+frame). Fixed 1280×800 guest on 1920×1080: centred, 96 px bars each side.
