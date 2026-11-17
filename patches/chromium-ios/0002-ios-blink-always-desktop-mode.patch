@@ -1,0 +1,154 @@
+diff --git a/components/embedder_support/user_agent_utils.cc b/components/embedder_support/user_agent_utils.cc
+index 833293873f..6403b1ea67 100644
+--- a/components/embedder_support/user_agent_utils.cc
++++ b/components/embedder_support/user_agent_utils.cc
+@@ -267,9 +267,8 @@ std::string GetUserAgentPlatform() {
+ #elif BUILDFLAG(IS_FUCHSIA)
+   return "";
+ #elif BUILDFLAG(IS_IOS)
+-  return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET
+-             ? "iPad; "
+-             : "iPhone; ";
++  // deskbrowser: always present as desktop Chrome on macOS.
++  return "Macintosh; ";
+ #else
+ #error Unsupported platform
+ #endif
+@@ -303,10 +302,8 @@ std::string GetUnifiedPlatform() {
+ #elif BUILDFLAG(IS_LINUX)
+   return "X11; Linux x86_64";
+ #elif BUILDFLAG(IS_IOS)
+-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+-    return "iPad; CPU iPad OS 14_0 like Mac OS X";
+-  }
+-  return "iPhone; CPU iPhone OS 14_0 like Mac OS X";
++  // deskbrowser: always present as desktop Chrome on macOS.
++  return "Macintosh; Intel Mac OS X 10_15_7";
+ #else
+ #error Unsupported platform
+ #endif
+@@ -320,9 +317,7 @@ std::string BuildCpuInfo() {
+ #if BUILDFLAG(IS_MAC)
+   cpuinfo = "Intel";
+ #elif BUILDFLAG(IS_IOS)
+-  cpuinfo = ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET
+-                ? "iPad"
+-                : "iPhone";
++  cpuinfo = "Intel";  // deskbrowser: desktop macOS identity.
+ #elif BUILDFLAG(IS_WIN)
+   base::win::OSInfo* os_info = base::win::OSInfo::GetInstance();
+   if (os_info->IsWowX86OnAMD64()) {
+@@ -408,7 +403,7 @@ std::string GetOSVersion(IncludeAndroidBuildNumber include_android_build_number,
+                       "%d_%d_%d", os_major_version, os_minor_version,
+                       os_bugfix_version
+ #elif BUILDFLAG(IS_IOS)
+-                      "%d_%d", os_major_version, os_minor_version
++                      "10_15_7"  // deskbrowser: desktop macOS identity.
+ #elif BUILDFLAG(IS_CHROMEOS)
+                       "%d.%d.%d", os_major_version, os_minor_version,
+                       os_bugfix_version
+@@ -562,7 +557,9 @@ bool GetMobileBitForUAMetadata() {
+   }
+ #endif
+ 
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
++#if BUILDFLAG(IS_IOS)
++  return false;  // deskbrowser: never advertise mobile.
++#elif BUILDFLAG(IS_ANDROID)
+   return base::CommandLine::ForCurrentProcess()->HasSwitch(kUseMobileUserAgent);
+ #else
+   return false;
+@@ -614,7 +611,7 @@ std::string GetPlatformForUAMetadata() {
+   }
+ #endif
+ 
+-#if BUILDFLAG(IS_MAC)
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
+   // TODO(crbug.com/40704421): This can be removed/re-refactored once we use
+   // "macOS" by default
+   return "macOS";
+@@ -799,8 +796,7 @@ std::string BuildOSCpuInfoFromOSVersionAndCpuType(const std::string& os_version,
+ #elif BUILDFLAG(IS_FUCHSIA)
+                       "Fuchsia"
+ #elif BUILDFLAG(IS_IOS)
+-                      "CPU %s OS %s like Mac OS X", cpu_type.c_str(),
+-                      os_version.c_str()
++                      "%s Mac OS X %s", cpu_type.c_str(), os_version.c_str()
+ #elif BUILDFLAG(IS_POSIX)
+                       "%s %s",
+                       unixinfo.sysname,  // e.g. Linux
+diff --git a/content/app/content_main.cc b/content/app/content_main.cc
+index 53ad968895..0f36484a3a 100644
+--- a/content/app/content_main.cc
++++ b/content/app/content_main.cc
+@@ -278,8 +278,8 @@ NO_STACK_PROTECTOR int RunContentProcess(
+ 
+ #if BUILDFLAG(IS_IOS)
+     base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+-    command_line->AppendSwitch(switches::kEnableViewport);
+-    command_line->AppendSwitch(embedder_support::kUseMobileUserAgent);
++    // deskbrowser: always desktop mode (no mobile viewport / mobile UA).
++    (void)command_line;
+ 
+ #if BUILDFLAG(IS_IOS_TVOS)
+     // Set tvOS to single-process mode by default.
+diff --git a/content/browser/web_contents/slow_web_preference_cache.cc b/content/browser/web_contents/slow_web_preference_cache.cc
+index 1ff74b9c50..82b2fb4bab 100644
+--- a/content/browser/web_contents/slow_web_preference_cache.cc
++++ b/content/browser/web_contents/slow_web_preference_cache.cc
+@@ -149,9 +149,10 @@ bool SlowWebPreferenceCache::Update() {
+   // Otherwise default is disabled.
+   std::string touch_enabled_default_switch =
+       switches::kTouchEventFeatureDetectionDisabled;
+-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
++// deskbrowser: iOS behaves like desktop (no ontouchstart feature detection).
++#if BUILDFLAG(IS_ANDROID)
+   touch_enabled_default_switch = switches::kTouchEventFeatureDetectionEnabled;
+-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
++#endif  // BUILDFLAG(IS_ANDROID)
+   const std::string touch_enabled_switch =
+       command_line.HasSwitch(switches::kTouchEventFeatureDetection)
+           ? command_line.GetSwitchValueASCII(
+@@ -175,6 +176,16 @@ bool SlowWebPreferenceCache::Update() {
+           available_pointer_types_, available_hover_types_));
+ 
+   pointer_events_max_touch_points_ = ui::MaxTouchPoints();
++#if BUILDFLAG(IS_IOS)
++  // deskbrowser: present as a desktop Mac (fine pointer, hover, no touch
++  // points) so sites never pick iPad/mobile layouts. Real touches still arrive
++  // as pointer/gesture input.
++  available_pointer_types_ = ui::POINTER_TYPE_FINE;
++  available_hover_types_ = ui::HOVER_TYPE_HOVER;
++  primary_pointer_type_ = blink::mojom::PointerType::kPointerFineType;
++  primary_hover_type_ = blink::mojom::HoverType::kHoverHoverType;
++  pointer_events_max_touch_points_ = 0;
++#endif
+ 
+   number_of_cpu_cores_ = base::SysInfo::NumberOfProcessors();
+ 
+diff --git a/third_party/blink/renderer/core/execution_context/navigator_base.cc b/third_party/blink/renderer/core/execution_context/navigator_base.cc
+index 83f427c5ec..78788708d4 100644
+--- a/third_party/blink/renderer/core/execution_context/navigator_base.cc
++++ b/third_party/blink/renderer/core/execution_context/navigator_base.cc
+@@ -50,7 +50,7 @@ String GetReducedNavigatorPlatform() {
+ #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+   return kLinuxX86_64;
+ #elif BUILDFLAG(IS_IOS)
+-  return "iPhone";
++  return "MacIntel";  // deskbrowser: desktop macOS identity.
+ #else
+ #error Unsupported platform
+ #endif
+diff --git a/third_party/blink/renderer/core/frame/navigator_id.cc b/third_party/blink/renderer/core/frame/navigator_id.cc
+index 26681d0fbc..5a2c188693 100644
+--- a/third_party/blink/renderer/core/frame/navigator_id.cc
++++ b/third_party/blink/renderer/core/frame/navigator_id.cc
+@@ -59,7 +59,7 @@ String NavigatorID::appVersion() {
+ }
+ 
+ String NavigatorID::platform() const {
+-#if BUILDFLAG(IS_MAC)
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)  // deskbrowser: iOS reports MacIntel.
+   // Match Safari and Mozilla on Mac x86.
+   return "MacIntel";
+ #elif BUILDFLAG(IS_WIN)

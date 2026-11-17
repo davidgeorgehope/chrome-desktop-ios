@@ -54,3 +54,54 @@ serves the desktop homepage).
 The `resign` subcommand is kept for experiments with a real
 development identity. Adhoc + BrowserEngineKit entitlements is *not*
 a working Simulator path.
+
+# iOS Simulator Chrome (Chrome UI on Blink)
+
+Goal was Chrome's *desktop* Views UI (tab strip, omnibox, toolbar) in the
+Simulator. That UI cannot be built for iOS from upstream:
+
+- `chrome/BUILD.gn` (and ~18 other //chrome BUILD files) hard-assert
+  `assert(!is_ios, "Chromium/iOS shouldn't use anything in //chrome")`.
+- `build/config/ui.gni`: `toolkit_views = is_mac || is_win || is_linux ||
+  is_chromeos || is_fuchsia` and `use_aura` excludes iOS. There is no
+  UIKit `NativeWidget` in `ui/views/widget/` (only Aura and Mac/AppKit).
+- Upstream's Blink-on-iOS work (docs/ios/build_instructions.md,
+  "Building Blink for iOS") reuses the *iOS Chrome* UI (`//ios/chrome`) and
+  swaps the web layer for Blink via `//ios/web/content` (ContentWebState).
+
+So the closest real Chrome UI that builds is the upstream `chrome` target
+with `use_blink = true`: Chrome's own UIKit browser UI driving real
+Blink/V8 content (no WKWebView). On an **iPad** Simulator the regular-width
+layout gives a desktop-style tab strip + omnibox + toolbar.
+
+Build (same out dir/args as content_shell; siso state does not survive
+cloning an out dir, so a separate dir means a full ~2h rebuild):
+
+```
+~/chromium-build/run-chrome-ios-build.sh      # autoninja -j8 chrome, pokes webhook on finish
+```
+
+Run:
+
+```
+scripts/chromium-ios/run-chrome-ios-blink-sim.sh run https://www.whatismybrowser.com/ tag
+```
+
+Notes:
+- `--single-process --in-process-gpu` (same BrowserEngineKit/adhoc
+  limitation as content_shell, needs patch 0001).
+- `--disable-features=NetTaskScheduler,NetworkServiceTaskScheduler`: in
+  single-process the iOS in-process NetworkService on the IO thread picks
+  up the content network thread's `net::TaskRunnerGlobals` and fails
+  `SimpleWatcher`'s `RunsTasksInCurrentSequence` DCHECK.
+- URLs are opened via `chromiums://` (Safari is the sim's default browser);
+  SpringBoard's "Open in Chromium?" alert is confirmed with AXe
+  (`brew install cameroncooke/axe/axe`). The sim is freshly booted per run
+  because queued URL contexts trip `DCHECK(!_sceneState.URLContextsToOpen)`.
+
+Desktop mode is always on via
+`patches/chromium-ios/0002-ios-blink-always-desktop-mode.patch`:
+no `--use-mobile-user-agent`/`--enable-viewport` from iOS ContentMain,
+macOS UA (`Macintosh; Intel Mac OS X 10_15_7`), UA-CH `mobile=?0`,
+`platform="macOS"`, `navigator.platform = "MacIntel"`, fine pointer +
+hover, `maxTouchPoints = 0`, no touch-event feature detection.
