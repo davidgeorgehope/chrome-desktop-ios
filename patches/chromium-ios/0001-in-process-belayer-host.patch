@@ -1,0 +1,75 @@
+diff --git a/gpu/ipc/service/image_transport_surface_overlay_mac.mm b/gpu/ipc/service/image_transport_surface_overlay_mac.mm
+index c02ab8e9b6..f3f3fdd292 100644
+--- a/gpu/ipc/service/image_transport_surface_overlay_mac.mm
++++ b/gpu/ipc/service/image_transport_surface_overlay_mac.mm
+@@ -13,10 +13,12 @@
+ #include <variant>
+ 
+ #include "base/command_line.h"
++#include "base/logging.h"
+ #include "base/functional/bind.h"
+ #include "base/functional/callback_helpers.h"
+ #include "base/metrics/histogram_macros.h"
+ #include "base/rand_util.h"
++#include "base/strings/sys_string_conversions.h"
+ #include "base/time/time.h"
+ #include "base/trace_event/trace_event.h"
+ #include "components/viz/common/features.h"
+@@ -33,6 +35,7 @@
+ 
+ #if BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_IOS_TVOS)
+ #include "gpu/ipc/common/ios/be_layer_hierarchy_transport.h"
++#include "ui/accelerated_widget_mac/ca_layer_frame_sink_provider.h"
+ #endif
+ 
+ #if BUILDFLAG(SKIA_USE_DAWN)
+@@ -129,19 +132,41 @@ void BufferPresented(base::WeakPtr<gpu::ImageTransportSurfaceOverlayMacEGL>
+   // The BELayerHierarchy needs to be created on a thread that supports
+   // libdispatch, so we proxy over to the main dispatch queue to do that.
+   CALayer* root_ca_layer = ca_layer_tree_coordinator_->root_ca_layer();
+-  __block xpc_object_t ipc_representation;
++  __block xpc_object_t ipc_representation = nil;
+   dispatch_sync(dispatch_get_main_queue(), ^{
+     NSError* error = nullptr;
+     layer_hierarchy_ = [BELayerHierarchy layerHierarchyWithError:&error];
+-    layer_hierarchy_.layer = root_ca_layer;
+-    ipc_representation = [layer_hierarchy_.handle createXPCRepresentation];
++    CALayerFrameSinkProvider* sink =
++        [CALayerFrameSinkProvider lookupByHandle:surface_handle];
++    if (layer_hierarchy_) {
++      layer_hierarchy_.layer = root_ca_layer;
++      ipc_representation = [layer_hierarchy_.handle createXPCRepresentation];
++      // In-process GPU never forwards the handle (InProcessGpuThread is a
++      // no-op). Attach it here whenever the sink lives in this process.
++      if (sink) {
++        sink.handle = layer_hierarchy_.handle;
++      }
++    } else {
++      LOG(ERROR) << "BELayerHierarchy creation failed: "
++                 << (error ? base::SysNSStringToUTF8(
++                                 error.localizedDescription)
++                           : std::string("unknown"));
++      // Simulator / unsigned host fallback: host the CALayer tree directly.
++      if (sink) {
++        root_ca_layer.frame = sink.layer.bounds;
++        [sink.layer addSublayer:root_ca_layer];
++      }
++    }
+   });
+ 
+-  BELayerHierarchyTransport* transport =
+-      BELayerHierarchyTransport::GetInstance();
+-  CHECK(transport);
+-  transport->ForwardBELayerHierarchyToBrowser(surface_handle,
+-                                              ipc_representation);
++  if (ipc_representation) {
++    BELayerHierarchyTransport* transport =
++        BELayerHierarchyTransport::GetInstance();
++    if (transport) {
++      transport->ForwardBELayerHierarchyToBrowser(surface_handle,
++                                                  ipc_representation);
++    }
++  }
+ #endif
+ }
+ 
