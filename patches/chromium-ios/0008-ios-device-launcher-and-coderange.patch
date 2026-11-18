@@ -1,0 +1,982 @@
+diff --git a/content/app/BUILD.gn b/content/app/BUILD.gn
+--- a/content/app/BUILD.gn
++++ b/content/app/BUILD.gn
+@@ -151,6 +151,8 @@
+       "ios/deskbrowser_device_jit.cc",
+       "ios/deskbrowser_device_jit.h",
+       "ios/deskbrowser_device_jit_brk.S",
++      "ios/deskbrowser_settings.h",
++      "ios/deskbrowser_settings.mm",
+     ]
+   }
+ }
+diff --git a/content/app/content_main.cc b/content/app/content_main.cc
+--- a/content/app/content_main.cc
++++ b/content/app/content_main.cc
+@@ -53,6 +53,7 @@
+ #include <TargetConditionals.h>
+ #include "content/app/ios/deskbrowser_builtin_jit.h"
+ #include "content/app/ios/deskbrowser_device_jit.h"
++#include "content/app/ios/deskbrowser_settings.h"
+ #endif
+ 
+ #if BUILDFLAG(IS_WIN)
+@@ -310,25 +311,25 @@
+       command_line->AppendSwitchASCII(switches::kDisableFeatures, disabled);
+     }
+     // TXM on iOS 27 requires the StikJIT prepare protocol (brk #0xf00d).
+-    // The built-in helper is started in ChromeMain before
+-    // UIApplicationMain (a wait here used to pump the default run loop
+-    // and crash in base::OneShotTimer before any SequencedTaskRunner
+-    // existed). If attach failed, stay jitless so V8 does not crash.
+-    if (!DeskBrowserJitIsEnabled()) {
++    // The built-in helper is started from the pre-Chromium launcher;
++    // ContentMain runs after handoff. If the user chose "Start without
++    // JIT" or attach failed, stay jitless so V8 does not crash.
++    if (DeskBrowserJitForceJitless() || !DeskBrowserJitIsEnabled()) {
+       if (!command_line->HasSwitch("js-flags")) {
+         command_line->AppendSwitchASCII("js-flags", "--jitless");
+       }
+     }
+     // Per-isolate V8 heap cap so a single page OOMs before the process is
+     // jetsammed. In single-process Chrome this may be process-wide if only
+-    // one isolate is used; 512 MiB is a compromise for a 6 GiB process cap.
++    // one isolate is used. The launcher can change the default (512 MiB).
+     {
+       std::string flags = command_line->GetSwitchValueASCII("js-flags");
+       if (flags.find("max-old-space-size") == std::string::npos) {
+         if (!flags.empty()) {
+           flags += ",";
+         }
+-        flags += "--max-old-space-size=512";
++        flags += "--max-old-space-size=" +
++                 std::to_string(DeskBrowserSettingMaxOldSpaceMb());
+         command_line->RemoveSwitch("js-flags");
+         command_line->AppendSwitchASCII("js-flags", flags);
+       }
+diff --git a/content/app/ios/deskbrowser_builtin_jit.h b/content/app/ios/deskbrowser_builtin_jit.h
+--- a/content/app/ios/deskbrowser_builtin_jit.h
++++ b/content/app/ios/deskbrowser_builtin_jit.h
+@@ -24,6 +24,16 @@
+ // needed. The pointer is valid for the process lifetime.
+ const char* DeskBrowserJitFallbackNotice(void);
+ 
++// Non-blocking start of the built-in helper. Returns false if the helper
++// cannot be started (notice is set). If a debugger is already attached,
++// enables the TXM hook and returns true. Does not wait for attach.
++bool DeskBrowserJitStartBuiltInHelper(void);
++
++// When true, ContentMain must pass --jitless even if a debugger later
++// attaches. Set by the launcher "Start without JIT" path.
++void DeskBrowserJitSetForceJitless(bool force);
++bool DeskBrowserJitForceJitless(void);
++
+ #ifdef __cplusplus
+ }
+ #endif
+diff --git a/content/app/ios/deskbrowser_builtin_jit.mm b/content/app/ios/deskbrowser_builtin_jit.mm
+--- a/content/app/ios/deskbrowser_builtin_jit.mm
++++ b/content/app/ios/deskbrowser_builtin_jit.mm
+@@ -159,6 +159,55 @@
+   return g_has_notice ? g_notice : nullptr;
+ }
+ 
++namespace {
++bool g_force_jitless = false;
++}  // namespace
++
++extern "C" void DeskBrowserJitSetForceJitless(bool force) {
++  g_force_jitless = force;
++}
++
++extern "C" bool DeskBrowserJitForceJitless(void) {
++  return g_force_jitless;
++}
++
++extern "C" bool DeskBrowserJitStartBuiltInHelper(void) {
++#if TARGET_OS_SIMULATOR || !TARGET_OS_IOS
++  SetNotice(@"JIT helper is not available in this build.");
++  return false;
++#else
++  static bool g_started = false;
++  static bool g_ok = false;
++  if (g_started) {
++    return g_ok;
++  }
++  g_started = true;
++
++  DeskBrowserJitInstallTrapHandler();
++  if (DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable()) {
++    g_ok = true;
++    return true;
++  }
++  NSData* pairing = ReadPairingFile();
++  if (!pairing.length) {
++    SetNotice(@"Chrome needs the same pairing file crate uses, at "
++              @"Documents/StikJIT/pairingFile.plist, and LocalDevVPN "
++              @"turned on. It will run without JIT until then.");
++    return false;
++  }
++  if (!StartHelper(pairing)) {
++    if (!g_has_notice) {
++      SetNotice(@"The built-in JIT helper could not start. Chrome will "
++                @"run without JIT.");
++    }
++    return false;
++  }
++  NSLog(@"deskbrowser-jit: started built-in helper (non-blocking)");
++  g_ok = true;
++  return true;
++#endif
++}
++
+ extern "C" bool DeskBrowserJitEnableWithBuiltInHelper(void) {
+ #if TARGET_OS_SIMULATOR || !TARGET_OS_IOS
+   return false;
+diff --git a/content/app/ios/deskbrowser_device_jit.cc b/content/app/ios/deskbrowser_device_jit.cc
+--- a/content/app/ios/deskbrowser_device_jit.cc
++++ b/content/app/ios/deskbrowser_device_jit.cc
+@@ -55,7 +55,7 @@
+ };
+ 
+ pthread_mutex_t g_mu = PTHREAD_MUTEX_INITIALIZER;
+-Region g_regions[32];
++Region g_regions[512];
+ int g_nregions = 0;
+ bool g_enabled = false;
+ bool g_handler_installed = false;
+@@ -159,6 +159,14 @@
+ 
+ extern "C" void DeskBrowserJitPrepareRegion(void* addr, size_t size) {
+   if (!g_enabled || !addr || size == 0) {
++    return;
++  }
++  // A full CodeRange reservation is tens or hundreds of MB. Preparing
++  // that in one StikJIT call wedges the attached debugger. Individual
++  // committed pages are prepared when they become executable.
++  if (size > 8 * 1024 * 1024) {
++    Log("skip prepare of %zu byte mapping at %p (reservation, not a page)",
++        size, addr);
+     return;
+   }
+   uintptr_t rx = reinterpret_cast<uintptr_t>(addr);
+diff --git a/content/app/ios/deskbrowser_settings.h b/content/app/ios/deskbrowser_settings.h
+new file mode 100644
+--- /dev/null
++++ b/content/app/ios/deskbrowser_settings.h
++++ b/content/app/ios/deskbrowser_settings.h
+@@ -0,0 +1,27 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CONTENT_APP_IOS_DESKBROWSER_SETTINGS_H_
++#define CONTENT_APP_IOS_DESKBROWSER_SETTINGS_H_
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++// NSUserDefaults keys for the pre-Chromium launcher. Safe to read
++// from ContentMain and from Chrome code.
++#define kDeskBrowserTabCapKey "deskbrowser.tab_cap"
++#define kDeskBrowserMaxOldSpaceMbKey "deskbrowser.max_old_space_mb"
++
++// Live-tab cap (2–8). Default 4.
++int DeskBrowserSettingTabCap(void);
++
++// --max-old-space-size in MiB (128–2048). Default 512.
++int DeskBrowserSettingMaxOldSpaceMb(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif  // CONTENT_APP_IOS_DESKBROWSER_SETTINGS_H_
+diff --git a/content/app/ios/deskbrowser_settings.mm b/content/app/ios/deskbrowser_settings.mm
+new file mode 100644
+--- /dev/null
++++ b/content/app/ios/deskbrowser_settings.mm
++++ b/content/app/ios/deskbrowser_settings.mm
+@@ -0,0 +1,25 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#import "content/app/ios/deskbrowser_settings.h"
++
++#import <Foundation/Foundation.h>
++
++extern "C" int DeskBrowserSettingTabCap(void) {
++  NSInteger v = [[NSUserDefaults standardUserDefaults]
++      integerForKey:@kDeskBrowserTabCapKey];
++  if (v < 2 || v > 8) {
++    return 4;
++  }
++  return static_cast<int>(v);
++}
++
++extern "C" int DeskBrowserSettingMaxOldSpaceMb(void) {
++  NSInteger v = [[NSUserDefaults standardUserDefaults]
++      integerForKey:@kDeskBrowserMaxOldSpaceMbKey];
++  if (v < 128 || v > 2048) {
++    return 512;
++  }
++  return static_cast<int>(v);
++}
+diff --git a/ios/chrome/app/BUILD.gn b/ios/chrome/app/BUILD.gn
+--- a/ios/chrome/app/BUILD.gn
++++ b/ios/chrome/app/BUILD.gn
+@@ -560,6 +560,21 @@
+     "//ios/chrome/common/ui/colors",
+     "//ios/chrome/common/ui/util",
+     "//ios/chrome/common/ui/util:dynamic_type_util",
++  ]
++}
++
++source_set("deskbrowser_launcher") {
++  sources = [
++    "deskbrowser_launcher.h",
++    "deskbrowser_launcher.mm",
++  ]
++  # //content/app:app is visibility-restricted; public/app is the
++  # allowed edge. Headers under content/app/ios are in the source
++  # root include path; symbols are linked through Chrome's content dep.
++  deps = [ "//content/public/app" ]
++  frameworks = [
++    "Foundation.framework",
++    "UIKit.framework",
+   ]
+ }
+ 
+@@ -592,6 +607,7 @@
+     ":change_profile_commands",
+     ":change_profile_continuation",
+     ":enterprise_app_agent",
++    ":deskbrowser_launcher",
+     ":launch_screen_ui",
+     ":mode",
+     ":safe_mode_app_state_agent",
+diff --git a/ios/chrome/app/chrome_main.mm b/ios/chrome/app/chrome_main.mm
+--- a/ios/chrome/app/chrome_main.mm
++++ b/ios/chrome/app/chrome_main.mm
+@@ -39,12 +39,8 @@
+ __attribute__((visibility("default"))) int ChromeMain(int argc, char* argv[]);
+ }
+ 
+-#if !TARGET_OS_SIMULATOR && TARGET_OS_IOS
+-extern "C" bool DeskBrowserJitEnableWithBuiltInHelper(void);
+-#endif
+ 
+ 
+-
+ namespace {
+ 
+ // The number of times a PA-E double free or corruption has been detected.
+@@ -199,16 +195,8 @@
+       [NSBundle bundleForClass:NSClassFromString(@"MainController")]);
+ #endif
+ 
+-#if !TARGET_OS_SIMULATOR && TARGET_OS_IOS
+-  // Attach via the built-in StikJIT helper before UIKit is running.
+-  // Crate does the same attach with an async Task.sleep poll after
+-  // launch; Chrome has to decide --jitless before V8 starts, so the
+-  // wait happens here, while pumping the default run loop is still
+-  // safe (no DeferredInitializationQueue / base:: timers yet).
+-  @autoreleasepool {
+-    DeskBrowserJitEnableWithBuiltInHelper();
+-  }
+-#endif
+-
++  // JIT attach is started from the pre-Chromium launcher after UIKit
++  // is up, so the first screen is never a frozen wait. ContentMain
++  // reads DeskBrowserJitIsEnabled() / ForceJitless() after handoff.
+   return RunUIApplicationMain(argc, argv);
+ }
+diff --git a/ios/chrome/app/deskbrowser_launcher.h b/ios/chrome/app/deskbrowser_launcher.h
+new file mode 100644
+--- /dev/null
++++ b/ios/chrome/app/deskbrowser_launcher.h
++++ b/ios/chrome/app/deskbrowser_launcher.h
+@@ -0,0 +1,37 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef IOS_CHROME_APP_DESKBROWSER_LAUNCHER_H_
++#define IOS_CHROME_APP_DESKBROWSER_LAUNCHER_H_
++
++#import <UIKit/UIKit.h>
++
++// Crate-style pre-Chromium launcher. Shown on icon tap before V8 or
++// ChromeMain objects start, so a JIT failure can never leave a frozen
++// browser UI. Chromium init continues only after handoff.
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++// YES until the user (or auto-continue) hands off to Chrome.
++BOOL DeskBrowserLauncherShouldHold(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++@class AppState;
++
++// If startup should be held, presents the launcher on connected
++// scenes and starts the built-in JIT helper without blocking the
++// main thread. `advance` is invoked once on the main queue when the
++// launcher hands off; the caller should then queue the next AppInitStage.
++void DeskBrowserLauncherStartIfNeeded(void (^advance)(void));
++
++// Attach the launcher to a newly connected scene window (no-op if
++// already handed off or if `window` is nil).
++void DeskBrowserLauncherAttachToWindow(UIWindow* window);
++
++#endif  // IOS_CHROME_APP_DESKBROWSER_LAUNCHER_H_
+diff --git a/ios/chrome/app/deskbrowser_launcher.mm b/ios/chrome/app/deskbrowser_launcher.mm
+new file mode 100644
+--- /dev/null
++++ b/ios/chrome/app/deskbrowser_launcher.mm
++++ b/ios/chrome/app/deskbrowser_launcher.mm
+@@ -0,0 +1,483 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#import "ios/chrome/app/deskbrowser_launcher.h"
++
++#import "content/app/ios/deskbrowser_builtin_jit.h"
++#import "content/app/ios/deskbrowser_device_jit.h"
++#import "content/app/ios/deskbrowser_settings.h"
++
++namespace {
++
++NSString* const kStatusStarting = @"Starting the built-in JIT helper…";
++NSString* const kStatusAttached = @"Debugger attached. Enabling JIT…";
++NSString* const kStatusOn = @"JIT is on.";
++NSString* const kStatusFailed = @"Couldn't enable JIT.";
++NSString* const kStatusJitless = @"Starting without JIT.";
++
++enum class LauncherPhase {
++  kStarting,
++  kAttached,
++  kOn,
++  kFailed,
++  kJitless,
++};
++
++BOOL g_handed_off = NO;
++void (^g_advance)(void) = nil;
++id g_scene_observer = nil;
++NSTimer* g_attach_timer = nil;
++
++void StopAttachRetries();
++
++}  // namespace
++
++@interface DeskBrowserLauncherViewController : UIViewController
++@property(nonatomic, strong) UILabel* statusLabel;
++@property(nonatomic, strong) UILabel* reasonLabel;
++@property(nonatomic, strong) UIActivityIndicatorView* spinner;
++@property(nonatomic, strong) UIButton* openButton;
++@property(nonatomic, strong) UIButton* jitlessButton;
++@property(nonatomic, strong) UISegmentedControl* tabCap;
++@property(nonatomic, strong) UISegmentedControl* heapCap;
++@property(nonatomic, strong) NSTimer* pollTimer;
++@property(nonatomic, assign) CFAbsoluteTime deadline;
++@property(nonatomic, assign) LauncherPhase phase;
++@end
++
++@implementation DeskBrowserLauncherViewController
++
++- (instancetype)init {
++  if ((self = [super init])) {
++    _phase = LauncherPhase::kStarting;
++  }
++  return self;
++}
++
++- (void)viewDidLoad {
++  [super viewDidLoad];
++  self.view.backgroundColor = [UIColor systemBackgroundColor];
++
++  UILabel* title = [[UILabel alloc] init];
++  title.text = @"Chromium";
++  title.font = [UIFont systemFontOfSize:34 weight:UIFontWeightBold];
++  title.textAlignment = NSTextAlignmentCenter;
++  title.textColor = [UIColor labelColor];
++
++  UILabel* subtitle = [[UILabel alloc] init];
++  subtitle.text = @"JIT setup";
++  subtitle.font = [UIFont systemFontOfSize:17 weight:UIFontWeightRegular];
++  subtitle.textAlignment = NSTextAlignmentCenter;
++  subtitle.textColor = [UIColor secondaryLabelColor];
++
++  _spinner = [[UIActivityIndicatorView alloc]
++      initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
++
++  _statusLabel = [[UILabel alloc] init];
++  _statusLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
++  _statusLabel.textAlignment = NSTextAlignmentCenter;
++  _statusLabel.textColor = [UIColor labelColor];
++  _statusLabel.numberOfLines = 0;
++
++  _reasonLabel = [[UILabel alloc] init];
++  _reasonLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightRegular];
++  _reasonLabel.textAlignment = NSTextAlignmentCenter;
++  _reasonLabel.textColor = [UIColor secondaryLabelColor];
++  _reasonLabel.numberOfLines = 0;
++
++  UIStackView* statusRow = [[UIStackView alloc]
++      initWithArrangedSubviews:@[ _spinner, _statusLabel ]];
++  statusRow.axis = UILayoutConstraintAxisHorizontal;
++  statusRow.alignment = UIStackViewAlignmentCenter;
++  statusRow.spacing = 10;
++
++  _openButton = [UIButton buttonWithType:UIButtonTypeSystem];
++  [_openButton addTarget:self
++                  action:@selector(openChrome)
++        forControlEvents:UIControlEventTouchUpInside];
++
++  _jitlessButton = [UIButton buttonWithType:UIButtonTypeSystem];
++  [_jitlessButton addTarget:self
++                     action:@selector(startWithoutJit)
++           forControlEvents:UIControlEventTouchUpInside];
++
++  UILabel* tabLabel = [self settingsCaption:@"Tabs kept in memory"];
++  _tabCap = [[UISegmentedControl alloc] initWithItems:@[ @"2", @"4", @"6" ]];
++  int tabs = DeskBrowserSettingTabCap();
++  _tabCap.selectedSegmentIndex = (tabs >= 6 ? 2 : (tabs >= 4 ? 1 : 0));
++  [_tabCap addTarget:self
++                action:@selector(tabCapChanged)
++      forControlEvents:UIControlEventValueChanged];
++
++  UILabel* heapLabel = [self settingsCaption:@"V8 heap cap"];
++  _heapCap = [[UISegmentedControl alloc]
++      initWithItems:@[ @"256 MB", @"512 MB", @"1 GB" ]];
++  int heap = DeskBrowserSettingMaxOldSpaceMb();
++  _heapCap.selectedSegmentIndex = (heap >= 1024 ? 2 : (heap >= 512 ? 1 : 0));
++  [_heapCap addTarget:self
++                action:@selector(heapCapChanged)
++      forControlEvents:UIControlEventValueChanged];
++
++  UIStackView* settings = [[UIStackView alloc] initWithArrangedSubviews:@[
++    tabLabel, _tabCap, heapLabel, _heapCap
++  ]];
++  settings.axis = UILayoutConstraintAxisVertical;
++  settings.spacing = 8;
++  settings.alignment = UIStackViewAlignmentFill;
++
++  UIStackView* stack = [[UIStackView alloc] initWithArrangedSubviews:@[
++    title, subtitle, statusRow, _reasonLabel, _openButton, _jitlessButton,
++    settings
++  ]];
++  stack.axis = UILayoutConstraintAxisVertical;
++  stack.alignment = UIStackViewAlignmentFill;
++  stack.spacing = 16;
++  stack.translatesAutoresizingMaskIntoConstraints = NO;
++  [stack setCustomSpacing:24 afterView:subtitle];
++  [stack setCustomSpacing:24 afterView:_reasonLabel];
++  [stack setCustomSpacing:28 afterView:_jitlessButton];
++  [self.view addSubview:stack];
++
++  [NSLayoutConstraint activateConstraints:@[
++    [stack.leadingAnchor
++        constraintEqualToAnchor:self.view.layoutMarginsGuide.leadingAnchor],
++    [stack.trailingAnchor
++        constraintEqualToAnchor:self.view.layoutMarginsGuide.trailingAnchor],
++    [stack.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
++    [_openButton.heightAnchor constraintEqualToConstant:50],
++    [_jitlessButton.heightAnchor constraintEqualToConstant:44],
++  ]];
++
++  [self refreshUI];
++}
++
++- (UIButtonConfiguration*)primaryConfiguration:(NSString*)title {
++  UIButtonConfiguration* c =
++      [UIButtonConfiguration filledButtonConfiguration];
++  c.title = title;
++  c.cornerStyle = UIButtonConfigurationCornerStyleLarge;
++  c.buttonSize = UIButtonConfigurationSizeLarge;
++  c.baseBackgroundColor = [UIColor systemBlueColor];
++  c.baseForegroundColor = [UIColor whiteColor];
++  c.titleTextAttributesTransformer = ^NSDictionary*(NSDictionary* incoming) {
++    NSMutableDictionary* out = [incoming mutableCopy];
++    out[NSFontAttributeName] =
++        [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
++    return out;
++  };
++  return c;
++}
++
++- (UIButtonConfiguration*)secondaryConfiguration:(NSString*)title {
++  UIButtonConfiguration* c =
++      [UIButtonConfiguration grayButtonConfiguration];
++  c.title = title;
++  c.cornerStyle = UIButtonConfigurationCornerStyleLarge;
++  return c;
++}
++
++- (UILabel*)settingsCaption:(NSString*)text {
++  UILabel* l = [[UILabel alloc] init];
++  l.text = text;
++  l.font = [UIFont systemFontOfSize:13 weight:UIFontWeightRegular];
++  l.textColor = [UIColor secondaryLabelColor];
++  return l;
++}
++
++- (void)refreshUI {
++  if (!self.isViewLoaded) {
++    return;
++  }
++  BOOL busy = (_phase == LauncherPhase::kStarting ||
++               _phase == LauncherPhase::kAttached);
++  if (busy) {
++    [_spinner startAnimating];
++    _spinner.hidden = NO;
++  } else {
++    [_spinner stopAnimating];
++    _spinner.hidden = YES;
++  }
++
++  switch (_phase) {
++    case LauncherPhase::kStarting:
++      _statusLabel.text = kStatusStarting;
++      _reasonLabel.text = nil;
++      _openButton.enabled = NO;
++      _openButton.configuration = [self primaryConfiguration:@"Open Chrome"];
++      break;
++    case LauncherPhase::kAttached:
++      _statusLabel.text = kStatusAttached;
++      _reasonLabel.text = nil;
++      _openButton.enabled = NO;
++      _openButton.configuration = [self primaryConfiguration:@"Open Chrome"];
++      break;
++    case LauncherPhase::kOn:
++      _statusLabel.text = kStatusOn;
++      _reasonLabel.text = nil;
++      _openButton.enabled = YES;
++      _openButton.configuration = [self primaryConfiguration:@"Open Chrome"];
++      break;
++    case LauncherPhase::kFailed:
++      _statusLabel.text = kStatusFailed;
++      {
++        const char* notice = DeskBrowserJitFallbackNotice();
++        _reasonLabel.text =
++            notice ? @(notice)
++                   : @"Leave LocalDevVPN on and confirm the pairing file is "
++                     @"in Documents/StikJIT, then try again. You can still "
++                     @"browse without JIT.";
++      }
++      _openButton.enabled = YES;
++      _openButton.configuration =
++          [self primaryConfiguration:@"Open Chrome without JIT"];
++      break;
++    case LauncherPhase::kJitless:
++      _statusLabel.text = kStatusJitless;
++      _reasonLabel.text = nil;
++      _openButton.enabled = YES;
++      _openButton.configuration =
++          [self primaryConfiguration:@"Open Chrome without JIT"];
++      break;
++  }
++  _jitlessButton.configuration =
++      [self secondaryConfiguration:@"Start without JIT"];
++  _jitlessButton.enabled = !g_handed_off && _phase != LauncherPhase::kJitless &&
++                           _phase != LauncherPhase::kOn;
++}
++
++- (void)tabCapChanged {
++  NSArray<NSNumber*>* vals = @[ @2, @4, @6 ];
++  NSInteger i = _tabCap.selectedSegmentIndex;
++  if (i < 0 || i >= (NSInteger)vals.count) {
++    return;
++  }
++  [[NSUserDefaults standardUserDefaults] setInteger:vals[i].integerValue
++                                             forKey:@kDeskBrowserTabCapKey];
++}
++
++- (void)heapCapChanged {
++  NSArray<NSNumber*>* vals = @[ @256, @512, @1024 ];
++  NSInteger i = _heapCap.selectedSegmentIndex;
++  if (i < 0 || i >= (NSInteger)vals.count) {
++    return;
++  }
++  [[NSUserDefaults standardUserDefaults]
++      setInteger:vals[i].integerValue
++          forKey:@kDeskBrowserMaxOldSpaceMbKey];
++}
++
++- (void)startJit {
++  _deadline = CFAbsoluteTimeGetCurrent() + 180;
++  if (DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable()) {
++    [self markOn];
++    return;
++  }
++  if (!DeskBrowserJitStartBuiltInHelper()) {
++    [self markFailed];
++    return;
++  }
++  _phase = LauncherPhase::kStarting;
++  [self refreshUI];
++  if (_pollTimer) {
++    return;
++  }
++  __weak DeskBrowserLauncherViewController* weakSelf = self;
++  _pollTimer = [NSTimer scheduledTimerWithTimeInterval:0.2
++                                               repeats:YES
++                                                 block:^(NSTimer*) {
++                                                   [weakSelf poll];
++                                                 }];
++}
++
++- (void)poll {
++  if (_phase != LauncherPhase::kStarting &&
++      _phase != LauncherPhase::kAttached) {
++    return;
++  }
++  if (DeskBrowserJitDebuggerAttached()) {
++    _phase = LauncherPhase::kAttached;
++    [self refreshUI];
++    if (DeskBrowserJitTryEnable()) {
++      [self markOn];
++      return;
++    }
++  }
++  if (CFAbsoluteTimeGetCurrent() >= _deadline) {
++    [self markFailed];
++  }
++}
++
++- (void)markOn {
++  if (_phase == LauncherPhase::kOn || g_handed_off) {
++    return;
++  }
++  _phase = LauncherPhase::kOn;
++  [_pollTimer invalidate];
++  _pollTimer = nil;
++  [self refreshUI];
++  NSLog(@"deskbrowser-jit: launcher JIT is on; auto-continuing");
++  __weak DeskBrowserLauncherViewController* weakSelf = self;
++  dispatch_after(
++      dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)),
++      dispatch_get_main_queue(), ^{
++        [weakSelf openChrome];
++      });
++}
++
++- (void)markFailed {
++  if (_phase == LauncherPhase::kOn || _phase == LauncherPhase::kFailed ||
++      _phase == LauncherPhase::kJitless || g_handed_off) {
++    return;
++  }
++  _phase = LauncherPhase::kFailed;
++  [_pollTimer invalidate];
++  _pollTimer = nil;
++  [self refreshUI];
++  NSLog(@"deskbrowser-jit: launcher JIT failed: %s",
++        DeskBrowserJitFallbackNotice() ? DeskBrowserJitFallbackNotice()
++                                       : "(no notice)");
++}
++
++- (void)openChrome {
++  if (g_handed_off) {
++    return;
++  }
++  if (!DeskBrowserJitIsEnabled()) {
++    DeskBrowserJitSetForceJitless(true);
++  }
++  [self handOff];
++}
++
++- (void)startWithoutJit {
++  if (g_handed_off) {
++    return;
++  }
++  DeskBrowserJitSetForceJitless(true);
++  _phase = LauncherPhase::kJitless;
++  [_pollTimer invalidate];
++  _pollTimer = nil;
++  [self refreshUI];
++  [self handOff];
++}
++
++- (void)handOff {
++  if (g_handed_off) {
++    return;
++  }
++  g_handed_off = YES;
++  [_pollTimer invalidate];
++  _pollTimer = nil;
++  [self refreshUI];
++  void (^advance)(void) = g_advance;
++  g_advance = nil;
++  NSLog(@"deskbrowser-jit: launcher handing off to Chrome (jit=%d)",
++        DeskBrowserJitIsEnabled() && !DeskBrowserJitForceJitless());
++  StopAttachRetries();
++  if (advance) {
++    advance();
++  }
++}
++
++@end
++
++namespace {
++
++DeskBrowserLauncherViewController* g_controller = nil;
++
++void PresentOnWindow(UIWindow* window) {
++  if (!window || g_handed_off) {
++    return;
++  }
++  if (!g_controller) {
++    g_controller = [[DeskBrowserLauncherViewController alloc] init];
++  }
++  if (window.rootViewController != g_controller) {
++    window.rootViewController = g_controller;
++  }
++  [window makeKeyAndVisible];
++}
++
++void PresentOnConnectedScenes() {
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    if (![scene isKindOfClass:[UIWindowScene class]]) {
++      continue;
++    }
++    UIWindowScene* ws = (UIWindowScene*)scene;
++    UIWindow* window = ws.keyWindow;
++    if (!window) {
++      for (UIWindow* candidate in ws.windows) {
++        if (candidate) {
++          window = candidate;
++          break;
++        }
++      }
++    }
++    // Do not allocate a second window. SceneDelegate creates the
++    // ChromeOverlayWindow; creating another here can hide the official
++    // scene window and leave the launcher unreachable after handoff.
++    if (window) {
++      PresentOnWindow(window);
++    }
++  }
++}
++
++void EnsureSceneObserver() {
++  if (g_scene_observer) {
++    return;
++  }
++  g_scene_observer = [[NSNotificationCenter defaultCenter]
++      addObserverForName:UISceneDidActivateNotification
++                  object:nil
++                   queue:[NSOperationQueue mainQueue]
++              usingBlock:^(NSNotification*) {
++                if (!g_handed_off) {
++                  PresentOnConnectedScenes();
++                }
++              }];
++}
++
++void StopAttachRetries() {
++  [g_attach_timer invalidate];
++  g_attach_timer = nil;
++  if (g_scene_observer) {
++    [[NSNotificationCenter defaultCenter] removeObserver:g_scene_observer];
++    g_scene_observer = nil;
++  }
++}
++
++}  // namespace
++
++extern "C" BOOL DeskBrowserLauncherShouldHold(void) { return !g_handed_off; }
++
++void DeskBrowserLauncherAttachToWindow(UIWindow* window) {
++  PresentOnWindow(window);
++}
++
++void DeskBrowserLauncherStartIfNeeded(void (^advance)(void)) {
++  if (g_handed_off) {
++    if (advance) {
++      advance();
++    }
++    return;
++  }
++  g_advance = [advance copy];
++  EnsureSceneObserver();
++  PresentOnConnectedScenes();
++  if (!g_controller) {
++    g_controller = [[DeskBrowserLauncherViewController alloc] init];
++  }
++  [g_controller startJit];
++  if (!g_attach_timer && !g_handed_off) {
++    g_attach_timer = [NSTimer
++        scheduledTimerWithTimeInterval:0.05
++                               repeats:YES
++                                 block:^(NSTimer* timer) {
++                                   if (g_handed_off) {
++                                     [timer invalidate];
++                                     return;
++                                   }
++                                   PresentOnConnectedScenes();
++                                 }];
++  }
++}
+diff --git a/ios/chrome/app/main_application_delegate.mm b/ios/chrome/app/main_application_delegate.mm
+--- a/ios/chrome/app/main_application_delegate.mm
++++ b/ios/chrome/app/main_application_delegate.mm
+@@ -94,14 +94,8 @@
+ - (BOOL)application:(UIApplication*)application
+     didFinishLaunchingWithOptions:(NSDictionary*)launchOptions {
+   self.didFinishLaunching = YES;
+-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)),
+-                 dispatch_get_main_queue(), ^{
+-                   [self showDeskBrowserJitNoticeIfNeeded];
+-                 });
+-  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)),
+-                 dispatch_get_main_queue(), ^{
+-                   [self showDeskBrowserJitNoticeIfNeeded];
+-                 });
++  // The pre-Chromium launcher already surfaces JIT status, so these
++  // delayed alerts are no longer scheduled on every launch.
+ 
+   UNUserNotificationCenter* center =
+       [UNUserNotificationCenter currentNotificationCenter];
+diff --git a/ios/chrome/app/main_controller.mm b/ios/chrome/app/main_controller.mm
+--- a/ios/chrome/app/main_controller.mm
++++ b/ios/chrome/app/main_controller.mm
+@@ -64,6 +64,7 @@
+ #import "ios/chrome/app/deferred_initialization_runner.h"
+ #import "ios/chrome/app/deferred_initialization_task_names.h"
+ #import "ios/chrome/app/enterprise_app_agent.h"
++#import "ios/chrome/app/deskbrowser_launcher.h"
+ #import "ios/chrome/app/launch_screen_view_controller.h"
+ #import "ios/chrome/app/legacy_scene_identifier_map.h"
+ #import "ios/chrome/app/memory_monitor.h"
+@@ -1018,6 +1019,14 @@
+     didTransitionFromInitStage:(AppInitStage)previousInitStage {
+   switch (appState.initStage) {
+     case AppInitStage::kStart:
++#if !TARGET_OS_SIMULATOR && TARGET_OS_IOS
++      if (DeskBrowserLauncherShouldHold()) {
++        DeskBrowserLauncherStartIfNeeded(^{
++          [appState queueTransitionToNextInitStage];
++        });
++        break;
++      }
++#endif
+       [appState queueTransitionToNextInitStage];
+       break;
+     case AppInitStage::kBrowserBasic:
+diff --git a/ios/chrome/browser/memory/model/deskbrowser_live_tab_cap.mm b/ios/chrome/browser/memory/model/deskbrowser_live_tab_cap.mm
+--- a/ios/chrome/browser/memory/model/deskbrowser_live_tab_cap.mm
++++ b/ios/chrome/browser/memory/model/deskbrowser_live_tab_cap.mm
+@@ -4,6 +4,8 @@
+ 
+ #import "ios/chrome/browser/memory/model/deskbrowser_live_tab_cap.h"
+ 
++#import <Foundation/Foundation.h>
++
+ #import <algorithm>
+ #import <vector>
+ 
+@@ -28,8 +30,16 @@
+ 
+ // Keep a small number of documents resident so a single-process Blink
+ // instance stays under the iOS jetsam limit, even with the 6 GiB
+-// increased-memory-limit cap.
+-constexpr int kMaxLiveTabs = 4;
++// increased-memory-limit cap. The pre-Chromium launcher can change this
++// via NSUserDefaults (deskbrowser.tab_cap); default remains 4.
++int MaxLiveTabs() {
++  NSInteger v = [[NSUserDefaults standardUserDefaults]
++      integerForKey:@"deskbrowser.tab_cap"];
++  if (v < 2 || v > 8) {
++    return 4;
++  }
++  return static_cast<int>(v);
++}
+ 
+ class DiscardedTabData : public web::WebStateUserData<DiscardedTabData> {
+  public:
+@@ -118,7 +128,7 @@
+       }
+     }
+ 
+-    const int allowed_background = std::max(0, kMaxLiveTabs - active_live);
++    const int allowed_background = std::max(0, MaxLiveTabs() - active_live);
+     if (static_cast<int>(live.size()) <= allowed_background) {
+       return;
+     }
+diff --git a/v8/src/heap/code-range.cc b/v8/src/heap/code-range.cc
+--- a/v8/src/heap/code-range.cc
++++ b/v8/src/heap/code-range.cc
+@@ -4,6 +4,8 @@
+ 
+ #include "src/heap/code-range.h"
+ 
++#include <stdio.h>
++
+ #include <algorithm>
+ #include <atomic>
+ #include <limits>
+@@ -198,7 +200,36 @@
+   // providing a hint.
+   // TODO(https://crbug.com/40096218): investigate this ChromeOS issue.
+   params.requested_start_hint = kNullAddress;
+-  if (!VirtualMemoryCage::InitReservation(params)) return false;
++#if defined(V8_OS_IOS)
++  // Only when *running* on iOS. Host mksnapshot is a macOS binary
++  // compiled with V8_TARGET_OS_IOS; MAP_JIT must stay in place there
++  // or SetPermissions to executable fails with EACCES (CHECK ENOMEM).
++  // On device, a process-wide MAP_JIT of the CodeRange fails (and
++  // would consume the one allowed MAP_JIT). Reserve inaccessible
++  // pages instead; the StikJIT prepare protocol makes individual
++  // pages executable when they are committed.
++  params.permissions = PageAllocator::Permission::kNoAccess;
++  params.page_initialization_mode =
++      base::PageInitializationMode::kAllocatedPagesCanBeUninitialized;
++  params.page_freeing_mode = base::PageFreeingMode::kMakeInaccessible;
++#endif
++  if (!VirtualMemoryCage::InitReservation(params)) {
++#if defined(V8_OS_IOS)
++    if (params.reservation_size > kMinimumCodeRangeSize) {
++      params.reservation_size = kMinimumCodeRangeSize;
++      if (!VirtualMemoryCage::InitReservation(params)) return false;
++    } else {
++      return false;
++    }
++#else
++    return false;
++#endif
++  }
++#if defined(V8_OS_IOS)
++  fprintf(stderr, "deskbrowser-jit: CodeRange reserved %zu MB at %p\n",
++          params.reservation_size / (1024 * 1024),
++          reinterpret_cast<void*>(base()));
++#endif
+ #else
+   constexpr size_t kRadiusInMB =
+       kMaxPCRelativeCodeRangeInMB > 1024 ? kMaxPCRelativeCodeRangeInMB : 4096;
+diff --git a/v8/src/base/platform/platform-posix.cc b/v8/src/base/platform/platform-posix.cc
+--- a/v8/src/base/platform/platform-posix.cc
++++ b/v8/src/base/platform/platform-posix.cc
+@@ -529,11 +529,12 @@
+   }
+ 
+ #if defined(V8_OS_IOS)
+-  // Prepare TXM-executable regions via the StikJIT protocol when enabled.
++  // Prepare only pages that will actually be executed. Do not prepare
++  // a whole CodeRange reservation (kNoAccessWillJitLater can be 64-256
++  // MB); that hangs or fails the StikJIT protocol and can OOM.
+   if (DeskBrowserJitIsEnabled && DeskBrowserJitIsEnabled() &&
+       DeskBrowserJitPrepareRegion &&
+-      (access == MemoryPermission::kNoAccessWillJitLater ||
+-       access == MemoryPermission::kReadWriteExecute ||
++      (access == MemoryPermission::kReadWriteExecute ||
+        access == MemoryPermission::kReadExecute)) {
+     DeskBrowserJitPrepareRegion(aligned_base, size);
+   }

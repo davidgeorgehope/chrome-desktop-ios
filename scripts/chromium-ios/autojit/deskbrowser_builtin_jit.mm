@@ -159,6 +159,55 @@ extern "C" const char* DeskBrowserJitFallbackNotice(void) {
   return g_has_notice ? g_notice : nullptr;
 }
 
+namespace {
+bool g_force_jitless = false;
+}  // namespace
+
+extern "C" void DeskBrowserJitSetForceJitless(bool force) {
+  g_force_jitless = force;
+}
+
+extern "C" bool DeskBrowserJitForceJitless(void) {
+  return g_force_jitless;
+}
+
+extern "C" bool DeskBrowserJitStartBuiltInHelper(void) {
+#if TARGET_OS_SIMULATOR || !TARGET_OS_IOS
+  SetNotice(@"JIT helper is not available in this build.");
+  return false;
+#else
+  static bool g_started = false;
+  static bool g_ok = false;
+  if (g_started) {
+    return g_ok;
+  }
+  g_started = true;
+
+  DeskBrowserJitInstallTrapHandler();
+  if (DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable()) {
+    g_ok = true;
+    return true;
+  }
+  NSData* pairing = ReadPairingFile();
+  if (!pairing.length) {
+    SetNotice(@"Chrome needs the same pairing file crate uses, at "
+              @"Documents/StikJIT/pairingFile.plist, and LocalDevVPN "
+              @"turned on. It will run without JIT until then.");
+    return false;
+  }
+  if (!StartHelper(pairing)) {
+    if (!g_has_notice) {
+      SetNotice(@"The built-in JIT helper could not start. Chrome will "
+                @"run without JIT.");
+    }
+    return false;
+  }
+  NSLog(@"deskbrowser-jit: started built-in helper (non-blocking)");
+  g_ok = true;
+  return true;
+#endif
+}
+
 extern "C" bool DeskBrowserJitEnableWithBuiltInHelper(void) {
 #if TARGET_OS_SIMULATOR || !TARGET_OS_IOS
   return false;

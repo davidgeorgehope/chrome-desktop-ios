@@ -250,3 +250,23 @@ start-helper-then-poll style, without Chromium task APIs: a short
 default-mode pump is used only before UIKit is running, otherwise
 `nanosleep`. `DeskBrowserJitTryEnable` no longer logs an "Attach
 StikDebug" probe message.
+
+Patch `0008-ios-device-launcher-and-coderange.patch` (apply after 0007,
+from `chromium/src`; V8 hunks use `v8/src/...` paths in that tree)
+adds a crate-style native UIKit launcher before Chromium/V8 start, and
+fixes the device CodeRange reservation. Icon tap holds AppState at
+`kStart` and shows live JIT status (starting helper / attached / JIT
+on / failed + reason), a large Open Chrome button that auto-continues
+when JIT is on, a Start without JIT fallback, and small settings for
+the live-tab cap and V8 heap cap. The built-in helper is started from
+the launcher on the main run loop (non-blocking); ContentMain still
+decides `--jitless` after handoff.
+
+The CodeRange path reserves inaccessible pages (`kNoAccess`) and
+retries at 64 MB only when *running* on iOS (`V8_OS_IOS`). Host
+`mksnapshot` is a macOS binary compiled with `V8_TARGET_OS_IOS`; using
+that macro made it reserve PROT_NONE and then fail
+`SetPermissions` with EACCES (`CHECK_EQ(ENOMEM, errno)`). Whole-cage
+MAP_JIT reservations are not prepared in one StikJIT call (8 MB cap,
+512 region slots).
+

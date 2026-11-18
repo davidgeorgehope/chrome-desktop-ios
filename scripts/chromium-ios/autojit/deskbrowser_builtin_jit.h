@@ -24,6 +24,16 @@ bool DeskBrowserJitEnableWithBuiltInHelper(void);
 // needed. The pointer is valid for the process lifetime.
 const char* DeskBrowserJitFallbackNotice(void);
 
+// Non-blocking start of the built-in helper. Returns false if the helper
+// cannot be started (notice is set). If a debugger is already attached,
+// enables the TXM hook and returns true. Does not wait for attach.
+bool DeskBrowserJitStartBuiltInHelper(void);
+
+// When true, ContentMain must pass --jitless even if a debugger later
+// attaches. Set by the launcher "Start without JIT" path.
+void DeskBrowserJitSetForceJitless(bool force);
+bool DeskBrowserJitForceJitless(void);
+
 #ifdef __cplusplus
 }
 #endif

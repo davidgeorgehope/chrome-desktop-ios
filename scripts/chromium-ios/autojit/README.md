@@ -5,12 +5,15 @@ of the target, including the one talking to the debugger. A built-in
 helper extension (`DeskBrowserJITHelper.appex`) does the attach, the same
 shape crate uses.
 
-On launch, `ChromeMain` (before `UIApplicationMain`) reads `Documents/StikJIT/pairingFile.plist` (never
-logged or committed), starts the helper through NSExtension, and waits
-for `CS_DEBUGGED`. The helper calls `StikJIT.enableJIT` with
-`script: .universal` (TXM `brk #0xf00d`) and stays attached so later
-Wasm regions can be prepared. If that fails, V8 stays `--jitless` and
-Chrome shows a short notice.
+On launch a pre-Chromium UIKit launcher (patch 0008) is shown before
+V8 starts. It reads `Documents/StikJIT/pairingFile.plist` (never
+logged or committed), starts the helper through NSExtension without
+blocking the main thread, and polls for `CS_DEBUGGED`. The helper
+calls `StikJIT.enableJIT` with `script: .universal` (TXM `brk #0xf00d`)
+and stays attached so later Wasm regions can be prepared. Open Chrome
+auto-continues when JIT is on; Start without JIT forces `--jitless`.
+If attach fails, the launcher shows the reason and still lets Chrome
+open jitless.
 
 `StikJIT.xcframework` is MPL-2.0, fetched by `fetch-stikjit.sh` (pinned
 2.0.1). It is not committed. The embed rsync excludes Headers,
