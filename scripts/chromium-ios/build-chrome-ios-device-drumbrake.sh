@@ -46,11 +46,12 @@ PYE
   echo "$(date '+%F %T %Z') NINJA rc=$?"
 } 2>&1 | tee -a "$RUNLOG" "$HIST"
 
-gn_rc=$(tail -80 "$RUNLOG" | sed -n 's/.*GN rc=\([0-9][0-9]*\).*/\1/p' | tail -1)
-rc=$(tail -80 "$RUNLOG" | sed -n 's/.*NINJA rc=\([0-9][0-9]*\).*/\1/p' | tail -1)
-if [ -z "${gn_rc:-}" ]; then gn_rc=1; fi
+# Read rc lines from the whole current log, not the last 80 lines — a
+# long ninja log scrolls the GN rc= line out of a short tail.
+gn_rc=$(sed -n 's/.*GN rc=\([0-9][0-9]*\).*/\1/p' "$RUNLOG" | tail -1)
+rc=$(sed -n 's/.*NINJA rc=\([0-9][0-9]*\).*/\1/p' "$RUNLOG" | tail -1)
 if [ -z "${rc:-}" ]; then rc=1; fi
-if [ "$gn_rc" -ne 0 ]; then rc=$gn_rc; fi
+if [ -n "${gn_rc:-}" ] && [ "$gn_rc" -ne 0 ]; then rc=$gn_rc; fi
 
 if [ "$rc" -eq 0 ]; then
   echo "$(date '+%F %T %Z') signing $SIGNED_IPA" | tee -a "$RUNLOG" "$HIST"
