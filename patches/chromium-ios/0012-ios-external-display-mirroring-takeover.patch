@@ -1,0 +1,321 @@
+diff --git a/ios/chrome/app/deskbrowser_external_display.h b/ios/chrome/app/deskbrowser_external_display.h
+--- a/ios/chrome/app/deskbrowser_external_display.h	2026-11-18 14:58:05.946906195 -0500
++++ b/ios/chrome/app/deskbrowser_external_display.h	2026-11-18 14:58:05.946906195 -0500
+@@ -25,6 +25,13 @@
+ // from the jitless default path at startup.
+ void DeskBrowserExternalDisplayStart(void);
+ 
++// If `session` is an external-display role, return the scene
++// configuration that instantiates DeskBrowserExternalDisplaySceneDelegate.
++// Otherwise return nil so the caller can use Chrome's default
++// application-scene configuration.
++UISceneConfiguration* DeskBrowserExternalDisplayConfigurationIfNeeded(
++    UISceneSession* session);
++
+ #ifdef __cplusplus
+ }
+ #endif
+
+diff --git a/ios/chrome/app/deskbrowser_external_display.mm b/ios/chrome/app/deskbrowser_external_display.mm
+--- a/ios/chrome/app/deskbrowser_external_display.mm	2026-11-18 14:58:05.946906195 -0500
++++ b/ios/chrome/app/deskbrowser_external_display.mm	2026-11-18 14:58:05.950906198 -0500
+@@ -10,6 +10,8 @@
+     @"DeskBrowser External Display";
+ 
+ id g_accessory_registration = nil;
++__weak UIViewController* g_accessory_presenter = nil;
++BOOL g_legacy_mirror_window = NO;
+ BOOL g_started = NO;
+ BOOL g_observing = NO;
+ NSTimer* g_attach_timer = nil;
+@@ -273,41 +275,200 @@
+   return config;
+ }
+ 
++void UnregisterAccessory(void) {
++#if defined(__IPHONE_27_0)
++  if (@available(iOS 27.0, *)) {
++    if (g_accessory_registration && g_accessory_presenter) {
++      [g_accessory_presenter
++          unregisterSceneAccessory:(UISceneAccessoryRegistration*)
++                                       g_accessory_registration];
++    }
++  }
++#endif
++  g_accessory_registration = nil;
++  g_accessory_presenter = nil;
++}
++
+ void RegisterAccessoryIfPossible(void) {
+ #if defined(__IPHONE_27_0)
+   if (@available(iOS 27.0, *)) {
++    UIViewController* presenter = PresenterViewController();
++    // The control surface is only on the phone after we have already
++    // taken over the external display; do not register on it.
++    if (IsControlSurface(presenter)) {
++      presenter = nil;
++    }
++
+     if (g_accessory_registration) {
+-      [(UISceneAccessoryRegistration*)g_accessory_registration setEnabled:YES];
+-      return;
++      UIViewController* previous = g_accessory_presenter;
++      BOOL previous_still_valid =
++          previous && previous.viewIfLoaded.window &&
++          (!presenter || presenter == previous);
++      if (previous_still_valid) {
++        UISceneAccessoryRegistration* registration =
++            (UISceneAccessoryRegistration*)g_accessory_registration;
++        registration.enabled = YES;
++        static CFAbsoluteTime last_log = 0;
++        CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
++        if (now - last_log > 5) {
++          last_log = now;
++          NSLog(@"deskbrowser-external: accessory available=%d enabled=%d "
++                @"presenter=%@",
++                registration.isAvailable, registration.isEnabled,
++                ClassName(previous));
++        }
++        return;
++      }
++      NSLog(@"deskbrowser-external: presenter changed (%@ -> %@); "
++            @"re-registering accessory",
++            ClassName(previous), ClassName(presenter));
++      UnregisterAccessory();
+     }
+-    UIViewController* presenter = PresenterViewController();
++
+     if (!presenter || !presenter.viewIfLoaded.window) {
+       return;
+     }
+-    // Some presenters (launch screen) disappear; prefer a Chrome VC
+-    // but accept any presented VC so the accessory is registered
+-    // before a display is plugged in.
++
+     UISceneAccessory* accessory = [UISceneAccessory
+         externalNonInteractiveSceneAccessoryWithConfiguration:
+             ExternalSceneConfiguration()];
+     UISceneAccessoryRegistration* registration =
+         [presenter registerSceneAccessory:accessory];
++    if (!registration) {
++      NSLog(@"deskbrowser-external: registerSceneAccessory returned nil on %@",
++            ClassName(presenter));
++      return;
++    }
+     registration.enabled = YES;
+     g_accessory_registration = registration;
+-    NSLog(@"deskbrowser-external: registered iOS 27 scene accessory on %@",
+-          ClassName(presenter));
++    g_accessory_presenter = presenter;
++    NSLog(@"deskbrowser-external: registered iOS 27 scene accessory on %@ "
++          @"available=%d",
++          ClassName(presenter), registration.isAvailable);
+   }
+ #endif
+ }
+ 
++BOOL HasExternalSceneWindow(void) {
++  if (!g_external_window) {
++    return NO;
++  }
++  UIWindowScene* scene = g_external_window.windowScene;
++  if (scene) {
++    UISceneSessionRole role = scene.session.role;
++    if (role == UIWindowSceneSessionRoleExternalDisplayNonInteractive ||
++        role == UIWindowSceneSessionRoleExternalDisplay) {
++      return YES;
++    }
++  }
++  return g_legacy_mirror_window && !g_external_window.hidden;
++}
++
++// When iOS is mirroring the phone to a connected display, Apple's
++// UIScreen.mirroredScreen docs say: "Moving a UIWindow to this screen
++// will disable mirroring." iOS 27 may keep mirroring if the scene
++// accessory never takes over; this fallback claims the display.
++UIScreen* MirroredOrExternalScreen(void) {
++  UIScreen* main = UIScreen.mainScreen;
++  if (main.mirroredScreen && !CGRectIsEmpty(main.mirroredScreen.bounds)) {
++    return main.mirroredScreen;
++  }
++  for (UIScreen* screen in UIScreen.screens) {
++    if (screen == main) {
++      continue;
++    }
++    if (CGRectIsEmpty(screen.bounds)) {
++      continue;
++    }
++    return screen;
++  }
++  return nil;
++}
++
++void AttachLegacyWindowIfMirroring(void) {
++  if (HasExternalSceneWindow() && !g_legacy_mirror_window) {
++    return;
++  }
++  UIScreen* ext = MirroredOrExternalScreen();
++  if (!ext) {
++    return;
++  }
++  if (g_legacy_mirror_window && g_external_window) {
++    if (!CGRectEqualToRect(g_external_window.frame, ext.bounds)) {
++      g_external_window.frame = ext.bounds;
++    }
++    ForceRegularSizeClass(g_external_window);
++    PlaceChromeOnExternalDisplay();
++    return;
++  }
++
++  NSLog(@"deskbrowser-external: taking over mirrored/external UIScreen %@ "
++        @"bounds=%@ (scene accessory did not create a session)",
++        ext, NSStringFromCGRect(ext.bounds));
++
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wdeprecated-declarations"
++  UIWindow* window = [[UIWindow alloc] initWithFrame:ext.bounds];
++  window.screen = ext;
++#pragma clang diagnostic pop
++  window.backgroundColor = [UIColor colorWithRed:0.13
++                                           green:0.14
++                                            blue:0.16
++                                           alpha:1.0];
++  g_external_window = window;
++  g_legacy_mirror_window = YES;
++  ForceRegularSizeClass(window);
++  window.hidden = NO;
++  [window makeKeyAndVisible];
++  PlaceChromeOnExternalDisplay();
++}
++
++void LogDisplayStateOnceInAWhile(void) {
++  static CFAbsoluteTime last_log = 0;
++  CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
++  if (now - last_log < 5) {
++    return;
++  }
++  last_log = now;
++  NSMutableArray<NSString*>* screens = [NSMutableArray array];
++  for (UIScreen* screen in UIScreen.screens) {
++    [screens addObject:[NSString
++                           stringWithFormat:@"bounds=%@ mirrored=%@ scale=%.1f",
++                                            NSStringFromCGRect(screen.bounds),
++                                            screen.mirroredScreen ? @"Y" : @"N",
++                                            screen.scale]];
++  }
++  NSMutableArray<NSString*>* roles = [NSMutableArray array];
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    if ([scene isKindOfClass:[UIWindowScene class]]) {
++      [roles addObject:((UIWindowScene*)scene).session.role];
++    }
++  }
++  NSLog(@"deskbrowser-external: screens=[%@] mirrored=%@ scenes=[%@] "
++        @"legacy=%d extWin=%@",
++        [screens componentsJoinedByString:@"; "],
++        UIScreen.mainScreen.mirroredScreen ? @"Y" : @"N",
++        [roles componentsJoinedByString:@","],
++        g_legacy_mirror_window, g_external_window ? @"Y" : @"N");
++}
++
+ void AttachTimerTick(void) {
++  LogDisplayStateOnceInAWhile();
+   RegisterAccessoryIfPossible();
+-  if (g_external_window) {
++  if (g_external_window && !g_legacy_mirror_window) {
+     if (g_external_window.windowScene) {
+       SyncExternalWindowFrame(g_external_window.windowScene,
+                               g_external_window);
+     }
+     PlaceChromeOnExternalDisplay();
++    return;
++  }
++  // Prefer a real external scene when it arrives; otherwise take over
++  // the mirrored UIScreen so the monitor is not left as a phone mirror.
++  if (!HasExternalSceneWindow()) {
++    AttachLegacyWindowIfMirroring();
++  } else {
++    PlaceChromeOnExternalDisplay();
+   }
+ }
+ 
+@@ -390,7 +551,13 @@
+                                             blue:0.16
+                                            alpha:1.0];
+   self.window = window;
++  if (g_legacy_mirror_window && g_external_window &&
++      g_external_window != window) {
++    g_external_window.hidden = YES;
++    g_external_window.rootViewController = nil;
++  }
+   g_external_window = window;
++  g_legacy_mirror_window = NO;
+   SyncExternalWindowFrame(window_scene, window);
+   window.hidden = NO;
+   [window makeKeyAndVisible];
+@@ -408,6 +575,7 @@
+   RestoreChromeToPhoneIfNeeded();
+   if (g_external_window == self.window) {
+     g_external_window = nil;
++    g_legacy_mirror_window = NO;
+   }
+   self.window = nil;
+ }
+@@ -470,3 +638,22 @@
+         (unsigned long)UIScreen.screens.count,
+         (unsigned long)UIApplication.sharedApplication.connectedScenes.count);
+ }
++
++UISceneConfiguration* DeskBrowserExternalDisplayConfigurationIfNeeded(
++    UISceneSession* session) {
++  if (!session) {
++    return nil;
++  }
++  UISceneSessionRole role = session.role;
++  if (role == UIWindowSceneSessionRoleExternalDisplayNonInteractive ||
++      role == UIWindowSceneSessionRoleExternalDisplay) {
++    NSLog(@"deskbrowser-external: configuration for connecting role=%@", role);
++    UISceneConfiguration* config = [[UISceneConfiguration alloc]
++        initWithName:@"DeskBrowser External Display"
++        sessionRole:UIWindowSceneSessionRoleExternalDisplayNonInteractive];
++    config.delegateClass = [DeskBrowserExternalDisplaySceneDelegate class];
++    config.sceneClass = [UIWindowScene class];
++    return config;
++  }
++  return nil;
++}
+
+
+diff --git a/ios/chrome/app/main_application_delegate.mm b/ios/chrome/app/main_application_delegate.mm
+--- a/ios/chrome/app/main_application_delegate.mm
++++ b/ios/chrome/app/main_application_delegate.mm
+@@ -4,6 +4,8 @@
+ 
+ #import "ios/chrome/app/main_application_delegate.h"
+ 
++#import "ios/chrome/app/deskbrowser_external_display.h"
++
+ #import <UIKit/UIKit.h>
+ #import <UserNotifications/UserNotifications.h>
+ 
+@@ -214,6 +216,21 @@
+   [_memoryHelper handleMemoryPressure];
+ }
+ 
++
++- (UISceneConfiguration*)application:(UIApplication*)application
++    configurationForConnectingSceneSession:
++        (UISceneSession*)connectingSceneSession
++                                   options:(UISceneConnectionOptions*)options {
++  UISceneConfiguration* external =
++      DeskBrowserExternalDisplayConfigurationIfNeeded(connectingSceneSession);
++  if (external) {
++    return external;
++  }
++  return [[UISceneConfiguration alloc]
++      initWithName:@"Default Configuration"
++      sessionRole:connectingSceneSession.role];
++}
++
+ - (void)application:(UIApplication*)application
+     didDiscardSceneSessions:(NSSet<UISceneSession*>*)sceneSessions {
+   [_mainController application:application

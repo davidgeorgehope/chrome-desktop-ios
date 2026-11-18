@@ -1,0 +1,36 @@
+# Incremental on top of 0006/0008. Do not re-apply the JIT-notice method.
+
+diff --git a/ios/chrome/app/main_application_delegate.mm b/ios/chrome/app/main_application_delegate.mm
+--- a/ios/chrome/app/main_application_delegate.mm
++++ b/ios/chrome/app/main_application_delegate.mm
+@@ -4,6 +4,8 @@
+ 
+ #import "ios/chrome/app/main_application_delegate.h"
+ 
++#import "ios/chrome/app/deskbrowser_external_display.h"
++
+ #import <UIKit/UIKit.h>
+ #import <UserNotifications/UserNotifications.h>
+ 
+@@ -214,6 +216,21 @@
+   [_memoryHelper handleMemoryPressure];
+ }
+ 
++
++- (UISceneConfiguration*)application:(UIApplication*)application
++    configurationForConnectingSceneSession:
++        (UISceneSession*)connectingSceneSession
++                                   options:(UISceneConnectionOptions*)options {
++  UISceneConfiguration* external =
++      DeskBrowserExternalDisplayConfigurationIfNeeded(connectingSceneSession);
++  if (external) {
++    return external;
++  }
++  return [[UISceneConfiguration alloc]
++      initWithName:@"Default Configuration"
++      sessionRole:connectingSceneSession.role];
++}
++
+ - (void)application:(UIApplication*)application
+     didDiscardSceneSessions:(NSSet<UISceneSession*>*)sceneSessions {
+   [_mainController application:application

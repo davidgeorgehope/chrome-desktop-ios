@@ -1,0 +1,95 @@
+diff --git a/build/config/ui.gni b/build/config/ui.gni
+index 9b879a7e4c..e92fa621f7 100644
+--- a/build/config/ui.gni
++++ b/build/config/ui.gni
+@@ -21,6 +21,13 @@ import("//build/config/cast.gni")
+ import("//build/config/chromeos/args.gni")
+ import("//build/config/ozone.gni")
+ 
++declare_args() {
++  # DeskBrowser: compile desktop Views (no Aura) for iOS so a UIKit-backed
++  # NativeWidget can host tab strip / toolbar chrome on an external display.
++  # Default is false so the existing //ios/chrome Blink build is unchanged.
++  enable_ios_desktop_views = false
++}
++
+ declare_args() {
+   # Indicates if Aura is enabled. Aura is a low-level windowing library, sort
+   # of a replacement for GDI or GTK.
+@@ -29,7 +36,8 @@ declare_args() {
+ 
+ declare_args() {
+   # True means the UI is built using the "views" framework.
+-  toolkit_views = is_mac || is_win || is_linux || is_chromeos || is_fuchsia
++  toolkit_views = is_mac || is_win || is_linux || is_chromeos || is_fuchsia ||
++                  (is_ios && enable_ios_desktop_views)
+ 
+   use_glib = is_linux && !is_castos &&
+              # Avoid the need for glib when Android is building things via
+diff --git a/tools/grit/grit_args.gni b/tools/grit/grit_args.gni
+index cd2b6b9337..b90fbf9984 100644
+--- a/tools/grit/grit_args.gni
++++ b/tools/grit/grit_args.gni
+@@ -14,7 +14,8 @@ devtools_grd_path_no_ext = get_path_info(devtools_grd_path, "dir") + "/" +
+ # Prefer using this (and excluding specific platforms) when a resource applies
+ # to (most) desktop platforms.
+ assert(toolkit_views ==
+-       (is_chromeos || is_fuchsia || is_linux || is_mac || is_win))
++       (is_chromeos || is_fuchsia || is_linux || is_mac || is_win ||
++        (is_ios && enable_ios_desktop_views)))
+ 
+ # Variables that are passed to grit with the -D flag.
+ 
+diff --git a/BUILD.gn b/BUILD.gn
+index 9cef80b37f..7e5492309f 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -318,7 +318,7 @@ group("gn_all") {
+       deps += [ "//remoting:remoting_all" ]
+     }
+ 
+-    if (toolkit_views) {
++    if (toolkit_views && !is_ios) {
+       deps += [
+         ":views_examples",
+         "//ui/views:views_unittests",
+@@ -335,7 +335,7 @@ group("gn_all") {
+       deps += [ "//ui/qt:qt_unittests" ]
+     }
+ 
+-    if (enterprise_watermark && toolkit_views) {
++    if (enterprise_watermark && toolkit_views && !is_ios) {
+       deps += [ "//chrome/browser/enterprise/watermark:watermark_app" ]
+     }
+ 
+@@ -882,7 +882,7 @@ group("all_rust") {
+   }
+ }
+ 
+-if (toolkit_views) {
++if (toolkit_views && !is_ios) {
+   group("views_examples") {
+     testonly = true
+ 
+diff --git a/components/BUILD.gn b/components/BUILD.gn
+index b1e2a70054..0962ac7d9d 100644
+--- a/components/BUILD.gn
++++ b/components/BUILD.gn
+@@ -830,7 +830,7 @@ test("components_unittests") {
+     ]
+   }
+ 
+-  if (toolkit_views && !is_castos) {
++  if (toolkit_views && !is_castos && !is_ios) {
+     deps += [ "//components/constrained_window:unit_tests" ]
+   }
+ 
+@@ -1248,7 +1248,7 @@ if (use_blink) {
+       data += [ "$root_out_dir/Content Shell.app/" ]
+     }
+ 
+-    if (toolkit_views && !is_mac && !is_castos) {
++    if (toolkit_views && !is_mac && !is_castos && !is_ios) {
+       # TODO(crbug.com/349781050): Enable test on Mac.
+       deps += [ "//components/constrained_window:browser_tests" ]
+     }

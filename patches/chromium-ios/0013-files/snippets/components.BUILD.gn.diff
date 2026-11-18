@@ -1,0 +1,22 @@
+diff --git a/components/BUILD.gn b/components/BUILD.gn
+index b1e2a70054..0962ac7d9d 100644
+--- a/components/BUILD.gn
++++ b/components/BUILD.gn
+@@ -830,7 +830,7 @@ test("components_unittests") {
+     ]
+   }
+ 
+-  if (toolkit_views && !is_castos) {
++  if (toolkit_views && !is_castos && !is_ios) {
+     deps += [ "//components/constrained_window:unit_tests" ]
+   }
+ 
+@@ -1248,7 +1248,7 @@ if (use_blink) {
+       data += [ "$root_out_dir/Content Shell.app/" ]
+     }
+ 
+-    if (toolkit_views && !is_mac && !is_castos) {
++    if (toolkit_views && !is_mac && !is_castos && !is_ios) {
+       # TODO(crbug.com/349781050): Enable test on Mac.
+       deps += [ "//components/constrained_window:browser_tests" ]
+     }

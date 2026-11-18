@@ -1,0 +1,14 @@
+diff --git a/tools/grit/grit_args.gni b/tools/grit/grit_args.gni
+index cd2b6b9337..b90fbf9984 100644
+--- a/tools/grit/grit_args.gni
++++ b/tools/grit/grit_args.gni
+@@ -14,7 +14,8 @@ devtools_grd_path_no_ext = get_path_info(devtools_grd_path, "dir") + "/" +
+ # Prefer using this (and excluding specific platforms) when a resource applies
+ # to (most) desktop platforms.
+ assert(toolkit_views ==
+-       (is_chromeos || is_fuchsia || is_linux || is_mac || is_win))
++       (is_chromeos || is_fuchsia || is_linux || is_mac || is_win ||
++        (is_ios && enable_ios_desktop_views)))
+ 
+ # Variables that are passed to grit with the -D flag.
+ 
