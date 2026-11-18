@@ -1,0 +1,13 @@
+diff --git a/ui/views/views_delegate.cc b/ui/views/views_delegate.cc
+index 90fdd14e45..e928625ac3 100644
+--- a/ui/views/views_delegate.cc
++++ b/ui/views/views_delegate.cc
+@@ -119,7 +119,7 @@ bool ViewsDelegate::WindowManagerProvidesTitleBar(bool maximized) {
+   return false;
+ }
+ 
+-#if BUILDFLAG(IS_MAC)
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
+ ui::ContextFactory* ViewsDelegate::GetContextFactory() {
+   return nullptr;
+ }

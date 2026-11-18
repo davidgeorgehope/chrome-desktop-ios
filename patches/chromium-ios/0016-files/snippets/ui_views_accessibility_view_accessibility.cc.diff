@@ -1,0 +1,15 @@
+diff --git a/ui/views/accessibility/view_accessibility.cc b/ui/views/accessibility/view_accessibility.cc
+index db06a1c01d..40e34ff088 100644
+--- a/ui/views/accessibility/view_accessibility.cc
++++ b/ui/views/accessibility/view_accessibility.cc
+@@ -112,6 +112,10 @@ std::unique_ptr<ViewAccessibility> ViewAccessibility::Create(View* view) {
+   return ViewAXPlatformNodeDelegateMac::CreatePlatformSpecific(view);
+ #elif BUILDFLAG(IS_LINUX)
+   return ViewAXPlatformNodeDelegateAuraLinux::CreatePlatformSpecific(view);
++#else
++  // iOS (and any other non-Win/Mac/Linux Views build) uses the generic
++  // cache-only implementation; there is no platform AX node delegate yet.
++  return base::WrapUnique(new ViewAccessibility(view));
+ #endif
+ }
+ 

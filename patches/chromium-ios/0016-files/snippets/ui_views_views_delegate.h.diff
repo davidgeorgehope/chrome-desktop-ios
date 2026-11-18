@@ -1,0 +1,22 @@
+diff --git a/ui/views/views_delegate.h b/ui/views/views_delegate.h
+index 5505bfb43e..ce252dcc22 100644
+--- a/ui/views/views_delegate.h
++++ b/ui/views/views_delegate.h
+@@ -28,7 +28,7 @@ class Rect;
+ }  // namespace gfx
+ 
+ namespace ui {
+-#if BUILDFLAG(IS_MAC)
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
+ class ContextFactory;
+ #endif
+ }  // namespace ui
+@@ -168,7 +168,7 @@ class VIEWS_EXPORT ViewsDelegate {
+   // maximized windows; otherwise to restored windows.
+   virtual bool WindowManagerProvidesTitleBar(bool maximized);
+ 
+-#if BUILDFLAG(IS_MAC)
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
+   // Returns the context factory for new windows.
+   virtual ui::ContextFactory* GetContextFactory();
+ #endif

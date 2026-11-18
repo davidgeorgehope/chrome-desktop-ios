@@ -1,0 +1,48 @@
+diff --git a/ui/views/BUILD.gn b/ui/views/BUILD.gn
+index 8928f4f214..bee09d30d3 100644
+--- a/ui/views/BUILD.gn
++++ b/ui/views/BUILD.gn
+@@ -803,6 +803,20 @@ component("views") {
+     ]
+   }
+ 
++  if (is_ios) {
++    public += [ "widget/native_widget_ios.h" ]
++    sources += [ "widget/native_widget_ios.mm" ]
++    deps += [
++      "//ui/accelerated_widget_mac",
++      "//ui/display",
++      "//ui/events",
++    ]
++    frameworks = [
++      "UIKit.framework",
++      "QuartzCore.framework",
++    ]
++  }
++
+   if (is_win) {
+     public += [
+       "controls/menu/native_menu_win.h",
+@@ -1206,8 +1220,10 @@ source_set("test_support") {
+     "//ui/gfx",
+     "//ui/gfx/geometry",
+     "//ui/gl:test_support",
+-    "//ui/native_window_tracker",
+   ]
++  if (!is_ios) {
++    deps += [ "//ui/native_window_tracker" ]
++  }
+   public_deps = [
+     "//testing/gmock",
+     "//testing/gtest",
+@@ -1818,3 +1834,10 @@ test(views_perftests_target_name) {
+     ]
+   }
+ }
++
++if (is_ios) {
++  group("views_examples_ios") {
++    testonly = true
++    deps = [ "//ui/views/examples/ios:views_examples_ios" ]
++  }
++}

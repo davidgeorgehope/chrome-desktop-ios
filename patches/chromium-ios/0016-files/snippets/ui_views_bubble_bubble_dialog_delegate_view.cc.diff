@@ -1,0 +1,67 @@
+diff --git a/ui/views/bubble/bubble_dialog_delegate_view.cc b/ui/views/bubble/bubble_dialog_delegate_view.cc
+index 7c694e327f..ee1903ea43 100644
+--- a/ui/views/bubble/bubble_dialog_delegate_view.cc
++++ b/ui/views/bubble/bubble_dialog_delegate_view.cc
+@@ -71,7 +71,7 @@
+ 
+ #if BUILDFLAG(IS_MAC)
+ #include "ui/views/widget/widget_utils_mac.h"
+-#else
++#elif !BUILDFLAG(IS_IOS)
+ #include "ui/aura/window.h"
+ #include "ui/aura/window_observer.h"
+ #endif
+@@ -312,7 +312,7 @@ class BubbleDialogDelegate::AnchorViewObserver : public ViewObserver {
+ 
+ // This class is responsible for observing events on a BubbleDialogDelegate's
+ // anchor widget and notifying the BubbleDialogDelegate of them.
+-#if BUILDFLAG(IS_MAC)
++#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_IOS)
+ class BubbleDialogDelegate::AnchorWidgetObserver : public WidgetObserver {
+ #else
+ class BubbleDialogDelegate::AnchorWidgetObserver : public WidgetObserver,
+@@ -323,7 +323,7 @@ class BubbleDialogDelegate::AnchorWidgetObserver : public WidgetObserver,
+   AnchorWidgetObserver(BubbleDialogDelegate* owner, Widget* widget)
+       : owner_(owner) {
+     widget_observation_.Observe(widget);
+-#if !BUILDFLAG(IS_MAC)
++#if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_IOS)
+     window_observation_.Observe(widget->GetNativeWindow());
+ #endif
+   }
+@@ -331,7 +331,7 @@ class BubbleDialogDelegate::AnchorWidgetObserver : public WidgetObserver,
+ 
+   // WidgetObserver:
+   void OnWidgetDestroying(Widget* widget) override {
+-#if !BUILDFLAG(IS_MAC)
++#if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_IOS)
+     CHECK(window_observation_.IsObservingSource(widget->GetNativeWindow()),
+           base::NotFatalUntil::M163);
+     window_observation_.Reset();
+@@ -357,7 +357,7 @@ class BubbleDialogDelegate::AnchorWidgetObserver : public WidgetObserver,
+     owner_->GetWidget()->ThemeChanged();
+   }
+ 
+-#if !BUILDFLAG(IS_MAC)
++#if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_IOS)
+   // aura::WindowObserver:
+   void OnWindowTransformed(aura::Window* window,
+                            ui::PropertyChangeReason reason) override {
+@@ -385,7 +385,7 @@ class BubbleDialogDelegate::AnchorWidgetObserver : public WidgetObserver,
+   raw_ptr<BubbleDialogDelegate> owner_;
+   base::ScopedObservation<views::Widget, views::WidgetObserver>
+       widget_observation_{this};
+-#if !BUILDFLAG(IS_MAC)
++#if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_IOS)
+   base::ScopedObservation<aura::Window, aura::WindowObserver>
+       window_observation_{this};
+ #endif
+@@ -861,7 +861,7 @@ gfx::Rect BubbleDialogDelegate::GetAnchorRect() const {
+     return anchor_rect_.value_or(gfx::Rect());
+   }
+ 
+-#if !BUILDFLAG(IS_MAC)
++#if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_IOS)
+   // GetAnchorBoundsInScreen returns values that take anchor widget's
+   // translation into account, so undo that here. Without this, features which
+   // apply transforms on windows such as ChromeOS overview mode will see bubbles

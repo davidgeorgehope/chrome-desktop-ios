@@ -1,0 +1,43 @@
+diff --git a/ui/views/examples/ios/BUILD.gn b/ui/views/examples/ios/BUILD.gn
+new file mode 100644
+index 0000000000..c7faf103f6
+--- /dev/null
++++ b/ui/views/examples/ios/BUILD.gn
+@@ -0,0 +1,37 @@
++# Copyright 2026 The Chromium Authors
++# Use of this source code is governed by a BSD-style license that can be
++# found in the LICENSE file.
++
++import("//build/config/ios/rules.gni")
++import("//build/config/ui.gni")
++
++# Milestone 1 host: a Views widget on the iOS Simulator.
++ios_app_bundle("views_examples_ios") {
++  testonly = true
++  info_plist = "Info.plist"
++  sources = [ "views_examples_ios_main.mm" ]
++  bundle_identifier = "com.davidhope.deskbrowser.views"
++
++  deps = [
++    "//base",
++    "//base:i18n",
++    "//mojo/core/embedder",
++    "//skia",
++    "//ui/base",
++    "//ui/color",
++    "//ui/color:mixers",
++    "//ui/compositor",
++    "//ui/compositor:test_support",
++    "//ui/display",
++    "//ui/gfx",
++    "//ui/gl",
++    "//ui/gl/init",
++    "//ui/views",
++  ]
++
++  frameworks = [
++    "UIKit.framework",
++    "Foundation.framework",
++    "QuartzCore.framework",
++  ]
++}
