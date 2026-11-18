@@ -1,0 +1,179 @@
+diff --git a/ios/chrome/app/deskbrowser_external_display.mm b/ios/chrome/app/deskbrowser_external_display.mm
+--- a/ios/chrome/app/deskbrowser_external_display.mm
++++ b/ios/chrome/app/deskbrowser_external_display.mm
+@@ -55,29 +55,50 @@
+   return vc && [ClassName(vc) isEqualToString:@"DeskBrowserExternalControlSurfaceViewController"];
+ }
+ 
++BOOL RoleEquals(UISceneSessionRole role, UISceneSessionRole expected) {
++  return role && expected && [role isEqualToString:expected];
++}
++
+ UIWindow* PrimaryApplicationWindow(void) {
+-  UIWindow* fallback = nil;
++  UIWindow* app_fallback = nil;
++  UIWindow* any_fallback = nil;
+   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+     UIWindowScene* window_scene = (UIWindowScene*)scene;
+     if (![window_scene isKindOfClass:[UIWindowScene class]]) {
+       continue;
+     }
+-    if (window_scene.session.role != UIWindowSceneSessionRoleApplication) {
+-      continue;
+-    }
++    BOOL is_app = RoleEquals(window_scene.session.role,
++                             UIWindowSceneSessionRoleApplication);
+     for (UIWindow* window in window_scene.windows) {
+       if (window == g_external_window) {
+         continue;
+       }
+-      if (window.isKeyWindow) {
++      if (is_app && window.isKeyWindow) {
+         return window;
+       }
+-      if (!fallback) {
+-        fallback = window;
++      if (is_app && !app_fallback) {
++        app_fallback = window;
++      }
++      if (!any_fallback) {
++        any_fallback = window;
+       }
+     }
+   }
+-  return fallback;
++  if (app_fallback) {
++    return app_fallback;
++  }
++  if (any_fallback) {
++    return any_fallback;
++  }
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wdeprecated-declarations"
++  for (UIWindow* window in UIApplication.sharedApplication.windows) {
++    if (window != g_external_window) {
++      return window;
++    }
++  }
++#pragma clang diagnostic pop
++  return nil;
+ }
+ 
+ void ForceRegularSizeClass(UIWindow* window);
+@@ -254,16 +275,65 @@
+   g_control_surface_vc = nil;
+ }
+ 
+-UIViewController* PresenterViewController(void) {
+-  UIWindow* phone = PrimaryApplicationWindow();
+-  UIViewController* root = phone.rootViewController;
+-  if (!root) {
++UIViewController* FirstAttachedController(UIViewController* vc) {
++  if (!vc) {
+     return nil;
+   }
+-  while (root.presentedViewController) {
+-    root = root.presentedViewController;
++  // Force the view to load so a just-attached root VC can enter a window.
++  UIView* view = vc.view;
++  if (view && view.window) {
++    return vc;
++  }
++  for (UIViewController* child in vc.childViewControllers) {
++    if (UIViewController* found = FirstAttachedController(child)) {
++      return found;
++    }
+   }
+-  return root;
++  if (vc.presentedViewController) {
++    if (UIViewController* found =
++            FirstAttachedController(vc.presentedViewController)) {
++      return found;
++    }
++  }
++  return view ? vc : nil;
++}
++
++UIViewController* PresenterViewController(void) {
++  NSMutableArray<UIWindow*>* windows = [NSMutableArray array];
++  UIWindow* primary = PrimaryApplicationWindow();
++  if (primary) {
++    [windows addObject:primary];
++  }
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    UIWindowScene* window_scene = (UIWindowScene*)scene;
++    if (![window_scene isKindOfClass:[UIWindowScene class]]) {
++      continue;
++    }
++    for (UIWindow* window in window_scene.windows) {
++      if (window == g_external_window) {
++        continue;
++      }
++      if (![windows containsObject:window]) {
++        [windows addObject:window];
++      }
++    }
++  }
++  for (UIWindow* window in windows) {
++    UIViewController* root = window.rootViewController;
++    if (!root) {
++      continue;
++    }
++    while (root.presentedViewController) {
++      root = root.presentedViewController;
++    }
++    if (IsControlSurface(root)) {
++      continue;
++    }
++    if (UIViewController* attached = FirstAttachedController(root)) {
++      return attached;
++    }
++  }
++  return nil;
+ }
+ 
+ UISceneConfiguration* ExternalSceneConfiguration(void) {
+@@ -325,7 +395,20 @@
+       UnregisterAccessory();
+     }
+ 
+-    if (!presenter || !presenter.viewIfLoaded.window) {
++    if (!presenter || !presenter.view.window) {
++      static CFAbsoluteTime last_skip_log = 0;
++      CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
++      if (now - last_skip_log > 5) {
++        last_skip_log = now;
++        UIWindow* phone = PrimaryApplicationWindow();
++        NSLog(@"deskbrowser-external: accessory not registered "
++              @"(window=%@ key=%d root=%@ presenter=%@ view.window=%@ "
++              @"scenes=%lu)",
++              phone, phone.isKeyWindow, ClassName(phone.rootViewController),
++              ClassName(presenter),
++              presenter.viewIfLoaded.window ? @"Y" : @"N",
++              (unsigned long)UIApplication.sharedApplication.connectedScenes.count);
++      }
+       return;
+     }
+ 
+@@ -356,8 +439,8 @@
+   UIWindowScene* scene = g_external_window.windowScene;
+   if (scene) {
+     UISceneSessionRole role = scene.session.role;
+-    if (role == UIWindowSceneSessionRoleExternalDisplayNonInteractive ||
+-        role == UIWindowSceneSessionRoleExternalDisplay) {
++    if (RoleEquals(role, UIWindowSceneSessionRoleExternalDisplayNonInteractive) ||
++        RoleEquals(role, UIWindowSceneSessionRoleExternalDisplay)) {
+       return YES;
+     }
+   }
+@@ -645,8 +728,8 @@
+     return nil;
+   }
+   UISceneSessionRole role = session.role;
+-  if (role == UIWindowSceneSessionRoleExternalDisplayNonInteractive ||
+-      role == UIWindowSceneSessionRoleExternalDisplay) {
++  if (RoleEquals(role, UIWindowSceneSessionRoleExternalDisplayNonInteractive) ||
++      RoleEquals(role, UIWindowSceneSessionRoleExternalDisplay)) {
+     NSLog(@"deskbrowser-external: configuration for connecting role=%@", role);
+     UISceneConfiguration* config = [[UISceneConfiguration alloc]
+         initWithName:@"DeskBrowser External Display"
