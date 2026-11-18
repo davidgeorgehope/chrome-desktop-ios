@@ -1,0 +1,6 @@
+  sources = [
+    "deskbrowser_external_display.h",
+    "deskbrowser_external_display.mm",
+    "deskbrowser_launcher.h",
+    "deskbrowser_launcher.mm",
+  ]
