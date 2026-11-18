@@ -1,0 +1,58 @@
+diff --git a/content/app/content_main.cc b/content/app/content_main.cc
+--- a/content/app/content_main.cc
++++ b/content/app/content_main.cc
+@@ -5,6 +5,7 @@
+ #include "content/public/app/content_main.h"
+ 
+ #include <memory>
++#include <string>
+ #include <optional>
+ 
+ #include "base/allocator/partition_alloc_support.h"
+@@ -47,6 +48,10 @@
+ #include "sandbox/policy/sandbox_type.h"
+ #include "ui/base/ui_base_paths.h"
+ #include "ui/base/ui_base_switches.h"
++
++#if BUILDFLAG(IS_IOS)
++#include <TargetConditionals.h>
++#endif
+ 
+ #if BUILDFLAG(IS_WIN)
+ #include <windows.h>
+@@ -280,6 +285,35 @@
+     base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+     // deskbrowser: always desktop mode (no mobile viewport / mobile UA).
+     (void)command_line;
++
++#if !BUILDFLAG(IS_IOS_TVOS) && !TARGET_OS_SIMULATOR
++    // deskbrowser device build: BrowserEngineKit child processes need
++    // web-browser-engine entitlements we do not have, so a home-screen launch
++    // must default to single-process Blink with in-process GPU. The
++    // NetTaskScheduler features must be off in single-process (see
++    // run-chrome-ios-blink-sim.sh).
++    if (!command_line->HasSwitch(switches::kSingleProcess)) {
++      command_line->AppendSwitch(switches::kSingleProcess);
++    }
++    if (!command_line->HasSwitch(switches::kInProcessGPU)) {
++      command_line->AppendSwitch(switches::kInProcessGPU);
++    }
++    {
++      std::string disabled =
++          command_line->GetSwitchValueASCII(switches::kDisableFeatures);
++      if (!disabled.empty()) {
++        disabled += ",";
++      }
++      disabled += "NetTaskScheduler,NetworkServiceTaskScheduler";
++      command_line->AppendSwitchASCII(switches::kDisableFeatures, disabled);
++    }
++    // No JIT entitlement outside BrowserEngineKit processes: run V8 jitless
++    // unless the caller already passed --js-flags.
++    if (!command_line->HasSwitch("js-flags")) {
++      command_line->AppendSwitchASCII("js-flags",
++                                      "--jitless");
++    }
++#endif
+ 
+ #if BUILDFLAG(IS_IOS_TVOS)
+     // Set tvOS to single-process mode by default.

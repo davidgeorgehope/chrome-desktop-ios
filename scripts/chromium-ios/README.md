@@ -105,3 +105,33 @@ no `--use-mobile-user-agent`/`--enable-viewport` from iOS ContentMain,
 macOS UA (`Macintosh; Intel Mac OS X 10_15_7`), UA-CH `mobile=?0`,
 `platform="macOS"`, `navigator.platform = "MacIntel"`, fine pointer +
 hover, `maxTouchPoints = 0`, no touch-event feature detection.
+
+# Real iPhone (arm64 device) Chrome on Blink
+
+Our team (4P2629648N) has no `com.apple.developer.web-browser-engine.*`
+entitlements, so BrowserEngineKit child processes cannot run on a device.
+The device build is therefore single-process:
+
+- `patches/chromium-ios/0003-ios-blink-device-single-process-defaults.patch`
+  (on top of 0001/0002) makes a home-screen launch default to
+  `--single-process --in-process-gpu
+  --disable-features=NetTaskScheduler,NetworkServiceTaskScheduler
+  --js-flags=--jitless` on device builds only (`!TARGET_OS_SIMULATOR`).
+  V8 runs jitless because the app process has no JIT entitlement.
+- `chrome-ios-device.args.gn` is `out/Release-iphoneos/args.gn`: same Blink
+  args as the Simulator build, `target_environment = "device"`,
+  `symbol_level = 0`, most app extensions off, and
+  `ios_enable_code_signing = false` (no `find_signing_identity.py`, which
+  shells out to the `security` CLI).
+- `build-chrome-ios-device.sh` builds `chrome`, then runs
+  `sign-chrome-ios-device.sh`, then reports through `notify-poke.sh`. Run it
+  from a one-shot LaunchAgent (`LimitLoadToSessionType=Aqua`) so codesign can
+  use the login-keychain identity; the script deletes its own plist.
+- `sign-chrome-ios-device.sh` drops `PlugIns/` and `Extensions/` (the BEK
+  appexes), embeds the team wildcard development profile (it lists the
+  iPhone 16 Pro), signs frameworks then the app with the Apple Development
+  identity and minimal entitlements (application-identifier, team id,
+  get-task-allow, keychain group), and writes
+  `out/Release-iphoneos/Chromium-device.ipa`.
+
+Install (phone on the Windows PC): `pymobiledevice3 apps install Chromium-device.ipa`.
