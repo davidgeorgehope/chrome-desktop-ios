@@ -1,0 +1,54 @@
+--- /workspace/repos/linux-ios-fast/patches/chromium-ios/0017-files/ui/views/widget/native_widget_ios.mm	2026-11-18 16:34:16.829962883 -0500
++++ /workspace/repos/linux-ios-fast/patches/chromium-ios/0020-files/ui/views/widget/native_widget_ios.mm	2026-11-18 16:39:50.554141227 -0500
+@@ -25,6 +25,7 @@
+ #include "ui/display/screen.h"
+ #include "ui/gfx/font_list.h"
+ #include "ui/gfx/geometry/rect.h"
++#include "ui/gfx/geometry/size_conversions.h"
+ #include "ui/views/view.h"
+ #include "ui/views/views_delegate.h"
+ #include "ui/views/widget/tooltip_manager.h"
+@@ -225,8 +226,7 @@
+       false /* enable_pixel_canvas */);
+   auto* provider = (CALayerFrameSinkProvider*)content_view_;
+   compositor_->SetAcceleratedWidget(provider.viewHandle);
+-  float scale = window_.screen ? window_.screen.scale : 1.0f;
+-  compositor_->SetScaleAndSize(scale, bounds_.size(), viz::LocalSurfaceId());
++  UpdateCompositorSurface();
+   compositor_->SetBackgroundColor(translucent ? SK_ColorTRANSPARENT
+                                               : SK_ColorWHITE);
+   compositor_->SetRootLayer(root_layer_.get());
+@@ -255,11 +255,31 @@
+     root_layer_->SetBounds(gfx::Rect(bounds_.size()));
+   }
+   if (compositor_) {
+-    float scale = window_.screen ? window_.screen.scale : 1.0f;
+-    compositor_->SetScaleAndSize(scale, bounds_.size(), viz::LocalSurfaceId());
++    UpdateCompositorSurface();
+   }
+ }
+ 
++void NativeWidgetIOS::UpdateCompositorSurface() {
++  if (!compositor_) {
++    return;
++  }
++  float scale = 1.0f;
++  if (window_ && window_.screen) {
++    scale = window_.screen.scale;
++  }
++  const gfx::Size size_pixels = gfx::ScaleToCeiledSize(bounds_.size(), scale);
++  if (size_pixels == compositor_size_pixels_ && scale == compositor_scale_ &&
++      local_surface_id_allocator_.HasValidLocalSurfaceId()) {
++    return;
++  }
++  compositor_size_pixels_ = size_pixels;
++  compositor_scale_ = scale;
++  local_surface_id_allocator_.GenerateId();
++  compositor_->SetScaleAndSize(
++      scale, size_pixels,
++      local_surface_id_allocator_.GetCurrentLocalSurfaceId());
++}
++
+ void NativeWidgetIOS::OnWidgetInitDone() {}
+ 
+ void NativeWidgetIOS::ReparentNativeViewImpl(gfx::NativeView new_parent) {
