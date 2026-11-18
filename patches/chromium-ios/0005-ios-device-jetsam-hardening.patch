@@ -49,7 +49,7 @@ diff --git a/ios/chrome/app/application_delegate/memory_warning_helper.mm b/ios/
  
  namespace {
  // The number of seconds to wait after a memory warning to clear the flag used
-@@ -16,8 +19,16 @@
+@@ -16,24 +19,97 @@
  // even if this may lead to overcounting them.
  const CFTimeInterval kOutOfMemoryResetTimeInterval = 5;
 +
@@ -150,7 +150,7 @@ diff --git a/ios/chrome/app/application_delegate/memory_warning_helper.mm b/ios/
 diff --git a/ios/chrome/app/application_delegate/BUILD.gn b/ios/chrome/app/application_delegate/BUILD.gn
 --- a/ios/chrome/app/application_delegate/BUILD.gn
 +++ b/ios/chrome/app/application_delegate/BUILD.gn
-@@ -14,8 +14,9 @@
+@@ -14,7 +14,8 @@
    deps = [
      "//base",
      "//components/previous_session_info",
@@ -162,7 +162,7 @@ diff --git a/ios/chrome/app/application_delegate/BUILD.gn b/ios/chrome/app/appli
 diff --git a/ios/chrome/browser/memory/model/BUILD.gn b/ios/chrome/browser/memory/model/BUILD.gn
 --- a/ios/chrome/browser/memory/model/BUILD.gn
 +++ b/ios/chrome/browser/memory/model/BUILD.gn
-@@ -14,12 +14,20 @@
+@@ -14,17 +14,25 @@
  source_set("model") {
    sources = [
 +    "deskbrowser_live_tab_cap.h",
