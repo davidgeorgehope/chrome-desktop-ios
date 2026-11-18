@@ -195,3 +195,21 @@ file id `1FSpZQW8ReJ2L5MWqINJfuMj9JquqmBD5`.
 Wasm interpreter so jitless fallback still runs Wasm. Build and sign
 with `scripts/chromium-ios/build-chrome-ios-device-drumbrake.sh`; the
 signed IPA is `Chromium-device-jit-mem-drumbrake.ipa`.
+
+# Jetsam hardening and Reynard multi-process (stretch)
+
+Patch `0005-ios-device-jetsam-hardening.patch` (apply after 0004) adds:
+
+- Polling of `os_proc_available_memory()` (every 2s) into
+  `base::MemoryPressureListener`, in addition to the existing
+  `applicationDidReceiveMemoryWarning` → CRITICAL path in
+  `MemoryWarningHelper`. Thresholds: moderate below 250 MiB available,
+  critical below 80 MiB.
+- A live-tab cap of 4. LRU background tabs are discarded to `about:blank`
+  (URL saved and reloaded when the tab becomes active again).
+- `--max-old-space-size=512` merged into `--js-flags` as a V8 heap cap.
+
+The Reynard-style multi-process renderer is documented in
+`scripts/chromium-ios/reynard-multiprocess/README.md` and is behind
+`deskbrowser_enable_reynard_renderer` (default off). It is not part of
+the default device IPA.
