@@ -1,0 +1,206 @@
+diff --git a/src/base/platform/platform-posix.cc b/src/base/platform/platform-posix.cc
+index 5962bace..c43bcecb 100644
+--- a/src/base/platform/platform-posix.cc
++++ b/src/base/platform/platform-posix.cc
+@@ -109,6 +109,16 @@ extern int madvise(caddr_t, size_t, int);
+ extern "C" void* __libc_stack_end;
+ #endif
+ 
++
++#if defined(V8_OS_IOS)
++extern "C" __attribute__((weak)) void DeskBrowserJitPrepareRegion(void* addr,
++                                                                 size_t size);
++extern "C" __attribute__((weak)) void DeskBrowserJitReleaseRegion(void* addr,
++                                                                size_t size);
++extern "C" __attribute__((weak)) bool DeskBrowserJitIsEnabled(void);
++#endif
++
++
+ namespace v8 {
+ namespace base {
+ 
+@@ -518,6 +528,16 @@ void* OS::Allocate(void* hint, size_t size, size_t alignment,
+     }
+   }
+ 
++#if defined(V8_OS_IOS)
++  // Prepare TXM-executable regions via the StikJIT protocol when enabled.
++  if (DeskBrowserJitIsEnabled && DeskBrowserJitIsEnabled() &&
++      DeskBrowserJitPrepareRegion &&
++      (access == MemoryPermission::kNoAccessWillJitLater ||
++       access == MemoryPermission::kReadWriteExecute ||
++       access == MemoryPermission::kReadExecute)) {
++    DeskBrowserJitPrepareRegion(aligned_base, size);
++  }
++#endif
+   return static_cast<void*>(aligned_base);
+ }
+ 
+@@ -531,6 +551,11 @@ void* OS::AllocateShared(size_t size, MemoryPermission access) {
+ void OS::Free(void* address, size_t size) {
+   DCHECK_EQ(0, reinterpret_cast<uintptr_t>(address) % AllocatePageSize());
+   DCHECK_EQ(0, size % AllocatePageSize());
++#if defined(V8_OS_IOS)
++  if (DeskBrowserJitReleaseRegion) {
++    DeskBrowserJitReleaseRegion(address, size);
++  }
++#endif
+   CHECK_EQ(0, munmap(address, size));
+ }
+ 
+@@ -567,6 +592,15 @@ bool OS::SetPermissions(void* address, size_t size, MemoryPermission access) {
+   DCHECK_EQ(0, size % CommitPageSize());
+ 
+   int prot = GetProtectionFromMemoryPermission(access);
++#if defined(V8_OS_IOS)
++  if (DeskBrowserJitIsEnabled && DeskBrowserJitIsEnabled() &&
++      DeskBrowserJitPrepareRegion &&
++      (access == MemoryPermission::kReadWriteExecute ||
++       access == MemoryPermission::kReadExecute ||
++       access == MemoryPermission::kNoAccessWillJitLater)) {
++    DeskBrowserJitPrepareRegion(address, size);
++  }
++#endif
+   int ret = mprotect(address, size, prot);
+ 
+   // Setting permissions can fail if the limit of VMAs is exceeded.
+diff --git a/src/common/code-memory-access-inl.h b/src/common/code-memory-access-inl.h
+index 72c60468..c4ad0b34 100644
+--- a/src/common/code-memory-access-inl.h
++++ b/src/common/code-memory-access-inl.h
+@@ -23,6 +23,29 @@
+ #include <BrowserEngineCore/BEMemory.h>
+ #endif
+ 
++
++#if defined(V8_OS_IOS)
++#include <stdint.h>
++extern "C" __attribute__((weak)) void DeskBrowserJitPrepareRegion(void* addr,
++                                                                 size_t size);
++extern "C" __attribute__((weak)) void* DeskBrowserJitWritableAddr(
++    const void* addr);
++extern "C" __attribute__((weak)) void DeskBrowserJitReleaseRegion(void* addr,
++                                                                size_t size);
++extern "C" __attribute__((weak)) bool DeskBrowserJitIsEnabled(void);
++
++inline void* DeskBrowserWx(const void* addr) {
++  if (DeskBrowserJitWritableAddr) {
++    return DeskBrowserJitWritableAddr(addr);
++  }
++  return const_cast<void*>(addr);
++}
++inline uintptr_t DeskBrowserWxAddr(uintptr_t addr) {
++  return reinterpret_cast<uintptr_t>(
++      DeskBrowserWx(reinterpret_cast<const void*>(addr)));
++}
++#endif
++
+ namespace v8 {
+ namespace internal {
+ 
+@@ -156,7 +179,11 @@ void WritableJitAllocation::WriteHeaderSlot(T value) {
+     TaggedField<T, offset>::Relaxed_Store_Map_Word(
+         HeapObject::FromAddress(address_), value);
+   } else {
++#if defined(V8_OS_IOS)
++    WriteMaybeUnalignedValue<T>(DeskBrowserWxAddr(address_ + offset), value);
++#else
+     WriteMaybeUnalignedValue<T>(address_ + offset, value);
++#endif
+   }
+ }
+ 
+@@ -234,7 +261,11 @@ V8_INLINE void WritableJitAllocation::WriteUnalignedValue(Address address,
+       WriteScopeForApiEnforcement();
+   DCHECK_GE(address, address_);
+   DCHECK_LT(address - address_, size());
++#if defined(V8_OS_IOS)
++  base::WriteUnalignedValue<T>(DeskBrowserWxAddr(address), value);
++#else
+   base::WriteUnalignedValue<T>(address, value);
++#endif
+ }
+ 
+ template <typename T>
+@@ -243,7 +274,11 @@ V8_INLINE void WritableJitAllocation::WriteValue(Address address, T value) {
+       WriteScopeForApiEnforcement();
+   DCHECK_GE(address, address_);
+   DCHECK_LT(address - address_, size());
++#if defined(V8_OS_IOS)
++  base::Memory<T>(DeskBrowserWxAddr(address)) = value;
++#else
+   base::Memory<T>(address) = value;
++#endif
+ }
+ 
+ template <typename T>
+@@ -253,28 +288,47 @@ V8_INLINE void WritableJitAllocation::WriteValue(Address address, T value,
+       WriteScopeForApiEnforcement();
+   DCHECK_GE(address, address_);
+   DCHECK_LT(address - address_, size());
++#if defined(V8_OS_IOS)
++  reinterpret_cast<std::atomic<T>*>(DeskBrowserWxAddr(address))
++      ->store(value, std::memory_order_relaxed);
++#else
+   reinterpret_cast<std::atomic<T>*>(address)->store(value,
+                                                     std::memory_order_relaxed);
++#endif
+ }
+ 
+ void WritableJitAllocation::CopyCode(size_t dst_offset, const uint8_t* src,
+                                      size_t num_bytes) {
+   std::optional<RwxMemoryWriteScope> write_scope =
+       WriteScopeForApiEnforcement();
++#if defined(V8_OS_IOS)
++  CopyBytes(reinterpret_cast<uint8_t*>(DeskBrowserWxAddr(address_ + dst_offset)),
++            src, num_bytes);
++#else
+   CopyBytes(reinterpret_cast<uint8_t*>(address_ + dst_offset), src, num_bytes);
++#endif
+ }
+ 
+ void WritableJitAllocation::CopyData(size_t dst_offset, const uint8_t* src,
+                                      size_t num_bytes) {
+   std::optional<RwxMemoryWriteScope> write_scope =
+       WriteScopeForApiEnforcement();
++#if defined(V8_OS_IOS)
++  CopyBytes(reinterpret_cast<uint8_t*>(DeskBrowserWxAddr(address_ + dst_offset)),
++            src, num_bytes);
++#else
+   CopyBytes(reinterpret_cast<uint8_t*>(address_ + dst_offset), src, num_bytes);
++#endif
+ }
+ 
+ void WritableJitAllocation::ClearBytes(size_t offset, size_t len) {
+   std::optional<RwxMemoryWriteScope> write_scope =
+       WriteScopeForApiEnforcement();
++#if defined(V8_OS_IOS)
++  memset(reinterpret_cast<void*>(DeskBrowserWxAddr(address_ + offset)), 0, len);
++#else
+   memset(reinterpret_cast<void*>(address_ + offset), 0, len);
++#endif
+ }
+ 
+ WritableJitPage::~WritableJitPage() = default;
+@@ -335,17 +389,18 @@ void RwxMemoryWriteScope::SetExecutable() { base::SetJitWriteProtected(1); }
+ 
+ // static
+ bool RwxMemoryWriteScope::IsSupported() {
+-  return be_memory_inline_jit_restrict_with_witness_supported() != 0;
++  // deskbrowser: do not use BECore witness JIT (needs BEK entitlements).
++  return false;
+ }
+ 
+ // static
+ void RwxMemoryWriteScope::SetWritable() {
+-  be_memory_inline_jit_restrict_rwx_to_rw_with_witness();
++  // Intentionally a no-op. See IsSupported().
+ }
+ 
+ // static
+ void RwxMemoryWriteScope::SetExecutable() {
+-  be_memory_inline_jit_restrict_rwx_to_rx_with_witness();
++  // Intentionally a no-op. See IsSupported().
+ }
+ 
+ #elif V8_HAS_PKU_JIT_WRITE_PROTECT

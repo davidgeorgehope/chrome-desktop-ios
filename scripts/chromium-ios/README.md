@@ -135,3 +135,37 @@ The device build is therefore single-process:
   `out/Release-iphoneos/Chromium-device.ipa`.
 
 Install (phone on the Windows PC): `pymobiledevice3 apps install Chromium-device.ipa`.
+
+# Real iPhone TXM JIT (iOS 27 / A18 Pro)
+
+The jitless default in patch 0003 is still the safe fallback. On iOS 27 with
+TXM, attaching a debugger is not enough: each executable region must be
+prepared with the StikJIT universal protocol (`brk #0xf00d`, x16=1 prepare).
+Patch `0004-ios-device-txm-jit-content.patch` (plus
+`0004-ios-device-txm-jit-v8.patch` on the V8 checkout) adds that path:
+
+- `content/app/ios/deskbrowser_device_jit.{h,cc,S}` (copies also live in
+  `scripts/chromium-ios/txm-jit/`)
+- If `CS_DEBUGGED` is set at launch, V8 executable allocations are prepared,
+  a writable alias is created with `vm_remap`, and JIT writes go through that
+  alias. The debugger is left attached so later Wasm regions can be prepared.
+- If no debugger is attached, the app stays `--js-flags=--jitless` and does
+  not fire a `brk`.
+- Upstream `be_memory_inline_jit_*` is a no-op here; it needs BrowserEngineKit
+  entitlements this team does not have.
+
+Build and sign with `scripts/chromium-ios/build-chrome-ios-device-jit.sh`
+(runs on the mini from `$HOME/chromium-build`, reports through
+`notify-poke.sh`, and on failure sends the last ninja errors rather than a
+leftover crash dump).
+
+To use JIT on the phone: attach StikDebug with `universal.js` to
+`com.davidhope.deskbrowser.blink` before launching. The known-good JIT IPA
+(wildcard profile, no extra memory entitlements) is Drive
+`gdrive:tmp-transfer/Chromium-device-jit.ipa`, file id
+`1kl-Ib2heOWN8XjhF6-4UHwWfd8NfrKdV`.
+
+The wildcard `iOS Team Provisioning Profile: *` does not include
+`increased-memory-limit` or `extended-virtual-addressing`. Those need an
+explicit App ID profile for `com.davidhope.deskbrowser.blink`, the same way
+crate/Henge/Kernarium were registered.
