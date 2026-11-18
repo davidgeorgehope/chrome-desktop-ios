@@ -1,0 +1,37 @@
+--- /workspace/repos/linux-ios-fast/patches/chromium-ios/0016-files/ui/views/widget/native_widget_ios.mm	2026-11-18 15:32:39.868472772 -0500
++++ /workspace/tmp-0017-src/ui/views/widget/native_widget_ios.mm	2026-11-18 16:28:28.895078580 -0500
+@@ -90,14 +90,32 @@
+ };
+ 
+ UIWindowScene* FirstWindowScene() {
++  auto is_window_scene = ^bool(UIScene* scene) {
++    return [scene isKindOfClass:[UIWindowScene class]];
++  };
++  auto is_application_scene = ^bool(UIScene* scene) {
++    return is_window_scene(scene) &&
++           [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication];
++  };
+   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+-    if ([scene isKindOfClass:[UIWindowScene class]] &&
++    if (is_application_scene(scene) &&
+         scene.activationState != UISceneActivationStateUnattached) {
+       return (UIWindowScene*)scene;
+     }
+   }
+   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+-    if ([scene isKindOfClass:[UIWindowScene class]]) {
++    if (is_application_scene(scene)) {
++      return (UIWindowScene*)scene;
++    }
++  }
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    if (is_window_scene(scene) &&
++        scene.activationState != UISceneActivationStateUnattached) {
++      return (UIWindowScene*)scene;
++    }
++  }
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    if (is_window_scene(scene)) {
+       return (UIWindowScene*)scene;
+     }
+   }

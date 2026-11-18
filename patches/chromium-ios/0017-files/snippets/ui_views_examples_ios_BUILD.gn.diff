@@ -1,0 +1,18 @@
+--- /workspace/repos/linux-ios-fast/patches/chromium-ios/0016-files/ui/views/examples/ios/BUILD.gn	2026-11-18 15:32:39.868472772 -0500
++++ /workspace/tmp-0017-src/ui/views/examples/ios/BUILD.gn	2026-11-18 16:28:28.871703039 -0500
+@@ -13,6 +13,7 @@
+   bundle_identifier = "com.davidhope.deskbrowser.views"
+ 
+   deps = [
++    "//ui/accessibility:test_support",
+     "//base",
+     "//base:i18n",
+     "//mojo/core/embedder",
+@@ -27,6 +28,7 @@
+     "//ui/gl",
+     "//ui/gl/init",
+     "//ui/views",
++    "//ui/resources:ui_test_pak_bundle_data",
+   ]
+ 
+   frameworks = [

@@ -1,0 +1,503 @@
+diff --git a/ui/accelerated_widget_mac/BUILD.gn b/ui/accelerated_widget_mac/BUILD.gn
+index 4b8ab883cf..73ab16df65 100644
+--- a/ui/accelerated_widget_mac/BUILD.gn
++++ b/ui/accelerated_widget_mac/BUILD.gn
+@@ -65,7 +65,9 @@ component("accelerated_widget_mac") {
+     configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+   }
+ 
+-  if (is_mac || (is_ios && target_platform != "iphoneos")) {
++  # target_platform is "iphoneos" for both device and simulator; the
++  # device/simulator split is target_environment.
++  if (is_mac || (is_ios && target_environment == "simulator")) {
+     sources += [
+       "display_ca_layer_tree.h",
+       "display_ca_layer_tree.mm",
+diff --git a/ui/accelerated_widget_mac/ca_layer_frame_sink_provider.h b/ui/accelerated_widget_mac/ca_layer_frame_sink_provider.h
+index 27153aecc3..8a28b9c589 100644
+--- a/ui/accelerated_widget_mac/ca_layer_frame_sink_provider.h
++++ b/ui/accelerated_widget_mac/ca_layer_frame_sink_provider.h
+@@ -25,6 +25,7 @@ class CALayerFrameSink;
+ #endif
+ 
+ - (id)init;
++- (id)initWithFrame:(CGRect)frame;
+ - (ui::CALayerFrameSink*)frameSink;
+ - (gfx::AcceleratedWidget)viewHandle;
+ + (CALayerFrameSinkProvider*)lookupByHandle:(uint64_t)viewHandle;
+diff --git a/ui/accelerated_widget_mac/ca_layer_frame_sink_provider.mm b/ui/accelerated_widget_mac/ca_layer_frame_sink_provider.mm
+index 432e90797d..308802bd41 100644
+--- a/ui/accelerated_widget_mac/ca_layer_frame_sink_provider.mm
++++ b/ui/accelerated_widget_mac/ca_layer_frame_sink_provider.mm
+@@ -28,18 +28,31 @@ WidgetToSinkProviderMap() {
+   return _view_handle;
+ }
+ 
+-- (id)init {
+-  self = [super init];
++- (void)registerViewHandleIfNeeded {
++  if (_view_handle) {
++    return;
++  }
++  static uint64_t last_sequence_number = 0;
++  _view_handle = ++last_sequence_number;
++  WidgetToSinkProviderMap().insert(std::make_pair(_view_handle, self));
++}
++
++- (id)initWithFrame:(CGRect)frame {
++  self = [super initWithFrame:frame];
+   if (self) {
+-    static uint64_t last_sequence_number = 0;
+-    _view_handle = ++last_sequence_number;
+-    WidgetToSinkProviderMap().insert(std::make_pair(_view_handle, self));
++    [self registerViewHandleIfNeeded];
+   }
+   return self;
+ }
+ 
++- (id)init {
++  return [self initWithFrame:CGRectZero];
++}
++
+ - (void)dealloc {
+-  WidgetToSinkProviderMap().erase(_view_handle);
++  if (_view_handle) {
++    WidgetToSinkProviderMap().erase(_view_handle);
++  }
+ }
+ 
+ + (CALayerFrameSinkProvider*)lookupByHandle:(uint64_t)viewHandle {
+diff --git a/ui/base/BUILD.gn b/ui/base/BUILD.gn
+index 5704ddf8fe..bd237e96de 100644
+--- a/ui/base/BUILD.gn
++++ b/ui/base/BUILD.gn
+@@ -589,7 +589,8 @@ component("base") {
+     public_deps += [ "//ui/base/glib" ]
+   }
+ 
+-  if (is_chromeos || (use_aura && is_linux) || is_fuchsia) {
++  if (is_chromeos || (use_aura && is_linux) || is_fuchsia ||
++      (is_ios && toolkit_views)) {
+     sources += [
+       "dragdrop/os_exchange_data_provider_non_backed.cc",
+       "dragdrop/os_exchange_data_provider_non_backed.h",
+diff --git a/ui/base/dragdrop/os_exchange_data_provider_factory.cc b/ui/base/dragdrop/os_exchange_data_provider_factory.cc
+index 4f3f3f5398..7bf39c53d5 100644
+--- a/ui/base/dragdrop/os_exchange_data_provider_factory.cc
++++ b/ui/base/dragdrop/os_exchange_data_provider_factory.cc
+@@ -10,7 +10,9 @@
+ #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
+ #include "ui/base/dragdrop/os_exchange_data_provider_factory_ozone.h"
+ #include "ui/base/dragdrop/os_exchange_data_provider_non_backed.h"
+-#elif BUILDFLAG(IS_APPLE)
++#elif BUILDFLAG(IS_IOS)
++#include "ui/base/dragdrop/os_exchange_data_provider_non_backed.h"
++#elif BUILDFLAG(IS_MAC)
+ #include "ui/base/dragdrop/os_exchange_data_provider_builder_mac.h"
+ #elif BUILDFLAG(IS_WIN)
+ #include "ui/base/dragdrop/os_exchange_data_provider_win.h"
+@@ -31,7 +33,9 @@ OSExchangeDataProviderFactory::CreateProvider() {
+       return provider;
+   }
+   return std::make_unique<OSExchangeDataProviderNonBacked>();
+-#elif BUILDFLAG(IS_APPLE)
++#elif BUILDFLAG(IS_IOS)
++  return std::make_unique<OSExchangeDataProviderNonBacked>();
++#elif BUILDFLAG(IS_MAC)
+   return BuildOSExchangeDataProviderMac();
+ #elif BUILDFLAG(IS_WIN)
+   return std::make_unique<OSExchangeDataProviderWin>();
+diff --git a/ui/base/dragdrop/os_exchange_data_provider_non_backed.cc b/ui/base/dragdrop/os_exchange_data_provider_non_backed.cc
+index b2d790e10e..ad057f2c59 100644
+--- a/ui/base/dragdrop/os_exchange_data_provider_non_backed.cc
++++ b/ui/base/dragdrop/os_exchange_data_provider_non_backed.cc
+@@ -219,6 +219,7 @@ bool OSExchangeDataProviderNonBacked::HasFileContents() const {
+   return !file_contents_filename_.empty();
+ }
+ 
++#if defined(USE_AURA)
+ void OSExchangeDataProviderNonBacked::SetHtml(const std::u16string& html,
+                                               const GURL& base_url) {
+   formats_ |= OSExchangeData::HTML;
+@@ -241,6 +242,7 @@ OSExchangeDataProviderNonBacked::GetHtml() const {
+ bool OSExchangeDataProviderNonBacked::HasHtml() const {
+   return ((formats_ & OSExchangeData::HTML) != 0);
+ }
++#endif
+ 
+ void OSExchangeDataProviderNonBacked::SetDragImage(
+     const gfx::ImageSkia& image,
+diff --git a/ui/base/dragdrop/os_exchange_data_provider_non_backed.h b/ui/base/dragdrop/os_exchange_data_provider_non_backed.h
+index 9d88aedce1..35f1b2022c 100644
+--- a/ui/base/dragdrop/os_exchange_data_provider_non_backed.h
++++ b/ui/base/dragdrop/os_exchange_data_provider_non_backed.h
+@@ -74,9 +74,11 @@ class COMPONENT_EXPORT(UI_BASE) OSExchangeDataProviderNonBacked
+   std::optional<FileContentsInfo> GetFileContents() const override;
+   bool HasFileContents() const override;
+ 
++#if defined(USE_AURA)
+   void SetHtml(const std::u16string& html, const GURL& base_url) override;
+   std::optional<HtmlInfo> GetHtml() const override;
+   bool HasHtml() const override;
++#endif
+   void SetDragImage(const gfx::ImageSkia& image,
+                     const gfx::Vector2d& cursor_offset) override;
+   gfx::ImageSkia GetDragImage() const override;
+diff --git a/ui/base/ime/init/input_method_factory.cc b/ui/base/ime/init/input_method_factory.cc
+index ad27a262b3..2ced3669e4 100644
+--- a/ui/base/ime/init/input_method_factory.cc
++++ b/ui/base/ime/init/input_method_factory.cc
+@@ -14,7 +14,7 @@
+ 
+ #if BUILDFLAG(IS_WIN)
+ #include "ui/base/ime/win/input_method_win_tsf.h"
+-#elif BUILDFLAG(IS_APPLE)
++#elif BUILDFLAG(IS_MAC)
+ #include "ui/base/ime/mac/input_method_mac.h"
+ #elif BUILDFLAG(IS_OZONE)
+ #include "ui/ozone/public/ozone_platform.h"
+@@ -54,7 +54,7 @@ std::unique_ptr<InputMethod> CreateInputMethod(
+ 
+ #if BUILDFLAG(IS_WIN)
+   return std::make_unique<InputMethodWinTSF>(ime_key_event_dispatcher, widget);
+-#elif BUILDFLAG(IS_APPLE)
++#elif BUILDFLAG(IS_MAC)
+   return std::make_unique<InputMethodMac>(ime_key_event_dispatcher);
+ #elif BUILDFLAG(IS_OZONE)
+   return ui::OzonePlatform::GetInstance()->CreateInputMethod(
+diff --git a/ui/display/ios/screen_ios.mm b/ui/display/ios/screen_ios.mm
+index ab9f46a5e0..7710185b28 100644
+--- a/ui/display/ios/screen_ios.mm
++++ b/ui/display/ios/screen_ios.mm
+@@ -74,12 +74,25 @@ NSArray<UIScreen*>* GetAllActiveScreens() {
+ #else
+   NSMutableSet<UIScreen*>* screens = [NSMutableSet set];
+   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+-    auto* window_scene = base::apple::ObjCCastStrict<UIWindowScene>(scene);
++    auto* window_scene = base::apple::ObjCCast<UIWindowScene>(scene);
++    if (!window_scene) {
++      continue;
++    }
+     for (UIWindow* window in window_scene.windows) {
+       if (UIScreen* screen = window.screen) {
+         [screens addObject:screen];
+       }
+     }
++    // A connecting scene may not have windows yet; UIWindowScene.screen
++    // is still valid and is needed before the first Views widget exists.
++    if (UIScreen* screen = window_scene.screen) {
++      [screens addObject:screen];
++    }
++  }
++  if (screens.count == 0) {
++    if (UIScreen* main = UIScreen.mainScreen) {
++      [screens addObject:main];
++    }
+   }
+   return [screens allObjects];
+ #endif
+diff --git a/ui/views/controls/menu/menu_config_ios.cc b/ui/views/controls/menu/menu_config_ios.cc
+new file mode 100644
+index 0000000000..f2fd284a52
+--- /dev/null
++++ b/ui/views/controls/menu/menu_config_ios.cc
+@@ -0,0 +1,11 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "ui/views/controls/menu/menu_config.h"
++
++namespace views {
++
++void MenuConfig::InitPlatform() {}
++
++}  // namespace views
+diff --git a/ui/views/controls/menu/menu_pre_target_handler_ios.cc b/ui/views/controls/menu/menu_pre_target_handler_ios.cc
+new file mode 100644
+index 0000000000..c34e3eae84
+--- /dev/null
++++ b/ui/views/controls/menu/menu_pre_target_handler_ios.cc
+@@ -0,0 +1,24 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "ui/views/controls/menu/menu_pre_target_handler.h"
++
++namespace views {
++
++namespace {
++
++class MenuPreTargetHandlerIOS : public MenuPreTargetHandler {
++ public:
++  MenuPreTargetHandlerIOS(MenuController*, Widget*) {}
++};
++
++}  // namespace
++
++std::unique_ptr<MenuPreTargetHandler> MenuPreTargetHandler::Create(
++    MenuController* controller,
++    Widget* widget) {
++  return std::make_unique<MenuPreTargetHandlerIOS>(controller, widget);
++}
++
++}  // namespace views
+diff --git a/ui/views/metrics_ios.cc b/ui/views/metrics_ios.cc
+new file mode 100644
+index 0000000000..83448ccd7f
+--- /dev/null
++++ b/ui/views/metrics_ios.cc
+@@ -0,0 +1,19 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include "ui/views/metrics.h"
++
++namespace views {
++
++base::TimeDelta GetDoubleClickInterval() {
++  constexpr base::TimeDelta kDefaultDoubleClickInterval =
++      base::Milliseconds(500);
++  return kDefaultDoubleClickInterval;
++}
++
++base::TimeDelta GetMenuShowDelay() {
++  return base::Milliseconds(0);
++}
++
++}  // namespace views
+diff --git a/ui/views/BUILD.gn b/ui/views/BUILD.gn
+--- a/ui/views/BUILD.gn
++++ b/ui/views/BUILD.gn
+@@ -807,7 +807,12 @@ component("views") {
+ 
+   if (is_ios) {
+     public += [ "widget/native_widget_ios.h" ]
+-    sources += [ "widget/native_widget_ios.mm" ]
++    sources += [
++      "controls/menu/menu_config_ios.cc",
++      "controls/menu/menu_pre_target_handler_ios.cc",
++      "metrics_ios.cc",
++      "widget/native_widget_ios.mm",
++    ]
+     deps += [
+       "//ui/accelerated_widget_mac",
+       "//ui/display",
+diff --git a/ui/views/examples/ios/BUILD.gn b/ui/views/examples/ios/BUILD.gn
+--- a/ui/views/examples/ios/BUILD.gn
++++ b/ui/views/examples/ios/BUILD.gn
+@@ -13,6 +13,7 @@
+   bundle_identifier = "com.davidhope.deskbrowser.views"
+ 
+   deps = [
++    "//ui/accessibility:test_support",
+     "//base",
+     "//base:i18n",
+     "//mojo/core/embedder",
+@@ -27,6 +28,7 @@
+     "//ui/gl",
+     "//ui/gl/init",
+     "//ui/views",
++    "//ui/resources:ui_test_pak_bundle_data",
+   ]
+ 
+   frameworks = [
+diff --git a/ui/views/examples/ios/Info.plist b/ui/views/examples/ios/Info.plist
+--- a/ui/views/examples/ios/Info.plist
++++ b/ui/views/examples/ios/Info.plist
+@@ -11,7 +11,7 @@
+ 	<key>CFBundleInfoDictionaryVersion</key>
+ 	<string>6.0</string>
+ 	<key>CFBundleName</key>
+-	<string>ViewsExamplesIOS</string>
++	<string>views_examples_ios</string>
+ 	<key>CFBundlePackageType</key>
+ 	<string>APPL</string>
+ 	<key>CFBundleShortVersionString</key>
+diff --git a/ui/views/examples/ios/views_examples_ios_main.mm b/ui/views/examples/ios/views_examples_ios_main.mm
+--- a/ui/views/examples/ios/views_examples_ios_main.mm
++++ b/ui/views/examples/ios/views_examples_ios_main.mm
+@@ -6,17 +6,24 @@
+ 
+ #include <memory>
+ 
++#include "base/apple/foundation_util.h"
+ #include "base/at_exit.h"
++#include "base/files/file_util.h"
+ #include "base/command_line.h"
+ #include "base/files/file_path.h"
++#include "base/functional/bind.h"
+ #include "base/i18n/icu_util.h"
++#include "base/memory/raw_ptr.h"
+ #include "base/message_loop/message_pump_type.h"
+ #include "base/path_service.h"
+ #include "base/task/single_thread_task_executor.h"
+ #include "base/task/single_thread_task_runner.h"
++#include "base/task/thread_pool/thread_pool_instance.h"
+ #include "mojo/core/embedder/embedder.h"
++#include "ui/accessibility/platform/ax_platform_for_test.h"
+ #include "ui/base/resource/resource_bundle.h"
+ #include "ui/base/ui_base_paths.h"
++#include "ui/color/color_mixers.h"
+ #include "ui/color/color_provider_manager.h"
+ #include "ui/compositor/test/test_context_factories.h"
+ #include "ui/display/screen.h"
+@@ -26,6 +33,7 @@
+ #include "ui/views/background.h"
+ #include "ui/views/controls/label.h"
+ #include "ui/views/layout/fill_layout.h"
++#include "ui/views/layout/layout_provider.h"
+ #include "ui/views/view.h"
+ #include "ui/views/views_delegate.h"
+ #include "ui/views/widget/widget.h"
+@@ -42,25 +50,24 @@
+   raw_ptr<ui::ContextFactory> factory_;
+ };
+ 
+-class MilestoneView : public views::WidgetDelegateView {
++class MilestoneView : public views::View {
+  public:
+   MilestoneView() {
+     SetLayoutManager(std::make_unique<views::FillLayout>());
+-    SetBackground(views::CreateSolidBackground(SkColorSetRGB(0x22, 0x24, 0x2A)));
++    SetBackground(views::CreateSolidBackground(SkColorSetRGB(0xC8, 0x1D, 0x25)));
+     auto* label = AddChildView(std::make_unique<views::Label>(u"DeskBrowser Views M1"));
+     label->SetAutoColorReadabilityEnabled(false);
+     label->SetEnabledColor(SK_ColorWHITE);
+-    label->SetBackgroundColor(SkColorSetRGB(0x22, 0x24, 0x2A));
+-    label->SetFontList(label->font_list().DeriveWithSizeDelta(8));
++    label->SetBackgroundColor(SkColorSetRGB(0xC8, 0x1D, 0x25));
++    label->SetFontList(label->font_list().DeriveWithSizeDelta(16));
+     label->SetHorizontalAlignment(gfx::ALIGN_CENTER);
+-    SetTitle(u"DeskBrowser Views M1");
+   }
+-  bool CanMaximize() const override { return false; }
+-  bool CanMinimize() const override { return false; }
+-  bool CanResize() const override { return true; }
+ };
+ 
+ struct HostState {
++  std::unique_ptr<ui::AXPlatformForTest> ax_platform;
++  std::unique_ptr<display::ScopedNativeScreen> screen;
++  std::unique_ptr<views::LayoutProvider> layout_provider;
+   std::unique_ptr<ui::TestContextFactories> context_factories;
+   std::unique_ptr<HostViewsDelegate> views_delegate;
+   std::unique_ptr<views::Widget> widget;
+@@ -75,8 +82,12 @@
+   if (!g_host) {
+     g_host = new HostState();
+   }
+-  (void)display::Screen::Get();
+-  if (!g_host->context_factories) {
++  if (!g_host->layout_provider) {
++    g_host->ax_platform = std::make_unique<ui::AXPlatformForTest>();
++    g_host->screen = std::make_unique<display::ScopedNativeScreen>();
++    g_host->layout_provider = std::make_unique<views::LayoutProvider>();
++    ui::ColorProviderManager::Get().AppendColorProviderInitializer(
++        base::BindRepeating(&ui::AddColorMixers));
+     g_host->context_factories =
+         std::make_unique<ui::TestContextFactories>(/*under_test=*/false,
+                                                    /*output_to_window=*/true);
+@@ -84,11 +95,16 @@
+         g_host->context_factories->GetContextFactory());
+   }
+ 
+-  auto delegate = std::make_unique<MilestoneView>();
++  auto delegate = std::make_unique<views::WidgetDelegate>();
++  delegate->SetTitle(u"DeskBrowser Views M1");
++  delegate->SetCanMaximize(false);
++  delegate->SetCanMinimize(false);
++  delegate->SetCanResize(true);
++  delegate->SetContentsView(std::make_unique<MilestoneView>());
+   views::Widget::InitParams params(views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+-                                   views::Widget::InitParams::TYPE_WINDOW);
++                                   views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+   params.delegate = delegate.release();
+-  params.bounds = gfx::Rect(0, 0, 400, 200);
++  params.bounds = gfx::Rect(16, 96, 370, 260);
+   params.name = "DeskBrowserViewsM1";
+   g_host->widget = std::make_unique<views::Widget>();
+   g_host->widget->Init(std::move(params));
+@@ -105,6 +121,13 @@
+ - (void)scene:(UIScene*)scene
+     willConnectToSession:(UISceneSession*)session
+                  options:(UISceneConnectionOptions*)connectionOptions {
++  auto* window_scene = (UIWindowScene*)scene;
++  if (!self.window) {
++    self.window = [[UIWindow alloc] initWithWindowScene:window_scene];
++    self.window.rootViewController = [[UIViewController alloc] init];
++    self.window.backgroundColor = [UIColor colorWithWhite:0.13 alpha:1];
++    [self.window makeKeyAndVisible];
++  }
+   StartViewsWidget();
+ }
+ @end
+@@ -122,6 +145,7 @@
+ int main(int argc, char* argv[]) {
+   base::AtExitManager at_exit;
+   base::CommandLine::Init(argc, argv);
++  base::ThreadPoolInstance::CreateAndStartWithDefaultParams("ViewsExamplesIOS");
+   mojo::core::Init();
+   CHECK(base::i18n::InitializeICU());
+   gfx::InitializeFonts();
+@@ -129,11 +153,16 @@
+   gl::init::InitializeGLOneOff(/*gpu_preference=*/gl::GpuPreference::kDefault);
+ 
+   base::FilePath pak_path;
+-  if (base::PathService::Get(ui::UI_TEST_PAK, &pak_path)) {
+-    ui::ResourceBundle::InitSharedInstanceWithPakPath(pak_path);
+-  } else {
+-    ui::ResourceBundle::InitSharedInstanceWithPakPath(base::FilePath());
++  if (NSString* pak = [[NSBundle mainBundle] pathForResource:@"ui_test"
++                                                      ofType:@"pak"]) {
++    pak_path = base::apple::NSStringToFilePath(pak);
++  } else if (!base::PathService::Get(ui::UI_TEST_PAK, &pak_path) ||
++             !base::PathExists(pak_path)) {
++    pak_path = base::apple::NSStringToFilePath(
++        [[NSBundle mainBundle] bundlePath]).AppendASCII("ui_test.pak");
+   }
++  CHECK(base::PathExists(pak_path)) << pak_path;
++  ui::ResourceBundle::InitSharedInstanceWithPakPath(pak_path);
+ 
+   base::SingleThreadTaskExecutor executor(base::MessagePumpType::UI);
+ 
+diff --git a/ui/views/widget/native_widget_ios.mm b/ui/views/widget/native_widget_ios.mm
+--- a/ui/views/widget/native_widget_ios.mm
++++ b/ui/views/widget/native_widget_ios.mm
+@@ -90,14 +90,32 @@
+ };
+ 
+ UIWindowScene* FirstWindowScene() {
++  auto is_window_scene = ^bool(UIScene* scene) {
++    return [scene isKindOfClass:[UIWindowScene class]];
++  };
++  auto is_application_scene = ^bool(UIScene* scene) {
++    return is_window_scene(scene) &&
++           [scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication];
++  };
+   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+-    if ([scene isKindOfClass:[UIWindowScene class]] &&
++    if (is_application_scene(scene) &&
+         scene.activationState != UISceneActivationStateUnattached) {
+       return (UIWindowScene*)scene;
+     }
+   }
+   for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+-    if ([scene isKindOfClass:[UIWindowScene class]]) {
++    if (is_application_scene(scene)) {
++      return (UIWindowScene*)scene;
++    }
++  }
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    if (is_window_scene(scene) &&
++        scene.activationState != UISceneActivationStateUnattached) {
++      return (UIWindowScene*)scene;
++    }
++  }
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    if (is_window_scene(scene)) {
+       return (UIWindowScene*)scene;
+     }
+   }

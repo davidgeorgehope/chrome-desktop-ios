@@ -1,0 +1,146 @@
+--- /workspace/repos/linux-ios-fast/patches/chromium-ios/0016-files/ui/views/examples/ios/views_examples_ios_main.mm	2026-11-18 15:32:39.872472774 -0500
++++ /workspace/tmp-0017-src/ui/views/examples/ios/views_examples_ios_main.mm	2026-11-18 16:28:28.883022269 -0500
+@@ -6,17 +6,24 @@
+ 
+ #include <memory>
+ 
++#include "base/apple/foundation_util.h"
+ #include "base/at_exit.h"
++#include "base/files/file_util.h"
+ #include "base/command_line.h"
+ #include "base/files/file_path.h"
++#include "base/functional/bind.h"
+ #include "base/i18n/icu_util.h"
++#include "base/memory/raw_ptr.h"
+ #include "base/message_loop/message_pump_type.h"
+ #include "base/path_service.h"
+ #include "base/task/single_thread_task_executor.h"
+ #include "base/task/single_thread_task_runner.h"
++#include "base/task/thread_pool/thread_pool_instance.h"
+ #include "mojo/core/embedder/embedder.h"
++#include "ui/accessibility/platform/ax_platform_for_test.h"
+ #include "ui/base/resource/resource_bundle.h"
+ #include "ui/base/ui_base_paths.h"
++#include "ui/color/color_mixers.h"
+ #include "ui/color/color_provider_manager.h"
+ #include "ui/compositor/test/test_context_factories.h"
+ #include "ui/display/screen.h"
+@@ -26,6 +33,7 @@
+ #include "ui/views/background.h"
+ #include "ui/views/controls/label.h"
+ #include "ui/views/layout/fill_layout.h"
++#include "ui/views/layout/layout_provider.h"
+ #include "ui/views/view.h"
+ #include "ui/views/views_delegate.h"
+ #include "ui/views/widget/widget.h"
+@@ -42,25 +50,24 @@
+   raw_ptr<ui::ContextFactory> factory_;
+ };
+ 
+-class MilestoneView : public views::WidgetDelegateView {
++class MilestoneView : public views::View {
+  public:
+   MilestoneView() {
+     SetLayoutManager(std::make_unique<views::FillLayout>());
+-    SetBackground(views::CreateSolidBackground(SkColorSetRGB(0x22, 0x24, 0x2A)));
++    SetBackground(views::CreateSolidBackground(SkColorSetRGB(0xC8, 0x1D, 0x25)));
+     auto* label = AddChildView(std::make_unique<views::Label>(u"DeskBrowser Views M1"));
+     label->SetAutoColorReadabilityEnabled(false);
+     label->SetEnabledColor(SK_ColorWHITE);
+-    label->SetBackgroundColor(SkColorSetRGB(0x22, 0x24, 0x2A));
+-    label->SetFontList(label->font_list().DeriveWithSizeDelta(8));
++    label->SetBackgroundColor(SkColorSetRGB(0xC8, 0x1D, 0x25));
++    label->SetFontList(label->font_list().DeriveWithSizeDelta(16));
+     label->SetHorizontalAlignment(gfx::ALIGN_CENTER);
+-    SetTitle(u"DeskBrowser Views M1");
+   }
+-  bool CanMaximize() const override { return false; }
+-  bool CanMinimize() const override { return false; }
+-  bool CanResize() const override { return true; }
+ };
+ 
+ struct HostState {
++  std::unique_ptr<ui::AXPlatformForTest> ax_platform;
++  std::unique_ptr<display::ScopedNativeScreen> screen;
++  std::unique_ptr<views::LayoutProvider> layout_provider;
+   std::unique_ptr<ui::TestContextFactories> context_factories;
+   std::unique_ptr<HostViewsDelegate> views_delegate;
+   std::unique_ptr<views::Widget> widget;
+@@ -75,8 +82,12 @@
+   if (!g_host) {
+     g_host = new HostState();
+   }
+-  (void)display::Screen::Get();
+-  if (!g_host->context_factories) {
++  if (!g_host->layout_provider) {
++    g_host->ax_platform = std::make_unique<ui::AXPlatformForTest>();
++    g_host->screen = std::make_unique<display::ScopedNativeScreen>();
++    g_host->layout_provider = std::make_unique<views::LayoutProvider>();
++    ui::ColorProviderManager::Get().AppendColorProviderInitializer(
++        base::BindRepeating(&ui::AddColorMixers));
+     g_host->context_factories =
+         std::make_unique<ui::TestContextFactories>(/*under_test=*/false,
+                                                    /*output_to_window=*/true);
+@@ -84,11 +95,16 @@
+         g_host->context_factories->GetContextFactory());
+   }
+ 
+-  auto delegate = std::make_unique<MilestoneView>();
++  auto delegate = std::make_unique<views::WidgetDelegate>();
++  delegate->SetTitle(u"DeskBrowser Views M1");
++  delegate->SetCanMaximize(false);
++  delegate->SetCanMinimize(false);
++  delegate->SetCanResize(true);
++  delegate->SetContentsView(std::make_unique<MilestoneView>());
+   views::Widget::InitParams params(views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+-                                   views::Widget::InitParams::TYPE_WINDOW);
++                                   views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+   params.delegate = delegate.release();
+-  params.bounds = gfx::Rect(0, 0, 400, 200);
++  params.bounds = gfx::Rect(16, 96, 370, 260);
+   params.name = "DeskBrowserViewsM1";
+   g_host->widget = std::make_unique<views::Widget>();
+   g_host->widget->Init(std::move(params));
+@@ -105,6 +121,13 @@
+ - (void)scene:(UIScene*)scene
+     willConnectToSession:(UISceneSession*)session
+                  options:(UISceneConnectionOptions*)connectionOptions {
++  auto* window_scene = (UIWindowScene*)scene;
++  if (!self.window) {
++    self.window = [[UIWindow alloc] initWithWindowScene:window_scene];
++    self.window.rootViewController = [[UIViewController alloc] init];
++    self.window.backgroundColor = [UIColor colorWithWhite:0.13 alpha:1];
++    [self.window makeKeyAndVisible];
++  }
+   StartViewsWidget();
+ }
+ @end
+@@ -122,6 +145,7 @@
+ int main(int argc, char* argv[]) {
+   base::AtExitManager at_exit;
+   base::CommandLine::Init(argc, argv);
++  base::ThreadPoolInstance::CreateAndStartWithDefaultParams("ViewsExamplesIOS");
+   mojo::core::Init();
+   CHECK(base::i18n::InitializeICU());
+   gfx::InitializeFonts();
+@@ -129,11 +153,16 @@
+   gl::init::InitializeGLOneOff(/*gpu_preference=*/gl::GpuPreference::kDefault);
+ 
+   base::FilePath pak_path;
+-  if (base::PathService::Get(ui::UI_TEST_PAK, &pak_path)) {
+-    ui::ResourceBundle::InitSharedInstanceWithPakPath(pak_path);
+-  } else {
+-    ui::ResourceBundle::InitSharedInstanceWithPakPath(base::FilePath());
++  if (NSString* pak = [[NSBundle mainBundle] pathForResource:@"ui_test"
++                                                      ofType:@"pak"]) {
++    pak_path = base::apple::NSStringToFilePath(pak);
++  } else if (!base::PathService::Get(ui::UI_TEST_PAK, &pak_path) ||
++             !base::PathExists(pak_path)) {
++    pak_path = base::apple::NSStringToFilePath(
++        [[NSBundle mainBundle] bundlePath]).AppendASCII("ui_test.pak");
+   }
++  CHECK(base::PathExists(pak_path)) << pak_path;
++  ui::ResourceBundle::InitSharedInstanceWithPakPath(pak_path);
+ 
+   base::SingleThreadTaskExecutor executor(base::MessagePumpType::UI);
+ 
