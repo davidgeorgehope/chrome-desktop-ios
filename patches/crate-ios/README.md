@@ -143,3 +143,39 @@ with the existing entitlements: StikJIT.framework, then the appex
 then zip with `ditto -c -k --norsrc --noextattr --noacl --keepParent Payload`.
 Check with `codesign --verify --strict` on each nested bundle, not just
 `--deep` on the app.
+
+## 0005: iOS 27 SDK builds get no external display (mirror only)
+
+Symptom (build 6, 17 Nov 2026 9:22 PM ET, iPhone 16 Pro on iOS 27.2.1):
+plugging in the monitor only mirrors the phone; crate has no external mode
+at all. `crate.log` from the device covered three VM boots and had no
+`external display:` line, so `ExternalDisplaySceneDelegate` was never
+connected. No crash reports.
+
+Cause: build 6 was the first built with Xcode 27.2 (`DTSDKName
+iphoneos27.2`); builds up to 5 were Xcode 26.6 / iOS 26.5 SDK. Apps linked
+against the iOS 27 SDK get the external display through SwiftUI's
+`.sceneAccessory { ExternalNonInteractiveAccessory { … } }`, not the
+Info.plist `UIWindowSceneSessionRoleExternalDisplayNonInteractive` scene.
+The tree already had an `ExternalDisplayAccessory` modifier, but it was
+behind `CRATE_HAS_IOS27_SDK` (never defined), drew only black, and was
+never applied. 0003 was tested only in the iOS 26.5 Simulator, so nothing
+caught it. The Info.plist manifest and 0003's code were intact in build 6.
+
+Fix (applies on top of 0003; 0004 is a project.yml/pbxproj change):
+
+- `ExternalDisplayAccessory` is applied to the `WindowGroup` root and
+  compiled whenever the compiler is Swift 6.4+ (Xcode 27), on iOS 27 only.
+- `AccessoryScreenView` is a second `ExternalScreen`: it attaches to
+  `ExternalDisplayCoordinator` at the accessory's size × screen scale and
+  shows the same `ExternalScreenView` the UIKit scene uses (aspect-fit,
+  centred), with the idle label before a VM starts.
+- `crate.log` logs `UIScreen` plug/unplug and accessory availability, so
+  "screen plugged in" with no "connected" means iOS gave crate nothing.
+- iOS 18–26 and older-SDK builds still use `ExternalDisplaySceneDelegate`.
+
+Rebuild note: after 0004, an incremental build can keep the helper's old
+StikJIT signature. Delete `CrateJITHelper.appex` and `Crate.app` from
+`Build/Products/Debug-iphoneos` before building, then run
+`codesign --verify --strict` on every nested bundle (deep verify alone
+misses it). Build 7 (0.1.3) was built that way and installed as an upgrade.

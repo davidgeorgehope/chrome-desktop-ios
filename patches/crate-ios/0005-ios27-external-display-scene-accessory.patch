@@ -1,0 +1,179 @@
+diff -ru crate-ios-b6base/Sources/Crate/App/CrateApp.swift crate-ios/Sources/Crate/App/CrateApp.swift
+--- a/Sources/Crate/App/CrateApp.swift	2026-11-17 10:22:31
++++ b/Sources/Crate/App/CrateApp.swift	2026-11-17 21:33:49
+@@ -41,6 +41,7 @@
+                 .environment(runner)
+                 .environment(installer)
+                 .environment(ExternalDisplayCoordinator.shared)
++                .modifier(ExternalDisplayAccessory())
+         }
+     }
+ }
+diff -ru crate-ios-b6base/Sources/Crate/Engine/ExternalDisplay.swift crate-ios/Sources/Crate/Engine/ExternalDisplay.swift
+--- a/Sources/Crate/Engine/ExternalDisplay.swift	2026-11-17 10:30:49
++++ b/Sources/Crate/Engine/ExternalDisplay.swift	2026-11-17 21:33:59
+@@ -26,6 +26,19 @@
+ final class ExternalDisplayCoordinator {
+     static let shared = ExternalDisplayCoordinator()
+ 
++    private init() {
++        // Posted for any monitor, mirrored or not: in crate.log, a "screen
++        // plugged in" with no "connected" after it means iOS never gave crate
++        // a scene or accessory for it.
++        NotificationCenter.default.addObserver(forName: UIScreen.didConnectNotification, object: nil, queue: .main) { note in
++            let size = (note.object as? UIScreen)?.nativeBounds.size ?? .zero
++            AppLog.write("external display: screen plugged in, native \(Int(size.width))x\(Int(size.height))")
++        }
++        NotificationCenter.default.addObserver(forName: UIScreen.didDisconnectNotification, object: nil, queue: .main) { _ in
++            AppLog.write("external display: screen unplugged")
++        }
++    }
++
+     /// A monitor is connected and the running VM is being shown on it.
+     private(set) var isPresenting = false
+     /// A monitor is connected, whether or not a VM is using it.
+@@ -370,16 +383,24 @@
+     }
+ }
+ 
+-/// iOS 27 delivers the external scene only to this accessory. Earlier iOS
+-/// uses ExternalDisplaySceneDelegate from the scene manifest instead.
++/// Apps linked against the iOS 27 SDK get their external display through
++/// a SwiftUI scene accessory: iOS 27 no longer connects the Info.plist
++/// `UIWindowSceneSessionRoleExternalDisplayNonInteractive` scene for them,
++/// so without this the monitor only mirrors the phone and crate hears
++/// nothing (build 6, the first built with Xcode 27, on iOS 27.2.1). Builds
++/// from an older SDK, and iOS 18–26, keep using ExternalDisplaySceneDelegate.
++/// Swift 6.4 is the Xcode 27 compiler, so the check follows the SDK in use.
+ struct ExternalDisplayAccessory: ViewModifier {
+     func body(content: Content) -> some View {
+-#if CRATE_HAS_IOS27_SDK
++#if compiler(>=6.4)
+         if #available(iOS 27.0, *) {
+             content.sceneAccessory {
+                 ExternalNonInteractiveAccessory {
+                     ExternalDesktopAccessory()
+                 }
++                .onAvailabilityChange { available in
++                    AppLog.write("external display: accessory \(available ? "available" : "unavailable")")
++                }
+             }
+         } else {
+             content
+@@ -390,11 +411,114 @@
+     }
+ }
+ 
+-#if CRATE_HAS_IOS27_SDK
++#if compiler(>=6.4)
+ @available(iOS 27.0, *)
+ private struct ExternalDesktopAccessory: View {
+     var body: some View {
+-        Color.black.ignoresSafeArea()
++        AccessoryScreen()
++            .ignoresSafeArea()
++            .background(Color.black)
+     }
+ }
++
++private struct AccessoryScreen: UIViewRepresentable {
++    func makeUIView(context: Context) -> AccessoryScreenView { AccessoryScreenView() }
++    func updateUIView(_ view: AccessoryScreenView, context: Context) {}
++    static func dismantleUIView(_ view: AccessoryScreenView, coordinator: ()) { view.detach() }
++}
+ #endif
++
++/// The monitor as the coordinator sees it when iOS 27 hands crate a scene
++/// accessory instead of a UIKit scene: the same picture view, at the
++/// accessory's own size times its screen's scale.
++final class AccessoryScreenView: UIView, ExternalScreen {
++    let id = UUID()
++    private let outputID = UUID()
++    private var attached = false
++    private var lastPixels = CGSize.zero
++    private var picture: ExternalScreenView?
++    private let idle = UILabel()
++
++    override init(frame: CGRect) {
++        super.init(frame: frame)
++        backgroundColor = .black
++        isUserInteractionEnabled = false
++        idle.text = "Start a machine to show the desktop here."
++        idle.textColor = .lightGray
++        idle.font = .preferredFont(forTextStyle: .title2)
++        idle.textAlignment = .center
++        idle.numberOfLines = 0
++        idle.translatesAutoresizingMaskIntoConstraints = false
++        addSubview(idle)
++        NSLayoutConstraint.activate([
++            idle.centerXAnchor.constraint(equalTo: centerXAnchor),
++            idle.centerYAnchor.constraint(equalTo: centerYAnchor),
++            idle.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 40),
++            idle.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -40),
++        ])
++    }
++
++    @available(*, unavailable)
++    required init?(coder: NSCoder) { fatalError() }
++
++    var nativePixels: CGSize {
++        let scale = max(window?.windowScene?.screen.scale ?? traitCollection.displayScale, 1)
++        return CGSize(width: bounds.width * scale, height: bounds.height * scale)
++    }
++
++    override func didMoveToWindow() {
++        super.didMoveToWindow()
++        if window == nil { detach() } else { setNeedsLayout() }
++    }
++
++    override func layoutSubviews() {
++        super.layoutSubviews()
++        let pixels = nativePixels
++        guard window != nil, pixels.width >= 16, pixels.height >= 16 else { return }
++        if !attached {
++            attached = true
++            lastPixels = pixels
++            logGeometry()
++            ExternalDisplayCoordinator.shared.attach(self)
++        } else if pixels != lastPixels {
++            lastPixels = pixels
++            logGeometry()
++            ExternalDisplayCoordinator.shared.screenDidChangeSize(self)
++        }
++    }
++
++    func detach() {
++        guard attached else { return }
++        attached = false
++        ExternalDisplayCoordinator.shared.detach(self)
++    }
++
++    private func logGeometry() {
++        let size = { (s: CGSize) in "\(Int(s.width))x\(Int(s.height))" }
++        let screen = window?.windowScene?.screen
++        AppLog.write("external display: accessory \(size(bounds.size)) pt, offered \(size(nativePixels)) px, "
++                     + "mode \(screen?.currentMode.map { size($0.size) } ?? "unknown"), "
++                     + "native \(screen.map { size($0.nativeBounds.size) } ?? "unknown")")
++    }
++
++    func showDesktop(bridge: DisplayBridge) {
++        picture?.removeFromSuperview()
++        let view = ExternalScreenView(bridge: bridge, outputID: outputID)
++        view.translatesAutoresizingMaskIntoConstraints = false
++        addSubview(view)
++        NSLayoutConstraint.activate([
++            view.leadingAnchor.constraint(equalTo: leadingAnchor),
++            view.trailingAnchor.constraint(equalTo: trailingAnchor),
++            view.topAnchor.constraint(equalTo: topAnchor),
++            view.bottomAnchor.constraint(equalTo: bottomAnchor),
++        ])
++        picture = view
++        idle.isHidden = true
++    }
++
++    func hideDesktop() {
++        picture?.removeFromSuperview()
++        picture = nil
++        idle.isHidden = false
++    }
++}
