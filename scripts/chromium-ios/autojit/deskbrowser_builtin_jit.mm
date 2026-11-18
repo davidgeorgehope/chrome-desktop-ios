@@ -9,6 +9,7 @@
 #import <Foundation/Foundation.h>
 #import <dlfcn.h>
 #import <unistd.h>
+#include <time.h>
 
 #import "content/app/ios/deskbrowser_device_jit.h"
 
@@ -21,6 +22,10 @@
 - (void)setRequestCompletionBlock:(void (^)(NSUUID*, NSArray*))block;
 - (void)setRequestCancellationBlock:(void (^)(NSUUID*, NSError*))block;
 - (void)setRequestInterruptionBlock:(void (^)(NSUUID*))block;
+@end
+
+@interface NSObject (DeskBrowserUIApplication)
++ (id)sharedApplication;
 @end
 
 namespace {
@@ -116,13 +121,34 @@ bool StartHelper(NSData* pairing) {
   return true;
 }
 
+// True once UIApplicationMain has created the shared application.
+// After that, pumping kCFRunLoopDefaultMode re-enters Chrome scene
+// init, which starts base::OneShotTimer before a SequencedTaskRunner
+// exists (FATAL HasCurrentDefault). Crate avoids this by polling with
+// Task.sleep, which yields instead of nesting the run loop.
+bool UIApplicationAlreadyRunning() {
+  Class app_class = NSClassFromString(@"UIApplication");
+  if (!app_class) {
+    return false;
+  }
+  return [app_class sharedApplication] != nil;
+}
+
+// Poll CS_DEBUGGED. Before UIApplicationMain, a short default-mode
+// pump is safe and lets NSExtension start. After that, only nanosleep.
 bool WaitForDebugger(CFTimeInterval seconds) {
   const CFTimeInterval deadline = CFAbsoluteTimeGetCurrent() + seconds;
+  const bool pump = !UIApplicationAlreadyRunning();
   while (CFAbsoluteTimeGetCurrent() < deadline) {
     if (DeskBrowserJitDebuggerAttached()) {
       return DeskBrowserJitTryEnable();
     }
-    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.2, true);
+    if (pump) {
+      CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.2, true);
+    } else {
+      struct timespec ts = {0, 200000000};
+      nanosleep(&ts, nullptr);
+    }
   }
   return DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable();
 }
@@ -137,8 +163,21 @@ extern "C" bool DeskBrowserJitEnableWithBuiltInHelper(void) {
 #if TARGET_OS_SIMULATOR || !TARGET_OS_IOS
   return false;
 #else
+  // Idempotent: ChromeMain calls this before UIApplicationMain; later
+  // callers must not wait or pump again.
+  static bool g_attempted = false;
+  static bool g_result = false;
+  if (g_attempted) {
+    return g_result;
+  }
+  g_attempted = true;
+
   DeskBrowserJitInstallTrapHandler();
-  if (DeskBrowserJitTryEnable()) {
+  // Do not call TryEnable just to probe — that used to log an
+  // "Attach StikDebug" message even when the built-in helper is about
+  // to run. Check CS_DEBUGGED quietly first.
+  if (DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable()) {
+    g_result = true;
     return true;
   }
   NSData* pairing = ReadPairingFile();
@@ -155,10 +194,12 @@ extern "C" bool DeskBrowserJitEnableWithBuiltInHelper(void) {
     }
     return false;
   }
+  NSLog(@"deskbrowser-jit: started built-in helper; waiting for attach");
   // First launch may download Apple's developer disk image through the
   // helper; later launches are much quicker.
   if (WaitForDebugger(180)) {
     SetNotice(nil);
+    g_result = true;
     return true;
   }
   SetNotice(@"Built-in JIT didn't attach in time. Leave LocalDevVPN on "

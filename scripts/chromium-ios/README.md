@@ -239,3 +239,14 @@ the only manual steps; there is no separate StikDebug launch.
 
 Staged IPA: `gdrive:tmp-transfer/Chromium-device-autojit.ipa`, file id
 `1g8lupo4XlcxAZwRLViOHq14gM4XrxraB`.
+
+Patch `0007-ios-device-builtin-stikjit-no-runloop-crash.patch`
+(apply after 0006) moves the helper wait to `ChromeMain` before
+`UIApplicationMain`. Waiting inside `ContentMain` pumped the default
+run loop, which re-entered scene init and crashed in
+`base::OneShotTimer` (`HasCurrentDefault`) before any
+`SequencedTaskRunner` existed. The wait now matches crate's
+start-helper-then-poll style, without Chromium task APIs: a short
+default-mode pump is used only before UIKit is running, otherwise
+`nanosleep`. `DeskBrowserJitTryEnable` no longer logs an "Attach
+StikDebug" probe message.

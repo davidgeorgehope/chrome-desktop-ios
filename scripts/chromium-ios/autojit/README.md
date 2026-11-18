@@ -5,7 +5,7 @@ of the target, including the one talking to the debugger. A built-in
 helper extension (`DeskBrowserJITHelper.appex`) does the attach, the same
 shape crate uses.
 
-On launch the app reads `Documents/StikJIT/pairingFile.plist` (never
+On launch, `ChromeMain` (before `UIApplicationMain`) reads `Documents/StikJIT/pairingFile.plist` (never
 logged or committed), starts the helper through NSExtension, and waits
 for `CS_DEBUGGED`. The helper calls `StikJIT.enableJIT` with
 `script: .universal` (TXM `brk #0xf00d`) and stays attached so later

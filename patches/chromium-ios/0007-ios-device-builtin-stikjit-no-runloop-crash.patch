@@ -1,0 +1,171 @@
+diff -ruN old/content/app/content_main.cc new/content/app/content_main.cc
+diff --git a/content/app/content_main.cc b/content/app/content_main.cc
+--- a/content/app/content_main.cc
++++ b/content/app/content_main.cc
+@@ -310,12 +310,11 @@
+       command_line->AppendSwitchASCII(switches::kDisableFeatures, disabled);
+     }
+     // TXM on iOS 27 requires the StikJIT prepare protocol (brk #0xf00d).
+-    // If a debugger is already attached, enable that path and leave V8's
+-    // JIT on. Otherwise stay jitless so launch does not crash.
+-    // Built-in StikJIT helper attaches via LocalDevVPN + pairing file,
+-    // then the TXM prepare hook is enabled. Fall back to jitless if
+-    // attach fails; a short on-screen notice is shown.
+-    if (!DeskBrowserJitEnableWithBuiltInHelper()) {
++    // The built-in helper is started in ChromeMain before
++    // UIApplicationMain (a wait here used to pump the default run loop
++    // and crash in base::OneShotTimer before any SequencedTaskRunner
++    // existed). If attach failed, stay jitless so V8 does not crash.
++    if (!DeskBrowserJitIsEnabled()) {
+       if (!command_line->HasSwitch("js-flags")) {
+         command_line->AppendSwitchASCII("js-flags", "--jitless");
+       }
+diff -ruN old/content/app/ios/deskbrowser_builtin_jit.mm new/content/app/ios/deskbrowser_builtin_jit.mm
+diff --git a/content/app/ios/deskbrowser_builtin_jit.mm b/content/app/ios/deskbrowser_builtin_jit.mm
+--- a/content/app/ios/deskbrowser_builtin_jit.mm
++++ b/content/app/ios/deskbrowser_builtin_jit.mm
+@@ -9,6 +9,7 @@
+ #import <Foundation/Foundation.h>
+ #import <dlfcn.h>
+ #import <unistd.h>
++#include <time.h>
+ 
+ #import "content/app/ios/deskbrowser_device_jit.h"
+ 
+@@ -23,6 +24,10 @@
+ - (void)setRequestInterruptionBlock:(void (^)(NSUUID*))block;
+ @end
+ 
++@interface NSObject (DeskBrowserUIApplication)
+++ (id)sharedApplication;
++@end
++
+ namespace {
+ 
+ char g_notice[512];
+@@ -116,13 +121,34 @@
+   return true;
+ }
+ 
++// True once UIApplicationMain has created the shared application.
++// After that, pumping kCFRunLoopDefaultMode re-enters Chrome scene
++// init, which starts base::OneShotTimer before a SequencedTaskRunner
++// exists (FATAL HasCurrentDefault). Crate avoids this by polling with
++// Task.sleep, which yields instead of nesting the run loop.
++bool UIApplicationAlreadyRunning() {
++  Class app_class = NSClassFromString(@"UIApplication");
++  if (!app_class) {
++    return false;
++  }
++  return [app_class sharedApplication] != nil;
++}
++
++// Poll CS_DEBUGGED. Before UIApplicationMain, a short default-mode
++// pump is safe and lets NSExtension start. After that, only nanosleep.
+ bool WaitForDebugger(CFTimeInterval seconds) {
+   const CFTimeInterval deadline = CFAbsoluteTimeGetCurrent() + seconds;
++  const bool pump = !UIApplicationAlreadyRunning();
+   while (CFAbsoluteTimeGetCurrent() < deadline) {
+     if (DeskBrowserJitDebuggerAttached()) {
+       return DeskBrowserJitTryEnable();
+     }
+-    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.2, true);
++    if (pump) {
++      CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.2, true);
++    } else {
++      struct timespec ts = {0, 200000000};
++      nanosleep(&ts, nullptr);
++    }
+   }
+   return DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable();
+ }
+@@ -137,8 +163,21 @@
+ #if TARGET_OS_SIMULATOR || !TARGET_OS_IOS
+   return false;
+ #else
++  // Idempotent: ChromeMain calls this before UIApplicationMain; later
++  // callers must not wait or pump again.
++  static bool g_attempted = false;
++  static bool g_result = false;
++  if (g_attempted) {
++    return g_result;
++  }
++  g_attempted = true;
++
+   DeskBrowserJitInstallTrapHandler();
+-  if (DeskBrowserJitTryEnable()) {
++  // Do not call TryEnable just to probe — that used to log an
++  // "Attach StikDebug" message even when the built-in helper is about
++  // to run. Check CS_DEBUGGED quietly first.
++  if (DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable()) {
++    g_result = true;
+     return true;
+   }
+   NSData* pairing = ReadPairingFile();
+@@ -155,10 +194,12 @@
+     }
+     return false;
+   }
++  NSLog(@"deskbrowser-jit: started built-in helper; waiting for attach");
+   // First launch may download Apple's developer disk image through the
+   // helper; later launches are much quicker.
+   if (WaitForDebugger(180)) {
+     SetNotice(nil);
++    g_result = true;
+     return true;
+   }
+   SetNotice(@"Built-in JIT didn't attach in time. Leave LocalDevVPN on "
+diff -ruN old/content/app/ios/deskbrowser_device_jit.cc new/content/app/ios/deskbrowser_device_jit.cc
+diff --git a/content/app/ios/deskbrowser_device_jit.cc b/content/app/ios/deskbrowser_device_jit.cc
+--- a/content/app/ios/deskbrowser_device_jit.cc
++++ b/content/app/ios/deskbrowser_device_jit.cc
+@@ -148,8 +148,6 @@
+ extern "C" bool DeskBrowserJitTryEnable(void) {
+   DeskBrowserJitInstallTrapHandler();
+   if (!IsDebugged()) {
+-    Log("no CS_DEBUGGED; staying jitless. Attach StikDebug (universal.js) "
+-        "to com.davidhope.deskbrowser.blink, then relaunch.");
+     return false;
+   }
+   g_enabled = true;
+diff -ruN old/ios/chrome/app/chrome_main.mm new/ios/chrome/app/chrome_main.mm
+diff --git a/ios/chrome/app/chrome_main.mm b/ios/chrome/app/chrome_main.mm
+--- a/ios/chrome/app/chrome_main.mm
++++ b/ios/chrome/app/chrome_main.mm
+@@ -4,6 +4,8 @@
+ 
+ #import <UIKit/UIKit.h>
+ 
++#include <TargetConditionals.h>
++
+ #import "base/allocator/partition_alloc_support.h"
+ #import "base/apple/bundle_locations.h"
+ #import "base/at_exit.h"
+@@ -37,6 +39,10 @@
+ __attribute__((visibility("default"))) int ChromeMain(int argc, char* argv[]);
+ }
+ 
++#if !TARGET_OS_SIMULATOR && TARGET_OS_IOS
++extern "C" bool DeskBrowserJitEnableWithBuiltInHelper(void);
++#endif
++
+ 
+ namespace {
+ 
+@@ -192,5 +198,16 @@
+       [NSBundle bundleForClass:NSClassFromString(@"MainController")]);
+ #endif
+ 
++#if !TARGET_OS_SIMULATOR && TARGET_OS_IOS
++  // Attach via the built-in StikJIT helper before UIKit is running.
++  // Crate does the same attach with an async Task.sleep poll after
++  // launch; Chrome has to decide --jitless before V8 starts, so the
++  // wait happens here, while pumping the default run loop is still
++  // safe (no DeferredInitializationQueue / base:: timers yet).
++  @autoreleasepool {
++    DeskBrowserJitEnableWithBuiltInHelper();
++  }
++#endif
++
+   return RunUIApplicationMain(argc, argv);
+ }
