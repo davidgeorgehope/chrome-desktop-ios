@@ -1,6 +1,34 @@
 diff --git a/ui/views/widget/native_widget_ios.h b/ui/views/widget/native_widget_ios.h
 --- a/ui/views/widget/native_widget_ios.h
 +++ b/ui/views/widget/native_widget_ios.h
+@@ -11,7 +11,9 @@
+ 
+ #include "base/memory/raw_ptr.h"
+ #include "base/memory/weak_ptr.h"
++#include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
+ #include "ui/base/ime/ime_key_event_dispatcher.h"
++#include "ui/gfx/geometry/size.h"
+ #include "ui/compositor/layer_delegate.h"
+ #include "ui/gfx/geometry/rect.h"
+ #include "ui/gfx/native_ui_types.h"
+@@ -168,6 +170,7 @@
+   void CreateCompositor(const Widget::InitParams& params);
+   void SyncWindowFrame();
+   void DestroyCompositor();
++  void UpdateCompositorSurface();
+ 
+   raw_ptr<internal::NativeWidgetDelegate> delegate_ = nullptr;
+   std::unique_ptr<internal::NativeWidgetDelegate> owned_delegate_;
+@@ -185,6 +188,9 @@
+   std::unique_ptr<ui::InputMethod> input_method_;
+ 
+   gfx::Rect bounds_;
++  viz::ParentLocalSurfaceIdAllocator local_surface_id_allocator_;
++  gfx::Size compositor_size_pixels_;
++  float compositor_scale_ = 0.f;
+   bool visible_ = false;
+   bool active_ = false;
+   bool closing_ = false;
 diff --git a/ui/views/widget/native_widget_ios.mm b/ui/views/widget/native_widget_ios.mm
 --- a/ui/views/widget/native_widget_ios.mm
 +++ b/ui/views/widget/native_widget_ios.mm
