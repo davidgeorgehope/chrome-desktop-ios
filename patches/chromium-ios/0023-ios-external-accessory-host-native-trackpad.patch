@@ -1,0 +1,741 @@
+--- a/ios/chrome/app/deskbrowser_external_display.mm
++++ b/ios/chrome/app/deskbrowser_external_display.mm
+@@ -31,6 +31,10 @@
+ UIViewController* g_hosted_chrome_vc = nil;
+ UIViewController* g_control_surface_vc = nil;
+ __weak UIWindow* g_phone_window = nil;
++// Always stays on the application (phone) scene so the iOS 27
++// UISceneAccessory registration is never dropped when Chrome is
++// moved to the official external window.
++UIWindow* g_accessory_host_window = nil;
+ UIWindow* g_cursor_window = nil;
+ UIView* g_cursor_view = nil;
+ CGPoint g_cursor_point = {0, 0};
+@@ -181,11 +185,32 @@
+ 
+ 
+ 
++BOOL ViewIsRenderWidget(UIView* view) {
++  if (!view) {
++    return NO;
++  }
++  NSString* name = ClassName(view);
++  if ([name isEqualToString:@"RenderWidgetUIView"] ||
++      [name containsString:@"RenderWidget"]) {
++    return YES;
++  }
++  // The category declaration is on UIView, so only treat the selector
++  // as a match when the class actually overrides it (already implied
++  // by respondsToSelector at runtime) AND it is not a plain container.
++  Class cls = view.class;
++  Class root = [UIView class];
++  IMP imp = [cls instanceMethodForSelector:@selector(
++                  deskBrowserInjectMouseAtViewPoint:type:button:)];
++  IMP base = [root instanceMethodForSelector:@selector(
++                  deskBrowserInjectMouseAtViewPoint:type:button:)];
++  return imp && imp != base;
++}
++
+ UIView* FindRenderWidgetView(UIView* view) {
+   if (!view) {
+     return nil;
+   }
+-  if ([NSStringFromClass(view.class) isEqualToString:@"RenderWidgetUIView"]) {
++  if (ViewIsRenderWidget(view)) {
+     return view;
+   }
+   for (UIView* sub in view.subviews) {
+@@ -196,6 +221,76 @@
+   return nil;
+ }
+ 
++UIView* FindRenderWidgetInController(UIViewController* vc) {
++  if (!vc) {
++    return nil;
++  }
++  if (UIView* found = FindRenderWidgetView(vc.view)) {
++    return found;
++  }
++  for (UIViewController* child in vc.childViewControllers) {
++    if (UIView* found = FindRenderWidgetInController(child)) {
++      return found;
++    }
++  }
++  if (vc.presentedViewController) {
++    return FindRenderWidgetInController(vc.presentedViewController);
++  }
++  return nil;
++}
++
++[[maybe_unused]] void LogViewTree(UIView* view, int depth) {
++  if (!view || depth > 14) {
++    return;
++  }
++  NSLog(@"deskbrowser-external: hier %d %s frame=%s subs=%lu", depth,
++        Pub(ClassName(view)), Pub(RectStr(view.frame)),
++        (unsigned long)view.subviews.count);
++  for (UIView* sub in view.subviews) {
++    LogViewTree(sub, depth + 1);
++  }
++}
++
++[[maybe_unused]] void LogControllerTree(UIViewController* vc, int depth) {
++  if (!vc || depth > 12) {
++    return;
++  }
++  NSLog(@"deskbrowser-external: vc %d %s children=%lu presented=%s", depth,
++        Pub(ClassName(vc)), (unsigned long)vc.childViewControllers.count,
++        Pub(ClassName(vc.presentedViewController)));
++  for (UIViewController* child in vc.childViewControllers) {
++    LogControllerTree(child, depth + 1);
++  }
++  if (vc.presentedViewController) {
++    LogControllerTree(vc.presentedViewController, depth + 1);
++  }
++}
++
++void LogMissingWidgetOnce(void) {
++  static BOOL logged = NO;
++  if (logged) {
++    return;
++  }
++  logged = YES;
++  NSLog(@"deskbrowser-external: render widget not in tree yet (hosted=%s extWin=%s); using native hit-test",
++        Pub(ClassName(g_hosted_chrome_vc)), g_external_window ? "Y" : "N");
++}
++
++UIView* FindRenderWidgetInScene(UIWindowScene* scene) {
++  if (!scene) {
++    return nil;
++  }
++  for (UIWindow* window in scene.windows) {
++    if (UIView* found = FindRenderWidgetView(window)) {
++      return found;
++    }
++    if (UIView* found = FindRenderWidgetInController(window.rootViewController)) {
++      return found;
++    }
++  }
++  return nil;
++}
++
+ void RebindCompositorViews(UIView* view) {
+   if (!view) {
+     return;
+@@ -258,17 +353,46 @@
+ }
+ 
+ UIView* HostedRenderWidget(void) {
+-  return g_hosted_chrome_vc ? FindRenderWidgetView(g_hosted_chrome_vc.view)
+-                            : nil;
++  UIView* widget = g_hosted_chrome_vc
++                       ? FindRenderWidgetInController(g_hosted_chrome_vc)
++                       : nil;
++  if (!widget && g_external_window) {
++    widget = FindRenderWidgetInScene(g_external_window.windowScene);
++  }
++  if (!widget) {
++    // Last resort: any connected scene, in case the browser view is
++    // still parented under the application window.
++    for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++      if ([scene isKindOfClass:[UIWindowScene class]]) {
++        widget = FindRenderWidgetInScene((UIWindowScene*)scene);
++        if (widget) {
++          break;
++        }
++      }
++    }
++  }
++  if (!widget) {
++    LogMissingWidgetOnce();
++  }
++  return widget;
+ }
+ 
+ void InjectMouseToHostedChrome(NSInteger type, NSInteger button) {
+   UIView* widget = HostedRenderWidget();
+   if (!widget || !g_external_window) {
++    if (type != 0) {
++      NSLog(@"deskbrowser-external: inject type=%ld skipped widget=%s extWin=%s",
++            (long)type, widget ? "Y" : "N", g_external_window ? "Y" : "N");
++    }
+     return;
+   }
+   CGPoint in_widget =
+       [widget convertPoint:g_cursor_point fromView:g_external_window];
++  if (type != 0) {
++    NSLog(@"deskbrowser-external: inject type=%ld button=%ld cursor=%.0f,%.0f widget=%.0f,%.0f class=%s",
++          (long)type, (long)button, g_cursor_point.x, g_cursor_point.y,
++          in_widget.x, in_widget.y, Pub(ClassName(widget)));
++  }
+   if ([widget respondsToSelector:@selector(deskBrowserInjectMouseAtViewPoint:
+                                                                      type:
+                                                                    button:)]) {
+@@ -281,8 +405,12 @@
+ void InjectWheelToHostedChrome(CGPoint delta, NSInteger phase) {
+   UIView* widget = HostedRenderWidget();
+   if (!widget || !g_external_window) {
++    NSLog(@"deskbrowser-external: wheel phase=%ld skipped widget=%s",
++          (long)phase, widget ? "Y" : "N");
+     return;
+   }
++  NSLog(@"deskbrowser-external: wheel phase=%ld delta=%.1f,%.1f",
++        (long)phase, delta.x, delta.y);
+   CGPoint in_widget =
+       [widget convertPoint:g_cursor_point fromView:g_external_window];
+   if ([widget respondsToSelector:@selector(deskBrowserInjectWheelAtViewPoint:
+@@ -294,6 +422,269 @@
+   }
+ }
+ 
++UIView* HitViewOnExternalWindow(void) {
++  if (!g_external_window) {
++    return nil;
++  }
++  return [g_external_window hitTest:g_cursor_point withEvent:nil];
++}
++
++UIView* RenderWidgetAncestor(UIView* view) {
++  for (UIView* v = view; v; v = v.superview) {
++    if (ViewIsRenderWidget(v)) {
++      return v;
++    }
++  }
++  return nil;
++}
++
++UIResponder* FirstResponderInView(UIView* view) {
++  if (!view) {
++    return nil;
++  }
++  if (view.isFirstResponder) {
++    return view;
++  }
++  for (UIView* sub in view.subviews) {
++    if (UIResponder* found = FirstResponderInView(sub)) {
++      return found;
++    }
++  }
++  return nil;
++}
++
++UIResponder* ExternalKeyTarget(void) {
++  UIResponder* focused = FirstResponderInView(g_external_window);
++  if (focused) {
++    return focused;
++  }
++  return HostedRenderWidget();
++}
++
++
++BOOL InvokeTapGestureRecognizer(UIGestureRecognizer* gesture) {
++  if (!gesture) {
++    return NO;
++  }
++  id targets = nil;
++  @try {
++    targets = [gesture valueForKey:@"targets"];
++  } @catch (NSException* e) {
++    targets = nil;
++  }
++  if (!targets) {
++    @try {
++      targets = [gesture valueForKey:@"_targets"];
++    } @catch (NSException* e) {
++      targets = nil;
++    }
++  }
++  if (![targets conformsToProtocol:@protocol(NSFastEnumeration)]) {
++    return NO;
++  }
++  BOOL invoked = NO;
++  for (id record in targets) {
++    id target = nil;
++    SEL action = nullptr;
++    @try {
++      target = [record valueForKey:@"target"];
++    } @catch (NSException* e) {
++    }
++    if (!target) {
++      @try {
++        target = [record valueForKey:@"_target"];
++      } @catch (NSException* e) {
++      }
++    }
++    id action_value = nil;
++    @try {
++      action_value = [record valueForKey:@"action"];
++    } @catch (NSException* e) {
++    }
++    if (!action_value) {
++      @try {
++        action_value = [record valueForKey:@"_action"];
++      } @catch (NSException* e) {
++      }
++    }
++    if ([action_value isKindOfClass:[NSValue class]]) {
++      action = (SEL)[action_value pointerValue];
++    } else if ([action_value isKindOfClass:[NSString class]]) {
++      action = NSSelectorFromString((NSString*)action_value);
++    }
++    if (!target || !action || ![target respondsToSelector:action]) {
++      continue;
++    }
++    NSMethodSignature* signature = [target methodSignatureForSelector:action];
++    if (!signature) {
++      continue;
++    }
++    NSInvocation* invocation =
++        [NSInvocation invocationWithMethodSignature:signature];
++    invocation.target = target;
++    invocation.selector = action;
++    if (signature.numberOfArguments >= 3) {
++      [invocation setArgument:&gesture atIndex:2];
++    }
++    @try {
++      [gesture setValue:@(UIGestureRecognizerStateRecognized) forKey:@"state"];
++    } @catch (NSException* e) {
++    }
++    [invocation invoke];
++    NSLog(@"deskbrowser-external: invoked tap %s on %s",
++          Pub(NSStringFromSelector(action)), Pub(ClassName(target)));
++    invoked = YES;
++  }
++  return invoked;
++}
++
++BOOL InvokeTapRecognizersFromView(UIView* start) {
++  for (UIView* v = start; v; v = v.superview) {
++    for (UIGestureRecognizer* gesture in v.gestureRecognizers) {
++      if (![gesture isKindOfClass:[UITapGestureRecognizer class]] ||
++          !gesture.enabled) {
++        continue;
++      }
++      UITapGestureRecognizer* tap = (UITapGestureRecognizer*)gesture;
++      if (tap.numberOfTapsRequired > 1 || tap.numberOfTouchesRequired > 1) {
++        continue;
++      }
++      if (InvokeTapGestureRecognizer(tap)) {
++        return YES;
++      }
++    }
++  }
++  return NO;
++}
++
++void ClickAtCursor(void) {
++  ShowOrUpdateCursor();
++  UIView* hit = HitViewOnExternalWindow();
++  UIView* widget = RenderWidgetAncestor(hit) ?: HostedRenderWidget();
++  NSLog(@"deskbrowser-external: click hit=%s widget=%s at %.0f,%.0f",
++        Pub(ClassName(hit)), widget ? "Y" : "N", g_cursor_point.x,
++        g_cursor_point.y);
++  if (widget && (!hit || hit == widget || [hit isDescendantOfView:widget])) {
++    InjectMouseToHostedChrome(1, 1);
++    dispatch_after(
++        dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.03 * NSEC_PER_SEC)),
++        dispatch_get_main_queue(), ^{
++          InjectMouseToHostedChrome(2, 1);
++        });
++    return;
++  }
++
++  for (UIView* v = hit; v; v = v.superview) {
++    if ([v isKindOfClass:[UIControl class]]) {
++      UIControl* control = (UIControl*)v;
++      NSLog(@"deskbrowser-external: native UIControl click %s",
++            Pub(ClassName(control)));
++      [control sendActionsForControlEvents:UIControlEventTouchDown];
++      [control sendActionsForControlEvents:UIControlEventTouchUpInside];
++      return;
++    }
++    if ([v isKindOfClass:[UITextField class]] ||
++        [v isKindOfClass:[UITextView class]] ||
++        [v isKindOfClass:[UISearchBar class]]) {
++      NSLog(@"deskbrowser-external: native field focus %s", Pub(ClassName(v)));
++      [v becomeFirstResponder];
++      return;
++    }
++  }
++
++  // Many Chrome desktop-UI controls (NTP tiles, toolbar, chips) use a
++  // UITapGestureRecognizer instead of UIControl or collection selection
++  // (MostVisitedTilesCollectionView even sets allowsSelection = NO).
++  if (InvokeTapRecognizersFromView(hit)) {
++    return;
++  }
++
++  for (UIView* v = hit; v; v = v.superview) {
++    if ([v isKindOfClass:[UICollectionView class]]) {
++      UICollectionView* collection = (UICollectionView*)v;
++      CGPoint in_collection =
++          [collection convertPoint:g_cursor_point fromView:g_external_window];
++      NSIndexPath* path = [collection indexPathForItemAtPoint:in_collection];
++      if (path) {
++        NSLog(@"deskbrowser-external: native collection select %s item=%ld.%ld",
++              Pub(ClassName(collection)), (long)path.section, (long)path.item);
++        [collection
++            selectItemAtIndexPath:path
++                         animated:YES
++                   scrollPosition:UICollectionViewScrollPositionNone];
++        id<UICollectionViewDelegate> delegate = collection.delegate;
++        if ([delegate respondsToSelector:@selector
++                      (collectionView:didSelectItemAtIndexPath:)]) {
++          [delegate collectionView:collection didSelectItemAtIndexPath:path];
++        }
++        return;
++      }
++    }
++    if ([v isKindOfClass:[UITableView class]]) {
++      UITableView* table = (UITableView*)v;
++      CGPoint in_table =
++          [table convertPoint:g_cursor_point fromView:g_external_window];
++      NSIndexPath* path = [table indexPathForRowAtPoint:in_table];
++      if (path) {
++        NSLog(@"deskbrowser-external: native table select %s row=%ld.%ld",
++              Pub(ClassName(table)), (long)path.section, (long)path.row);
++        [table selectRowAtIndexPath:path
++                           animated:YES
++                     scrollPosition:UITableViewScrollPositionNone];
++        id<UITableViewDelegate> delegate = table.delegate;
++        if ([delegate respondsToSelector:@selector
++                      (tableView:didSelectRowAtIndexPath:)]) {
++          [delegate tableView:table didSelectRowAtIndexPath:path];
++        }
++        return;
++      }
++    }
++  }
++
++  for (UIView* v = hit; v; v = v.superview) {
++    if (v.isAccessibilityElement && [v accessibilityActivate]) {
++      NSLog(@"deskbrowser-external: accessibilityActivate %s",
++            Pub(ClassName(v)));
++      return;
++    }
++  }
++  if (hit && [hit accessibilityActivate]) {
++    NSLog(@"deskbrowser-external: accessibilityActivate-fallback %s",
++          Pub(ClassName(hit)));
++  }
++}
++
++void ScrollAtCursor(CGPoint delta, NSInteger phase) {
++  UIView* hit = HitViewOnExternalWindow();
++  if (RenderWidgetAncestor(hit) || (!hit && HostedRenderWidget())) {
++    InjectWheelToHostedChrome(delta, phase);
++    return;
++  }
++  if (phase == 2 || (delta.x == 0 && delta.y == 0)) {
++    return;
++  }
++  for (UIView* v = hit; v; v = v.superview) {
++    if ([v isKindOfClass:[UIScrollView class]]) {
++      UIScrollView* scroll = (UIScrollView*)v;
++      CGPoint offset = scroll.contentOffset;
++      // Chrome wheel delta is positive up; UIKit offset grows downward.
++      offset.x -= delta.x;
++      offset.y -= delta.y;
++      CGFloat max_x = MAX(0, scroll.contentSize.width - scroll.bounds.size.width);
++      CGFloat max_y =
++          MAX(0, scroll.contentSize.height - scroll.bounds.size.height);
++      offset.x = MIN(MAX(offset.x, -scroll.contentInset.left),
++                     max_x + scroll.contentInset.right);
++      offset.y = MIN(MAX(offset.y, -scroll.contentInset.top),
++                     max_y + scroll.contentInset.bottom);
++      [scroll setContentOffset:offset animated:NO];
++      NSLog(@"deskbrowser-external: native scroll %s d=%.1f,%.1f off=%.0f,%.0f",
++            Pub(ClassName(scroll)), delta.x, delta.y, offset.x, offset.y);
++      return;
++    }
++  }
++}
++
+ void FocusWebContentOnExternalWindow(void) {
+   if (!g_external_window) {
+     return;
+@@ -316,6 +707,8 @@
+   FocusWebContentOnExternalWindow();
+ }
+ 
++void RegisterAccessoryIfPossible(void);
++
+ void PlaceChromeOnExternalDisplay(void) {
+   UIWindow* phone = PrimaryApplicationWindow();
+   if (!phone || !g_external_window) {
+@@ -371,6 +764,9 @@
+     g_control_surface_vc = [[control_class alloc] init];
+   }
+   phone.rootViewController = g_control_surface_vc;
++  // Re-assert the accessory host after swapping the phone root so the
++  // official scene stays connected while Chrome is on the monitor.
++  RegisterAccessoryIfPossible();
+ 
+   g_hosted_chrome_vc.view.frame = g_external_window.bounds;
+   g_hosted_chrome_vc.view.autoresizingMask =
+@@ -413,7 +809,7 @@
+   g_control_surface_vc = nil;
+ }
+ 
+-UIViewController* FirstAttachedController(UIViewController* vc) {
++[[maybe_unused]] UIViewController* FirstAttachedController(UIViewController* vc) {
+   if (!vc) {
+     return nil;
+   }
+@@ -436,7 +832,7 @@
+   return view ? vc : nil;
+ }
+ 
+-UIViewController* PresenterViewController(void) {
++[[maybe_unused]] UIViewController* PresenterViewController(void) {
+   NSMutableArray<UIWindow*>* windows = [NSMutableArray array];
+   UIWindow* primary = PrimaryApplicationWindow();
+   if (primary) {
+@@ -483,6 +879,64 @@
+   return config;
+ }
+ 
++UIWindowScene* ApplicationWindowScene(void) {
++  UIWindow* phone = PrimaryApplicationWindow();
++  if (phone.windowScene &&
++      RoleEquals(phone.windowScene.session.role,
++                 UIWindowSceneSessionRoleApplication)) {
++    return phone.windowScene;
++  }
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    UIWindowScene* window_scene = (UIWindowScene*)scene;
++    if (![window_scene isKindOfClass:[UIWindowScene class]]) {
++      continue;
++    }
++    if (RoleEquals(window_scene.session.role,
++                   UIWindowSceneSessionRoleApplication)) {
++      return window_scene;
++    }
++  }
++  return nil;
++}
++
++// A 2x2 window that never leaves the phone application scene. Apple
++// requires the UISceneAccessory to stay registered on a VC in the
++// main interface; moving SceneViewController to the external window
++// otherwise disconnects the official scene in a tight loop.
++void UnregisterAccessory(void);
++
++UIViewController* EnsureAccessoryHost(void) {
++  UIWindowScene* scene = ApplicationWindowScene();
++  if (!scene) {
++    return nil;
++  }
++  if (g_accessory_host_window &&
++      g_accessory_host_window.windowScene == scene &&
++      g_accessory_host_window.rootViewController &&
++      g_accessory_host_window.rootViewController.view.window) {
++    return g_accessory_host_window.rootViewController;
++  }
++  if (g_accessory_host_window) {
++    if (g_accessory_registration) {
++      UnregisterAccessory();
++    }
++    g_accessory_host_window.hidden = YES;
++    g_accessory_host_window.rootViewController = nil;
++    g_accessory_host_window = nil;
++  }
++  UIViewController* host = [[UIViewController alloc] init];
++  host.view.backgroundColor = UIColor.clearColor;
++  UIWindow* window = [[UIWindow alloc] initWithWindowScene:scene];
++  window.frame = CGRectMake(0, 0, 2, 2);
++  window.windowLevel = UIWindowLevelNormal - 1;
++  window.rootViewController = host;
++  window.hidden = NO;
++  g_accessory_host_window = window;
++  NSLog(@"deskbrowser-external: accessory host window attached on %s",
++        Pub(ClassName(scene)));
++  return host;
++}
++
+ void UnregisterAccessory(void) {
+ #if defined(__IPHONE_27_0)
+   if (@available(iOS 27.0, *)) {
+@@ -500,18 +954,17 @@
+ void RegisterAccessoryIfPossible(void) {
+ #if defined(__IPHONE_27_0)
+   if (@available(iOS 27.0, *)) {
+-    UIViewController* presenter = PresenterViewController();
+-    // The control surface is only on the phone after we have already
+-    // taken over the external display; do not register on it.
+-    if (IsControlSurface(presenter)) {
+-      presenter = nil;
+-    }
++    // Always register on a VC that stays on the phone application scene.
++    // Registering on SceneViewController and then moving that VC to the
++    // official external window makes iOS disconnect the scene immediately
++    // (observed on the iOS 27.2 Simulator as a connect/restore loop).
++    UIViewController* presenter = EnsureAccessoryHost();
+ 
+     if (g_accessory_registration) {
+       UIViewController* previous = g_accessory_presenter;
+       BOOL previous_still_valid =
+           previous && previous.viewIfLoaded.window &&
+-          (!presenter || presenter == previous);
++          previous == presenter;
+       if (previous_still_valid) {
+         UISceneAccessoryRegistration* registration =
+             (UISceneAccessoryRegistration*)g_accessory_registration;
+@@ -564,9 +1017,9 @@
+     registration.enabled = YES;
+     g_accessory_registration = registration;
+     g_accessory_presenter = presenter;
+-    NSLog(@"deskbrowser-external: registered iOS 27 scene accessory on %s "
+-          @"available=%d",
+-          Pub(ClassName(presenter)), registration.isAvailable);
++    NSLog(@"deskbrowser-external: registered iOS 27 scene accessory on stable "
++          @"phone host available=%d",
++          registration.isAvailable);
+   }
+ #endif
+ }
+@@ -722,6 +1175,7 @@
+               action:@selector(handleMove:)];
+   move.maximumNumberOfTouches = 1;
+   move.allowedTouchTypes = @[ @(UITouchTypeDirect) ];
++  move.cancelsTouchesInView = NO;
+   [pad addGestureRecognizer:move];
+ 
+   UIPanGestureRecognizer* scroll = [[UIPanGestureRecognizer alloc]
+@@ -729,6 +1183,7 @@
+               action:@selector(handleScroll:)];
+   scroll.minimumNumberOfTouches = 2;
+   scroll.maximumNumberOfTouches = 2;
++  scroll.cancelsTouchesInView = NO;
+   [pad addGestureRecognizer:scroll];
+ 
+   UITapGestureRecognizer* tap = [[UITapGestureRecognizer alloc]
+@@ -736,6 +1191,10 @@
+               action:@selector(handleTap:)];
+   tap.numberOfTapsRequired = 1;
+   tap.numberOfTouchesRequired = 1;
++  // Wait for the 1-finger pan to fail (no movement) so a stationary
++  // finger-up is a click instead of being cancelled by the pan
++  // recognizer, which is common with synthesized simulator touches.
++  [tap requireGestureRecognizerToFail:move];
+   [pad addGestureRecognizer:tap];
+ }
+ 
+@@ -772,47 +1231,86 @@
+   if (gesture.state != UIGestureRecognizerStateRecognized) {
+     return;
+   }
+-  ShowOrUpdateCursor();
+-  InjectMouseToHostedChrome(1, 1);
+-  InjectMouseToHostedChrome(2, 1);
++  ClickAtCursor();
+ }
+ 
+ - (void)handleScroll:(UIPanGestureRecognizer*)gesture {
+   ShowOrUpdateCursor();
+   CGPoint translation = [gesture translationInView:gesture.view];
++  if (gesture.state == UIGestureRecognizerStateBegan) {
++    NSLog(@"deskbrowser-external: trackpad two-finger scroll began");
++  }
+   [gesture setTranslation:CGPointZero inView:gesture.view];
+   // Finger down (positive UIKit y) scrolls the page down (Chrome
+   // wheel deltas are positive up).
+   CGPoint delta = CGPointMake(translation.x, -translation.y);
+   if (gesture.state == UIGestureRecognizerStateBegan) {
+     _scroll_phase = 0;
+-    InjectWheelToHostedChrome(delta, 0);
++    ScrollAtCursor(delta, 0);
+     _scroll_phase = 1;
+   } else if (gesture.state == UIGestureRecognizerStateChanged) {
+-    InjectWheelToHostedChrome(delta, 1);
++    ScrollAtCursor(delta, 1);
+   } else if (gesture.state == UIGestureRecognizerStateEnded ||
+              gesture.state == UIGestureRecognizerStateCancelled) {
+-    InjectWheelToHostedChrome(CGPointZero, 2);
++    ScrollAtCursor(CGPointZero, 2);
+     _scroll_phase = -1;
+   }
+ }
+ 
+ - (void)pressesBegan:(NSSet<UIPress*>*)presses withEvent:(UIPressesEvent*)event {
+-  FocusWebContentOnExternalWindow();
+-  UIView* widget = HostedRenderWidget();
+-  if (widget && widget != self.view &&
+-      [widget respondsToSelector:@selector(pressesBegan:withEvent:)]) {
+-    [widget pressesBegan:presses withEvent:event];
++  // Prefer a focused field on the external window (omnibox / web
++  // content). The official scene is NonInteractive so it often cannot
++  // be the key window; forward hardware keys from this surface.
++  UIResponder* target = ExternalKeyTarget();
++  NSLog(@"deskbrowser-external: key target=%s", Pub(ClassName(target)));
++  if ([target conformsToProtocol:@protocol(UIKeyInput)]) {
++    id<UIKeyInput> input = (id<UIKeyInput>)target;
++    NSMutableSet<UIPress*>* passthrough = [NSMutableSet set];
++    for (UIPress* press in presses) {
++      UIKey* key = press.key;
++      if (!key) {
++        continue;
++      }
++      if (key.keyCode == UIKeyboardHIDUsageKeyboardDeleteOrBackspace) {
++        if ([input respondsToSelector:@selector(deleteBackward)]) {
++          [input deleteBackward];
++        }
++        continue;
++      }
++      // OmniboxTextViewIOS treats a literal "\n" / "\r" in
++      // shouldChangeTextInRange as Accept/Go (textInputShouldReturn),
++      // not as a visual newline (unless Shift+Return sets
++      // _insertingNewline).
++      if (key.keyCode == UIKeyboardHIDUsageKeyboardReturnOrEnter ||
++          key.keyCode == UIKeyboardHIDUsageKeypadEnter) {
++        [input insertText:@"\n"];
++        continue;
++      }
++      if (key.characters.length) {
++        [input insertText:key.characters];
++      } else {
++        [passthrough addObject:press];
++      }
++    }
++    if (passthrough.count &&
++        [target respondsToSelector:@selector(pressesBegan:withEvent:)]) {
++      [target pressesBegan:passthrough withEvent:event];
++    }
++    return;
++  }
++  if (target && target != self &&
++      [target respondsToSelector:@selector(pressesBegan:withEvent:)]) {
++    [target pressesBegan:presses withEvent:event];
+     return;
+   }
+   [super pressesBegan:presses withEvent:event];
+ }
+ 
+ - (void)pressesEnded:(NSSet<UIPress*>*)presses withEvent:(UIPressesEvent*)event {
+-  UIView* widget = HostedRenderWidget();
+-  if (widget && widget != self.view &&
+-      [widget respondsToSelector:@selector(pressesEnded:withEvent:)]) {
+-    [widget pressesEnded:presses withEvent:event];
++  UIResponder* target = ExternalKeyTarget();
++  if (target && target != self &&
++      [target respondsToSelector:@selector(pressesEnded:withEvent:)]) {
++    [target pressesEnded:presses withEvent:event];
+     return;
+   }
+   [super pressesEnded:presses withEvent:event];
+@@ -820,10 +1318,11 @@
+ 
+ - (void)pressesCancelled:(NSSet<UIPress*>*)presses
+                withEvent:(UIPressesEvent*)event {
+-  UIView* widget = HostedRenderWidget();
+-  if (widget && widget != self.view &&
+-      [widget respondsToSelector:@selector(pressesCancelled:withEvent:)]) {
+-    [widget pressesCancelled:presses withEvent:event];
++  UIResponder* target = ExternalKeyTarget();
++  if (target && target != self &&
++      [target respondsToSelector:@selector(pressesCancelled:withEvent:)] &&
++      ![target conformsToProtocol:@protocol(UIKeyInput)]) {
++    [target pressesCancelled:presses withEvent:event];
+     return;
+   }
+   [super pressesCancelled:presses withEvent:event];
