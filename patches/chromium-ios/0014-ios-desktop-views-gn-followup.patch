@@ -1,0 +1,31 @@
+diff --git a/ui/views/BUILD.gn b/ui/views/BUILD.gn
+index 8928f4f214..af2797fea0 100644
+--- a/ui/views/BUILD.gn
++++ b/ui/views/BUILD.gn
+@@ -1206,8 +1206,10 @@ source_set("test_support") {
+     "//ui/gfx",
+     "//ui/gfx/geometry",
+     "//ui/gl:test_support",
+-    "//ui/native_window_tracker",
+   ]
++  if (!is_ios) {
++    deps += [ "//ui/native_window_tracker" ]
++  }
+   public_deps = [
+     "//testing/gmock",
+     "//testing/gtest",
+diff --git a/ui/resources/BUILD.gn b/ui/resources/BUILD.gn
+index 655428da28..2848607356 100644
+--- a/ui/resources/BUILD.gn
++++ b/ui/resources/BUILD.gn
+@@ -141,7 +141,9 @@ repack("repack_ui_test_pak_100_percent") {
+     "//ui/webui/resources:resources_grit",
+   ]
+ 
+-  if (!is_ios) {
++  # toolkit_views pulls blink_resources.pak into this repack; iOS now
++  # needs the generating dep too when enable_ios_desktop_views is set.
++  if (!is_ios || toolkit_views) {
+     deps += [ "//third_party/blink/public:resources_grit" ]
+   }
+ 

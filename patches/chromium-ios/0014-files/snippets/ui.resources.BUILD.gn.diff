@@ -1,0 +1,15 @@
+diff --git a/ui/resources/BUILD.gn b/ui/resources/BUILD.gn
+index 655428da28..2848607356 100644
+--- a/ui/resources/BUILD.gn
++++ b/ui/resources/BUILD.gn
+@@ -141,7 +141,9 @@ repack("repack_ui_test_pak_100_percent") {
+     "//ui/webui/resources:resources_grit",
+   ]
+ 
+-  if (!is_ios) {
++  # toolkit_views pulls blink_resources.pak into this repack; iOS now
++  # needs the generating dep too when enable_ios_desktop_views is set.
++  if (!is_ios || toolkit_views) {
+     deps += [ "//third_party/blink/public:resources_grit" ]
+   }
+ 
