@@ -1,7 +1,7 @@
 diff --git a/content/app/content_main.cc b/content/app/content_main.cc
 --- a/content/app/content_main.cc
 +++ b/content/app/content_main.cc
-@@ -309,16 +309,31 @@
+@@ -309,16 +309,30 @@
        disabled += "NetTaskScheduler,NetworkServiceTaskScheduler";
        command_line->AppendSwitchASCII(switches::kDisableFeatures, disabled);
      }
