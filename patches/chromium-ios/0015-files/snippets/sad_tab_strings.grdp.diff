@@ -1,0 +1,13 @@
+diff --git a/components/new_or_sad_tab_strings.grdp b/components/new_or_sad_tab_strings.grdp
+index 21a8aae555..5efa9f3388 100644
+--- a/components/new_or_sad_tab_strings.grdp
++++ b/components/new_or_sad_tab_strings.grdp
+@@ -51,7 +51,7 @@
+           Open page in a new Incognito window (⇧⌘N)
+         </message>
+       </if>
+-      <if expr="not is_macosx and toolkit_views">
++      <if expr="not is_macosx and toolkit_views and not is_ios">
+         <message name="IDS_SAD_TAB_RELOAD_INCOGNITO" desc="One of the bullet points displayed on the web page if a reload failed to fix the issue, advising the user to open the web page in Chrome's Incognito mode.">
+           Open page in a new Incognito window (Ctrl-Shift-N)
+         </message>
