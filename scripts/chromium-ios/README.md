@@ -169,3 +169,29 @@ The wildcard `iOS Team Provisioning Profile: *` does not include
 `increased-memory-limit` or `extended-virtual-addressing`. Those need an
 explicit App ID profile for `com.davidhope.deskbrowser.blink`, the same way
 crate/Henge/Kernarium were registered.
+
+# Explicit App ID, memory entitlements, and DrumBrake
+
+The wildcard `iOS Team Provisioning Profile: *` cannot carry
+`increased-memory-limit` or `extended-virtual-addressing`. An explicit
+App ID `com.davidhope.deskbrowser.blink` on team `4P2629648N` is minted
+the same way crate's was: Xcode automatic signing of the stub project in
+`scripts/chromium-ios/blink-appid-stub/` (`DEVELOPMENT_TEAM=4P2629648N`,
+`-allowProvisioningUpdates`), run from an Aqua LaunchAgent so codesign
+can use the unlocked login keychain. Do not use the `security` CLI.
+
+The resulting development profile (UUID `90f5f0e8-a912-4f5f-9d53-31f55271ef63`,
+expires 1:36 AM ET on 18 Nov 2027) includes both kernel entitlements,
+`get-task-allow`, and David's iPhone UDID. Re-sign with
+`scripts/chromium-ios/sign-chrome-ios-device-mem.sh`. Override the output
+path with `SIGNED_IPA` (default `Chromium-device-jit-mem.ipa`).
+
+Known-good wildcard JIT IPA (no extra memory entitlements) stays at Drive
+file id `1kl-Ib2heOWN8XjhF6-4UHwWfd8NfrKdV`. The first memory-entitlement
+re-sign of that same JIT binary is `gdrive:tmp-transfer/Chromium-device-jit-mem.ipa`,
+file id `1FSpZQW8ReJ2L5MWqINJfuMj9JquqmBD5`.
+
+`v8_enable_drumbrake = true` in `chrome-ios-device.args.gn` builds V8's
+Wasm interpreter so jitless fallback still runs Wasm. Build and sign
+with `scripts/chromium-ios/build-chrome-ios-device-drumbrake.sh`; the
+signed IPA is `Chromium-device-jit-mem-drumbrake.ipa`.

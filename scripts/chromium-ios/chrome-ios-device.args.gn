@@ -19,3 +19,6 @@ ios_enable_credential_provider_extension = false
 ios_enable_intents_extension = false
 ios_enable_widget_kit_extension = false
 ios_enable_push_notification_service_extension = false
+
+# Jitless Wasm interpreter (DrumBrake) fallback.
+v8_enable_drumbrake = true

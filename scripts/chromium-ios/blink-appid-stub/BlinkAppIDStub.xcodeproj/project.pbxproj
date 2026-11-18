@@ -1,0 +1,113 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+		A10000000000000100000001 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000100000002 /* main.m */; };
+		A10000000000000100000002 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		A10000000000000100000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000000000000100000004 /* BlinkAppIDStub.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BlinkAppIDStub.entitlements; sourceTree = "<group>"; };
+		A10000000000000100000005 /* BlinkAppIDStub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BlinkAppIDStub.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000100000006 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000100000007 = {isa = PBXGroup; children = (A10000000000000100000008 /* BlinkAppIDStub */, A10000000000000100000009 /* Products */,); sourceTree = "<group>"; };
+		A10000000000000100000008 /* BlinkAppIDStub */ = {isa = PBXGroup; children = (A10000000000000100000002 /* main.m */, A10000000000000100000003 /* Info.plist */, A10000000000000100000004 /* BlinkAppIDStub.entitlements */,); path = BlinkAppIDStub; sourceTree = "<group>"; };
+		A10000000000000100000009 /* Products */ = {isa = PBXGroup; children = (A10000000000000100000005 /* BlinkAppIDStub.app */,); name = Products; sourceTree = "<group>"; };
+		A1000000000000010000000A /* BlinkAppIDStub */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000000000000010000000B;
+			buildPhases = (A1000000000000010000000C /* Sources */, A10000000000000100000006 /* Frameworks */,);
+			buildRules = ();
+			dependencies = ();
+			name = BlinkAppIDStub;
+			productName = BlinkAppIDStub;
+			productReference = A10000000000000100000005;
+			productType = "com.apple.product-type.application";
+		};
+		A1000000000000010000000D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 1600; TargetAttributes = {A1000000000000010000000A = {CreatedOnToolsVersion = 16.0;};};};
+			buildConfigurationList = A1000000000000010000000E;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = A10000000000000100000007;
+			productRefGroup = A10000000000000100000009;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (A1000000000000010000000A,);
+		};
+		A1000000000000010000000C /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000100000001 /* main.m in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000100000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		A10000000000000100000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+			};
+			name = Release;
+		};
+		A10000000000000100000013 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BlinkAppIDStub/BlinkAppIDStub.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4P2629648N;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BlinkAppIDStub/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.davidhope.deskbrowser.blink;
+				OTHER_LDFLAGS = "-framework UIKit";
+				PRODUCT_NAME = BlinkAppIDStub;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A10000000000000100000014 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = BlinkAppIDStub/BlinkAppIDStub.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4P2629648N;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BlinkAppIDStub/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.davidhope.deskbrowser.blink;
+				OTHER_LDFLAGS = "-framework UIKit";
+				PRODUCT_NAME = BlinkAppIDStub;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A1000000000000010000000B = {isa = XCConfigurationList; buildConfigurations = (A10000000000000100000013 /* Debug */, A10000000000000100000014 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A1000000000000010000000E = {isa = XCConfigurationList; buildConfigurations = (A10000000000000100000011 /* Debug */, A10000000000000100000012 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+	};
+	rootObject = A1000000000000010000000D /* Project object */;
+}
