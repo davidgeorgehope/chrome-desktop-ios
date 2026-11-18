@@ -1,0 +1,482 @@
+diff --git a/ios/chrome/app/deskbrowser_launcher.h b/ios/chrome/app/deskbrowser_launcher.h
+--- a/ios/chrome/app/deskbrowser_launcher.h
++++ b/ios/chrome/app/deskbrowser_launcher.h
+@@ -7,30 +7,36 @@
+ 
+ #import <UIKit/UIKit.h>
+ 
+-// Crate-style pre-Chromium launcher. Shown on icon tap before V8 or
+-// ChromeMain objects start, so a JIT failure can never leave a frozen
+-// browser UI. Chromium init continues only after handoff.
++// Crate-style JIT launcher shown as an overlay UIWindow on the scene.
++// Chrome's AppInitStage machine is allowed to run past kStart (the
++// foreground CHECK requires this). V8 / ContentMain is deferred until
++// handoff because the jitless flag must be set before V8 starts.
++// The hold is applied at the kVariationsSeed ->
++// kBrowserObjectsForBackgroundHandlers transition.
+ 
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
+-// YES until the user (or auto-continue) hands off to Chrome.
++// YES only after StartIfNeeded() and until handoff. Never holds
++// startup unless the launcher was actually presented.
+ BOOL DeskBrowserLauncherShouldHold(void);
+ 
+ #ifdef __cplusplus
+ }
+ #endif
+ 
+-@class AppState;
++// Present the overlay and start the built-in JIT helper without
++// blocking the main thread. Does not itself advance AppInitStage.
++void DeskBrowserLauncherStartIfNeeded(void);
++
++// If the launcher is still holding, stash `advance` and return; it
++// is invoked on the main queue at handoff. If already handed off,
++// invoke `advance` immediately. Used by AppState to defer the
++// kVariationsSeed -> kBrowserObjectsForBackgroundHandlers step.
++void DeskBrowserLauncherDeferAdvance(void (^advance)(void));
+ 
+-// If startup should be held, presents the launcher on connected
+-// scenes and starts the built-in JIT helper without blocking the
+-// main thread. `advance` is invoked once on the main queue when the
+-// launcher hands off; the caller should then queue the next AppInitStage.
+-void DeskBrowserLauncherStartIfNeeded(void (^advance)(void));
+-
+-// Attach the launcher to a newly connected scene window (no-op if
++// Attach the overlay to a newly connected scene window (no-op if
+ // already handed off or if `window` is nil).
+ void DeskBrowserLauncherAttachToWindow(UIWindow* window);
+ 
+diff --git a/ios/chrome/app/deskbrowser_launcher.mm b/ios/chrome/app/deskbrowser_launcher.mm
+--- a/ios/chrome/app/deskbrowser_launcher.mm
++++ b/ios/chrome/app/deskbrowser_launcher.mm
+@@ -8,15 +8,21 @@
+ #import "content/app/ios/deskbrowser_device_jit.h"
+ #import "content/app/ios/deskbrowser_settings.h"
+ 
++#include <stdlib.h>
++#include <string_view>
++
+ namespace {
+ 
++NSString* const kStatusWaiting =
++    @"Waiting for you to choose how to start.";
+ NSString* const kStatusStarting = @"Starting the built-in JIT helper…";
+ NSString* const kStatusAttached = @"Debugger attached. Enabling JIT…";
+-NSString* const kStatusOn = @"JIT is on.";
++NSString* const kStatusOn = @"JIT is on. Chrome has not started yet.";
+ NSString* const kStatusFailed = @"Couldn't enable JIT.";
+ NSString* const kStatusJitless = @"Starting without JIT.";
+ 
+ enum class LauncherPhase {
++  kWaiting,
+   kStarting,
+   kAttached,
+   kOn,
+@@ -25,11 +31,14 @@
+ };
+ 
+ BOOL g_handed_off = NO;
++BOOL g_started = NO;
+ void (^g_advance)(void) = nil;
+ id g_scene_observer = nil;
+ NSTimer* g_attach_timer = nil;
++UIWindow* g_overlay = nil;
+ 
+ void StopAttachRetries();
++void DismissLauncherOverlay();
+ 
+ }  // namespace
+ 
+@@ -43,6 +52,8 @@
+ @property(nonatomic, strong) UISegmentedControl* heapCap;
+ @property(nonatomic, strong) NSTimer* pollTimer;
+ @property(nonatomic, assign) CFAbsoluteTime deadline;
++@property(nonatomic, assign) CFAbsoluteTime helperStart;
++@property(nonatomic, assign) BOOL openChromeRequested;
+ @property(nonatomic, assign) LauncherPhase phase;
+ @end
+ 
+@@ -50,7 +61,7 @@
+ 
+ - (instancetype)init {
+   if ((self = [super init])) {
+-    _phase = LauncherPhase::kStarting;
++    _phase = LauncherPhase::kWaiting;
+   }
+   return self;
+ }
+@@ -185,6 +196,17 @@
+   return l;
+ }
+ 
++- (NSString*)elapsedSuffix {
++  if (_helperStart <= 0) {
++    return @"";
++  }
++  int secs = (int)(CFAbsoluteTimeGetCurrent() - _helperStart);
++  if (secs < 1) {
++    return @"";
++  }
++  return [NSString stringWithFormat:@" (%ds)", secs];
++}
++
+ - (void)refreshUI {
+   if (!self.isViewLoaded) {
+     return;
+@@ -199,23 +221,40 @@
+     _spinner.hidden = YES;
+   }
+ 
++  // Start without JIT must stay tappable even after "JIT is on".
++  // Auto-continue used to disable this button and ignore the choice.
++  _jitlessButton.configuration =
++      [self secondaryConfiguration:@"Start without JIT"];
++  _jitlessButton.enabled = !g_handed_off && _phase != LauncherPhase::kJitless;
++  _openButton.enabled = !g_handed_off && _phase != LauncherPhase::kJitless;
++
+   switch (_phase) {
++    case LauncherPhase::kWaiting:
++      _statusLabel.text = kStatusWaiting;
++      _reasonLabel.text =
++          @"Open Chrome starts the JIT helper. Start without JIT "
++           "skips the helper and loads pages in jitless mode.";
++      _openButton.configuration = [self primaryConfiguration:@"Open Chrome"];
++      break;
+     case LauncherPhase::kStarting:
+-      _statusLabel.text = kStatusStarting;
+-      _reasonLabel.text = nil;
+-      _openButton.enabled = NO;
++      _statusLabel.text =
++          [kStatusStarting stringByAppendingString:[self elapsedSuffix]];
++      _reasonLabel.text =
++          @"You can still tap Start without JIT to skip the helper.";
+       _openButton.configuration = [self primaryConfiguration:@"Open Chrome"];
+       break;
+     case LauncherPhase::kAttached:
+-      _statusLabel.text = kStatusAttached;
+-      _reasonLabel.text = nil;
+-      _openButton.enabled = NO;
++      _statusLabel.text =
++          [kStatusAttached stringByAppendingString:[self elapsedSuffix]];
++      _reasonLabel.text =
++          @"You can still tap Start without JIT to skip JIT.";
+       _openButton.configuration = [self primaryConfiguration:@"Open Chrome"];
+       break;
+     case LauncherPhase::kOn:
+       _statusLabel.text = kStatusOn;
+-      _reasonLabel.text = nil;
+-      _openButton.enabled = YES;
++      _reasonLabel.text =
++          @"Mode: JIT is available. Tap Open Chrome to use it, or Start "
++           "without JIT to force jitless (recommended if Chrome froze).";
+       _openButton.configuration = [self primaryConfiguration:@"Open Chrome"];
+       break;
+     case LauncherPhase::kFailed:
+@@ -228,22 +267,16 @@
+                      @"in Documents/StikJIT, then try again. You can still "
+                      @"browse without JIT.";
+       }
+-      _openButton.enabled = YES;
+       _openButton.configuration =
+           [self primaryConfiguration:@"Open Chrome without JIT"];
+       break;
+     case LauncherPhase::kJitless:
+       _statusLabel.text = kStatusJitless;
+-      _reasonLabel.text = nil;
+-      _openButton.enabled = YES;
++      _reasonLabel.text = @"Mode: jitless. The JIT helper will not be used.";
+       _openButton.configuration =
+           [self primaryConfiguration:@"Open Chrome without JIT"];
+       break;
+   }
+-  _jitlessButton.configuration =
+-      [self secondaryConfiguration:@"Start without JIT"];
+-  _jitlessButton.enabled = !g_handed_off && _phase != LauncherPhase::kJitless &&
+-                           _phase != LauncherPhase::kOn;
+ }
+ 
+ - (void)tabCapChanged {
+@@ -268,7 +301,22 @@
+ }
+ 
+ - (void)startJit {
+-  _deadline = CFAbsoluteTimeGetCurrent() + 180;
++  if (DeskBrowserJitForceJitless() || _phase == LauncherPhase::kJitless) {
++    NSLog(@"deskbrowser-jit: skipping helper, starting without JIT");
++    [self startWithoutJit];
++    return;
++  }
++  if (_phase == LauncherPhase::kStarting ||
++      _phase == LauncherPhase::kAttached) {
++    return;
++  }
++  if (DeskBrowserJitIsEnabled()) {
++    [self markOn];
++    return;
++  }
++  _helperStart = CFAbsoluteTimeGetCurrent();
++  _deadline = _helperStart + 180;
++  NSLog(@"deskbrowser-jit: user requested Open Chrome; starting helper");
+   if (DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable()) {
+     [self markOn];
+     return;
+@@ -295,6 +343,11 @@
+       _phase != LauncherPhase::kAttached) {
+     return;
+   }
++  if (DeskBrowserJitForceJitless()) {
++    [self startWithoutJit];
++    return;
++  }
++  [self refreshUI];
+   if (DeskBrowserJitDebuggerAttached()) {
+     _phase = LauncherPhase::kAttached;
+     [self refreshUI];
+@@ -309,20 +362,21 @@
+ }
+ 
+ - (void)markOn {
+-  if (_phase == LauncherPhase::kOn || g_handed_off) {
++  if (_phase == LauncherPhase::kOn || g_handed_off ||
++      DeskBrowserJitForceJitless()) {
+     return;
+   }
+   _phase = LauncherPhase::kOn;
+   [_pollTimer invalidate];
+   _pollTimer = nil;
+   [self refreshUI];
+-  NSLog(@"deskbrowser-jit: launcher JIT is on; auto-continuing");
+-  __weak DeskBrowserLauncherViewController* weakSelf = self;
+-  dispatch_after(
+-      dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.6 * NSEC_PER_SEC)),
+-      dispatch_get_main_queue(), ^{
+-        [weakSelf openChrome];
+-      });
++  // Never auto-continue — a 0.6s timer used to start Chrome with JIT
++  // before Start without JIT could be honored.
++  NSLog(@"deskbrowser-jit: launcher JIT is on; waiting for tap");
++  if (_openChromeRequested && !DeskBrowserJitForceJitless() && !g_handed_off) {
++    NSLog(@"deskbrowser-jit: opening Chrome with JIT (user tapped Open Chrome)");
++    [self handOff];
++  }
+ }
+ 
+ - (void)markFailed {
+@@ -340,24 +394,36 @@
+ }
+ 
+ - (void)openChrome {
+-  if (g_handed_off) {
++  if (g_handed_off || _phase == LauncherPhase::kJitless) {
+     return;
+   }
+-  if (!DeskBrowserJitIsEnabled()) {
+-    DeskBrowserJitSetForceJitless(true);
++  _openChromeRequested = YES;
++  if (DeskBrowserJitForceJitless() || _phase == LauncherPhase::kFailed) {
++    [self startWithoutJit];
++    return;
+   }
+-  [self handOff];
++  if (DeskBrowserJitIsEnabled()) {
++    NSLog(@"deskbrowser-jit: opening Chrome with JIT (user tapped Open Chrome)");
++    [self handOff];
++    return;
++  }
++  [self startJit];
+ }
+ 
+ - (void)startWithoutJit {
+   if (g_handed_off) {
+     return;
+   }
++  // Always honor this tap, even if the helper already attached or
++  // the status says "JIT is on". Do not kill debugserver (that also
++  // kills this process); just force jitless and skip further helper work.
+   DeskBrowserJitSetForceJitless(true);
++  _openChromeRequested = NO;
+   _phase = LauncherPhase::kJitless;
+   [_pollTimer invalidate];
+   _pollTimer = nil;
+   [self refreshUI];
++  NSLog(@"deskbrowser-jit: user chose Start without JIT; forcing jitless and skipping helper");
+   [self handOff];
+ }
+ 
+@@ -374,6 +440,7 @@
+   NSLog(@"deskbrowser-jit: launcher handing off to Chrome (jit=%d)",
+         DeskBrowserJitIsEnabled() && !DeskBrowserJitForceJitless());
+   StopAttachRetries();
++  DismissLauncherOverlay();
+   if (advance) {
+     advance();
+   }
+@@ -385,17 +452,64 @@
+ 
+ DeskBrowserLauncherViewController* g_controller = nil;
+ 
+-void PresentOnWindow(UIWindow* window) {
+-  if (!window || g_handed_off) {
++void DismissLauncherOverlay() {
++  UIWindow* overlay = g_overlay;
++  g_overlay = nil;
++  if (!overlay) {
++    return;
++  }
++  UIWindowScene* ws = overlay.windowScene;
++  UIWindow* chrome = nil;
++  if (ws) {
++    for (UIWindow* candidate in ws.windows) {
++      if (candidate && candidate != overlay) {
++        chrome = candidate;
++        break;
++      }
++    }
++  }
++  overlay.hidden = YES;
++  overlay.rootViewController = nil;
++  overlay.windowScene = nil;
++  if (chrome) {
++    [chrome makeKeyAndVisible];
++  }
++}
++
++void PresentOnWindowScene(UIWindowScene* ws) {
++  if (!ws || g_handed_off) {
+     return;
+   }
+   if (!g_controller) {
+     g_controller = [[DeskBrowserLauncherViewController alloc] init];
+   }
+-  if (window.rootViewController != g_controller) {
+-    window.rootViewController = g_controller;
++  if (g_overlay && g_overlay.windowScene == ws) {
++    g_overlay.rootViewController = g_controller;
++    g_overlay.hidden = NO;
++    [g_overlay makeKeyAndVisible];
++    return;
++  }
++  if (g_overlay) {
++    DismissLauncherOverlay();
++  }
++  // Dedicated overlay so Chrome can keep its official scene window
++  // and AppInitStage can run past kStart. Torn down at handoff.
++  UIWindow* overlay = [[UIWindow alloc] initWithWindowScene:ws];
++  overlay.windowLevel = UIWindowLevelNormal + 1;
++  overlay.backgroundColor = [UIColor systemBackgroundColor];
++  overlay.rootViewController = g_controller;
++  g_overlay = overlay;
++  [overlay makeKeyAndVisible];
++}
++
++void PresentOnWindow(UIWindow* window) {
++  if (!window || g_handed_off) {
++    return;
++  }
++  UIWindowScene* ws = window.windowScene;
++  if (ws) {
++    PresentOnWindowScene(ws);
+   }
+-  [window makeKeyAndVisible];
+ }
+ 
+ void PresentOnConnectedScenes() {
+@@ -403,22 +517,10 @@
+     if (![scene isKindOfClass:[UIWindowScene class]]) {
+       continue;
+     }
+-    UIWindowScene* ws = (UIWindowScene*)scene;
+-    UIWindow* window = ws.keyWindow;
+-    if (!window) {
+-      for (UIWindow* candidate in ws.windows) {
+-        if (candidate) {
+-          window = candidate;
+-          break;
+-        }
+-      }
+-    }
+-    // Do not allocate a second window. SceneDelegate creates the
+-    // ChromeOverlayWindow; creating another here can hide the official
+-    // scene window and leave the launcher unreachable after handoff.
+-    if (window) {
+-      PresentOnWindow(window);
+-    }
++    PresentOnWindowScene((UIWindowScene*)scene);
++    // One overlay is enough; the first connected scene is the
++    // foreground launch scene on a phone.
++    break;
+   }
+ }
+ 
+@@ -448,26 +550,60 @@
+ 
+ }  // namespace
+ 
+-extern "C" BOOL DeskBrowserLauncherShouldHold(void) { return !g_handed_off; }
++extern "C" BOOL DeskBrowserLauncherShouldHold(void) {
++  return g_started && !g_handed_off;
++}
++
++void DeskBrowserLauncherDeferAdvance(void (^advance)(void)) {
++  if (!advance) {
++    return;
++  }
++  if (!DeskBrowserLauncherShouldHold()) {
++    advance();
++    return;
++  }
++  g_advance = [advance copy];
++}
+ 
+ void DeskBrowserLauncherAttachToWindow(UIWindow* window) {
+   PresentOnWindow(window);
+ }
+ 
+-void DeskBrowserLauncherStartIfNeeded(void (^advance)(void)) {
+-  if (g_handed_off) {
+-    if (advance) {
+-      advance();
++static bool ForceJitlessRequested(void) {
++  if (const char* env = getenv("DESKBROWSER_FORCE_JITLESS")) {
++    const std::string_view value(env);
++    if (!value.empty() && value != "0") {
++      return true;
++    }
++  }
++  for (NSString* arg in NSProcessInfo.processInfo.arguments) {
++    if ([arg isEqualToString:@"--deskbrowser-force-jitless"]) {
++      return true;
+     }
++  }
++  return false;
++}
++
++void DeskBrowserLauncherStartIfNeeded(void) {
++  if (g_handed_off) {
+     return;
+   }
+-  g_advance = [advance copy];
++  g_started = YES;
++  if (ForceJitlessRequested()) {
++    DeskBrowserJitSetForceJitless(true);
++    NSLog(@"deskbrowser-jit: launcher force jitless (argv/env)");
++  }
++  NSLog(@"deskbrowser-jit: launcher overlay starting (hold V8 until handoff)");
+   EnsureSceneObserver();
+   PresentOnConnectedScenes();
+   if (!g_controller) {
+     g_controller = [[DeskBrowserLauncherViewController alloc] init];
+   }
+-  [g_controller startJit];
++  // Do not start the helper until the user taps Open Chrome. Starting
++  // it immediately made "JIT is on" auto-continue and ignored jitless.
++  if (DeskBrowserJitForceJitless()) {
++    [g_controller startWithoutJit];
++  }
+   if (!g_attach_timer && !g_handed_off) {
+     g_attach_timer = [NSTimer
+         scheduledTimerWithTimeInterval:0.05

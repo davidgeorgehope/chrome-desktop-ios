@@ -270,3 +270,18 @@ that macro made it reserve PROT_NONE and then fail
 MAP_JIT reservations are not prepared in one StikJIT call (8 MB cap,
 512 region slots).
 
+Patch `0009-ios-device-launcher-wait-for-tap.patch` (apply after 0008,
+from `chromium/src`) stops the launcher from auto-continuing when JIT
+comes on. Icon tap only shows the overlay and waits for a tap. The JIT
+helper is not started until the user taps Open Chrome. Start without JIT
+stays enabled even after "JIT is on", always sets `ForceJitless`, skips
+the helper, and ContentMain adds `--js-flags=--jitless`. The UI shows
+which mode will run and elapsed helper time. If a 64 MB MAP_JIT
+CodeRange reservation fails, CodeRange falls back to PROT_NONE instead
+of taking V8's OOM abort (which freezes the UI when debugserver is
+attached). Canonical copies of the updated sources are in
+`patches/chromium-ios/0009-files/` and
+`scripts/chromium-ios/autojit/`.
+
+
+

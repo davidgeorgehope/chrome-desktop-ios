@@ -65,8 +65,14 @@ final class DeskBrowserJITHelper: NSObject, NSExtensionRequestHandling {
         pairingFile: pairingURL,
         ddiPaths: ddiPaths,
         script: .universal,
-        preparationProgress: { stage in log("prepare: \(stage)") },
-        progress: { line in log(line) })
+        preparationProgress: { stage in
+          log("prepare: \(stage)")
+          NSLog("deskbrowser-jit: helper prepare: \(stage)")
+        },
+        progress: { line in
+          log(line)
+          NSLog("deskbrowser-jit: helper: \(line)")
+        })
       return String(
         format: "enableJIT returned after %.1f s",
         Date().timeIntervalSince(started))

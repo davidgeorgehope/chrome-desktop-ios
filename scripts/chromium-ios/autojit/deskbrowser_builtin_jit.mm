@@ -53,6 +53,7 @@ void SetNotice(NSString* msg) {
          forKey:@"deskbrowser.jit.fallback_notice"];
 }
 
+#if !TARGET_OS_SIMULATOR && TARGET_OS_IOS
 NSString* PairingFilePath() {
   NSString* docs = NSSearchPathForDirectoriesInDomains(
                        NSDocumentDirectory, NSUserDomainMask, YES)
@@ -152,6 +153,7 @@ bool WaitForDebugger(CFTimeInterval seconds) {
   }
   return DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable();
 }
+#endif  // !TARGET_OS_SIMULATOR && TARGET_OS_IOS
 
 }  // namespace
 
