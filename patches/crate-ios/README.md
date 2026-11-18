@@ -120,3 +120,26 @@ Simulator results (Peek iPhone 17, iOS 26.5, external display via
 `simctl io … screenConfig geometry`): 1280×720, 1920×1080, 1920×1200,
 2560×1440, 3440×1440, 3840×2160 all fill edge to edge (content bbox = full
 frame). Fixed 1280×800 guest on 1920×1080: centred, 96 px bars each side.
+
+## 0004: device install fails with 0xe8008017 on CrateJITHelper.appex
+
+Symptom: `ApplicationVerificationFailed ... CrateJITHelper.appex : 0xe8008017
+(A signed resource has been added, modified, or deleted.)`, while
+`codesign --verify --deep --strict Crate.app` passes on the Mac (deep verify
+does not re-check nested resource seals).
+
+Cause: the helper's "Embed StikJIT" script copied the whole StikJIT.framework,
+including `Headers/` and `Modules/`, then the framework and the appex were
+signed over them. Crate's Embed App Extensions copy then strips headers and
+modules from the nested framework, so the framework's and the appex's
+CodeResources list files that are gone. Zip tooling (ditto, xattrs) was not
+the cause.
+
+Fix: `0004-stikjit-embed-no-headers.patch` excludes Headers, PrivateHeaders
+and Modules in the rsync (apply to project.yml, then `xcodegen`, or edit the
+same line in project.pbxproj). For an already-built app, re-sign inside out
+with the existing entitlements: StikJIT.framework, then the appex
+(`--entitlements` from `codesign -d --entitlements :-`), then Crate.app,
+then zip with `ditto -c -k --norsrc --noextattr --noacl --keepParent Payload`.
+Check with `codesign --verify --strict` on each nested bundle, not just
+`--deep` on the app.
