@@ -213,3 +213,29 @@ The Reynard-style multi-process renderer is documented in
 `scripts/chromium-ios/reynard-multiprocess/README.md` and is behind
 `deskbrowser_enable_reynard_renderer` (default off). It is not part of
 the default device IPA.
+
+# Built-in StikJIT (autojit)
+
+Patch `0006-ios-device-builtin-stikjit.patch` (apply after 0005) teaches
+Blink Chrome to enable JIT the same way crate does: a built-in
+`DeskBrowserJITHelper.appex` embeds StikJIT 2.0.1 (rsync excludes
+Headers/PrivateHeaders/Modules), attaches at launch over LocalDevVPN
+with the pairing file, and uses the TXM `.universal` script
+(`brk #0xf00d`). If attach fails, V8 stays `--jitless` and a short
+"Running without JIT" notice is shown.
+
+Helper sources and the unsigned-appex build live in
+`scripts/chromium-ios/autojit/`. Build and sign with
+`scripts/chromium-ios/build-chrome-ios-device-autojit.sh` (Aqua
+LaunchAgent on the mini). The main app keeps the explicit
+`90f5f0e8-a912-4f5f-9d53-31f55271ef63` profile and memory entitlements;
+the helper uses the team wildcard for `get-task-allow` only. The
+signer runs `codesign --verify --strict` on every nested bundle,
+including StikJIT.framework inside the appex.
+
+The pairing file is per-app (`Documents/StikJIT/pairingFile.plist`)
+and is not shared with crate. LocalDevVPN must be running. Those are
+the only manual steps; there is no separate StikDebug launch.
+
+Staged IPA: `gdrive:tmp-transfer/Chromium-device-autojit.ipa`, file id
+`1g8lupo4XlcxAZwRLViOHq14gM4XrxraB`.

@@ -1,0 +1,355 @@
+diff -ruN old/content/app/BUILD.gn new/content/app/BUILD.gn
+diff --git a/content/app/BUILD.gn b/content/app/BUILD.gn
+--- a/content/app/BUILD.gn
++++ b/content/app/BUILD.gn
+@@ -146,6 +146,8 @@
+ 
+   if (is_ios) {
+     sources += [
++      "ios/deskbrowser_builtin_jit.h",
++      "ios/deskbrowser_builtin_jit.mm",
+       "ios/deskbrowser_device_jit.cc",
+       "ios/deskbrowser_device_jit.h",
+       "ios/deskbrowser_device_jit_brk.S",
+diff -ruN old/content/app/content_main.cc new/content/app/content_main.cc
+diff --git a/content/app/content_main.cc b/content/app/content_main.cc
+--- a/content/app/content_main.cc
++++ b/content/app/content_main.cc
+@@ -51,6 +51,7 @@
+ 
+ #if BUILDFLAG(IS_IOS)
+ #include <TargetConditionals.h>
++#include "content/app/ios/deskbrowser_builtin_jit.h"
+ #include "content/app/ios/deskbrowser_device_jit.h"
+ #endif
+ 
+@@ -311,8 +312,10 @@
+     // TXM on iOS 27 requires the StikJIT prepare protocol (brk #0xf00d).
+     // If a debugger is already attached, enable that path and leave V8's
+     // JIT on. Otherwise stay jitless so launch does not crash.
+-    DeskBrowserJitInstallTrapHandler();
+-    if (!DeskBrowserJitTryEnable()) {
++    // Built-in StikJIT helper attaches via LocalDevVPN + pairing file,
++    // then the TXM prepare hook is enabled. Fall back to jitless if
++    // attach fails; a short on-screen notice is shown.
++    if (!DeskBrowserJitEnableWithBuiltInHelper()) {
+       if (!command_line->HasSwitch("js-flags")) {
+         command_line->AppendSwitchASCII("js-flags", "--jitless");
+       }
+diff -ruN old/content/app/ios/deskbrowser_builtin_jit.h new/content/app/ios/deskbrowser_builtin_jit.h
+diff --git a/content/app/ios/deskbrowser_builtin_jit.h b/content/app/ios/deskbrowser_builtin_jit.h
+--- a/content/app/ios/deskbrowser_builtin_jit.h
++++ b/content/app/ios/deskbrowser_builtin_jit.h
+@@ -0,0 +1,31 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#ifndef CONTENT_APP_IOS_DESKBROWSER_BUILTIN_JIT_H_
++#define CONTENT_APP_IOS_DESKBROWSER_BUILTIN_JIT_H_
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++// Starts the built-in StikJIT helper (PlugIns/DeskBrowserJITHelper.appex),
++// waits until CS_DEBUGGED is set, then enables the TXM prepare hook.
++// If attach fails (no pairing file, LocalDevVPN down, or timeout), returns
++// false so the caller can stay jitless.
++//
++// The pairing file is read from Documents/StikJIT/pairingFile.plist (the
++// same relative place crate uses). It is never logged. The helper is left
++// running so later TXM region prepares can be serviced.
++bool DeskBrowserJitEnableWithBuiltInHelper(void);
++
++// If EnableWithBuiltInHelper fell back to jitless, a short reason suitable
++// for a one-time on-screen notice. NULL when JIT is on or no notice is
++// needed. The pointer is valid for the process lifetime.
++const char* DeskBrowserJitFallbackNotice(void);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif  // CONTENT_APP_IOS_DESKBROWSER_BUILTIN_JIT_H_
+diff -ruN old/content/app/ios/deskbrowser_builtin_jit.mm new/content/app/ios/deskbrowser_builtin_jit.mm
+diff --git a/content/app/ios/deskbrowser_builtin_jit.mm b/content/app/ios/deskbrowser_builtin_jit.mm
+--- a/content/app/ios/deskbrowser_builtin_jit.mm
++++ b/content/app/ios/deskbrowser_builtin_jit.mm
+@@ -0,0 +1,169 @@
++// Copyright 2026 The Chromium Authors
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#import "content/app/ios/deskbrowser_builtin_jit.h"
++
++#include <TargetConditionals.h>
++#import <CoreFoundation/CoreFoundation.h>
++#import <Foundation/Foundation.h>
++#import <dlfcn.h>
++#import <unistd.h>
++
++#import "content/app/ios/deskbrowser_device_jit.h"
++
++// Private NSExtension entry points, looked up by class name so this
++// file does not link a private SDK stub. Must be at file scope.
++@interface NSObject (DeskBrowserNSExtension)
+++ (id)extensionWithIdentifier:(NSString*)identifier error:(NSError**)error;
++- (void)beginExtensionRequestWithInputItems:(NSArray*)items
++                                 completion:(void (^)(NSUUID*))completion;
++- (void)setRequestCompletionBlock:(void (^)(NSUUID*, NSArray*))block;
++- (void)setRequestCancellationBlock:(void (^)(NSUUID*, NSError*))block;
++- (void)setRequestInterruptionBlock:(void (^)(NSUUID*))block;
++@end
++
++namespace {
++
++char g_notice[512];
++bool g_has_notice = false;
++
++void SetNotice(NSString* msg) {
++  if (!msg.length) {
++    g_has_notice = false;
++    g_notice[0] = 0;
++    [[NSUserDefaults standardUserDefaults]
++        removeObjectForKey:@"deskbrowser.jit.fallback_notice"];
++    return;
++  }
++  NSLog(@"deskbrowser-jit: %@", msg);
++  if (![msg getCString:g_notice
++             maxLength:sizeof(g_notice)
++              encoding:NSUTF8StringEncoding]) {
++    g_notice[sizeof(g_notice) - 1] = 0;
++  }
++  g_has_notice = true;
++  [[NSUserDefaults standardUserDefaults]
++      setObject:msg
++         forKey:@"deskbrowser.jit.fallback_notice"];
++}
++
++NSString* PairingFilePath() {
++  NSString* docs = NSSearchPathForDirectoriesInDomains(
++                       NSDocumentDirectory, NSUserDomainMask, YES)
++                       .firstObject;
++  return [[docs stringByAppendingPathComponent:@"StikJIT"]
++      stringByAppendingPathComponent:@"pairingFile.plist"];
++}
++
++NSData* ReadPairingFile() {
++  NSString* path = PairingFilePath();
++  if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
++    return nil;
++  }
++  return [NSData dataWithContentsOfFile:path];
++}
++
++// Starts the helper and returns immediately. enableJIT in the helper
++// process stays blocked while the universal script is attached; we do
++// not wait for that request to finish. The pairing bytes are passed in
++// the request and never logged. The NSExtension is CFRetained for the
++// process lifetime so a mid-attach release cannot drop the debugger.
++bool StartHelper(NSData* pairing) {
++  NSURL* url = [[NSBundle mainBundle].builtInPlugInsURL
++      URLByAppendingPathComponent:@"DeskBrowserJITHelper.appex"];
++  NSString* identifier = [NSBundle bundleWithURL:url].bundleIdentifier;
++  if (!identifier) {
++    SetNotice(@"The built-in JIT helper is missing from this install.");
++    return false;
++  }
++  Class extensionClass = NSClassFromString(@"NSExtension");
++  if (!extensionClass) {
++    dlopen("/System/Library/Frameworks/ExtensionFoundation.framework/"
++           "ExtensionFoundation",
++           RTLD_NOW);
++    extensionClass = NSClassFromString(@"NSExtension");
++  }
++  if (!extensionClass) {
++    SetNotice(@"iOS has no way to start the built-in JIT helper.");
++    return false;
++  }
++  NSError* error = nil;
++  id extension = [extensionClass extensionWithIdentifier:identifier
++                                                   error:&error];
++  if (!extension) {
++    SetNotice(@"iOS would not find the built-in JIT helper.");
++    return false;
++  }
++  CFRetain((__bridge CFTypeRef)extension);
++  [extension setRequestCompletionBlock:^(NSUUID*, NSArray*){
++  }];
++  [extension setRequestCancellationBlock:^(NSUUID*, NSError*) {
++    NSLog(@"deskbrowser-jit: helper request cancelled");
++  }];
++  [extension setRequestInterruptionBlock:^(NSUUID*) {
++    NSLog(@"deskbrowser-jit: helper request interrupted");
++  }];
++  NSExtensionItem* item = [NSExtensionItem new];
++  item.userInfo = @{@"pid" : @((int)getpid()), @"pairing" : pairing};
++  [extension beginExtensionRequestWithInputItems:@[ item ]
++                                      completion:^(NSUUID* requestID) {
++                                        if (!requestID) {
++                                          NSLog(@"deskbrowser-jit: iOS would "
++                                                @"not start the JIT helper");
++                                        }
++                                      }];
++  return true;
++}
++
++bool WaitForDebugger(CFTimeInterval seconds) {
++  const CFTimeInterval deadline = CFAbsoluteTimeGetCurrent() + seconds;
++  while (CFAbsoluteTimeGetCurrent() < deadline) {
++    if (DeskBrowserJitDebuggerAttached()) {
++      return DeskBrowserJitTryEnable();
++    }
++    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.2, true);
++  }
++  return DeskBrowserJitDebuggerAttached() && DeskBrowserJitTryEnable();
++}
++
++}  // namespace
++
++extern "C" const char* DeskBrowserJitFallbackNotice(void) {
++  return g_has_notice ? g_notice : nullptr;
++}
++
++extern "C" bool DeskBrowserJitEnableWithBuiltInHelper(void) {
++#if TARGET_OS_SIMULATOR || !TARGET_OS_IOS
++  return false;
++#else
++  DeskBrowserJitInstallTrapHandler();
++  if (DeskBrowserJitTryEnable()) {
++    return true;
++  }
++  NSData* pairing = ReadPairingFile();
++  if (!pairing.length) {
++    SetNotice(@"Chrome needs the same pairing file crate uses, at "
++              @"Documents/StikJIT/pairingFile.plist, and LocalDevVPN "
++              @"turned on. It will run without JIT until then.");
++    return false;
++  }
++  if (!StartHelper(pairing)) {
++    if (!g_has_notice) {
++      SetNotice(@"The built-in JIT helper could not start. Chrome will "
++                @"run without JIT.");
++    }
++    return false;
++  }
++  // First launch may download Apple's developer disk image through the
++  // helper; later launches are much quicker.
++  if (WaitForDebugger(180)) {
++    SetNotice(nil);
++    return true;
++  }
++  SetNotice(@"Built-in JIT didn't attach in time. Leave LocalDevVPN on "
++            @"and confirm the pairing file is in Documents/StikJIT, then "
++            @"relaunch. Chrome will run without JIT this time.");
++  return false;
++#endif
++}
+diff -ruN old/content/app/ios/deskbrowser_device_jit.cc new/content/app/ios/deskbrowser_device_jit.cc
+diff --git a/content/app/ios/deskbrowser_device_jit.cc b/content/app/ios/deskbrowser_device_jit.cc
+--- a/content/app/ios/deskbrowser_device_jit.cc
++++ b/content/app/ios/deskbrowser_device_jit.cc
+@@ -141,6 +141,10 @@
+   g_handler_installed = true;
+ }
+ 
++extern "C" bool DeskBrowserJitDebuggerAttached(void) {
++  return IsDebugged();
++}
++
+ extern "C" bool DeskBrowserJitTryEnable(void) {
+   DeskBrowserJitInstallTrapHandler();
+   if (!IsDebugged()) {
+@@ -244,6 +248,7 @@
+ #else  // simulator / tvOS
+ 
+ extern "C" void DeskBrowserJitInstallTrapHandler(void) {}
++extern "C" bool DeskBrowserJitDebuggerAttached(void) { return false; }
+ extern "C" bool DeskBrowserJitTryEnable(void) { return false; }
+ extern "C" bool DeskBrowserJitIsEnabled(void) { return false; }
+ extern "C" void DeskBrowserJitPrepareRegion(void*, size_t) {}
+diff -ruN old/content/app/ios/deskbrowser_device_jit.h new/content/app/ios/deskbrowser_device_jit.h
+diff --git a/content/app/ios/deskbrowser_device_jit.h b/content/app/ios/deskbrowser_device_jit.h
+--- a/content/app/ios/deskbrowser_device_jit.h
++++ b/content/app/ios/deskbrowser_device_jit.h
+@@ -30,6 +30,9 @@
+ // executable allocations can be prepared. Does not fire a brk itself.
+ bool DeskBrowserJitTryEnable(void);
+ 
++// True when CS_DEBUGGED is set. Does not log or enable the hook.
++bool DeskBrowserJitDebuggerAttached(void);
++
+ bool DeskBrowserJitIsEnabled(void);
+ 
+ // After an RX (or MAP_JIT) mapping is created by V8, prepare it and
+diff -ruN old/ios/chrome/app/main_application_delegate.mm new/ios/chrome/app/main_application_delegate.mm
+diff --git a/ios/chrome/app/main_application_delegate.mm b/ios/chrome/app/main_application_delegate.mm
+--- a/ios/chrome/app/main_application_delegate.mm
++++ b/ios/chrome/app/main_application_delegate.mm
+@@ -4,6 +4,7 @@
+ 
+ #import "ios/chrome/app/main_application_delegate.h"
+ 
++#import <UIKit/UIKit.h>
+ #import <UserNotifications/UserNotifications.h>
+ 
+ #import "base/apple/foundation_util.h"
+@@ -93,6 +94,14 @@
+ - (BOOL)application:(UIApplication*)application
+     didFinishLaunchingWithOptions:(NSDictionary*)launchOptions {
+   self.didFinishLaunching = YES;
++  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)),
++                 dispatch_get_main_queue(), ^{
++                   [self showDeskBrowserJitNoticeIfNeeded];
++                 });
++  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(8 * NSEC_PER_SEC)),
++                 dispatch_get_main_queue(), ^{
++                   [self showDeskBrowserJitNoticeIfNeeded];
++                 });
+ 
+   UNUserNotificationCenter* center =
+       [UNUserNotificationCenter currentNotificationCenter];
+@@ -165,6 +174,42 @@
+ }
+ 
+ 
++- (void)showDeskBrowserJitNoticeIfNeeded {
++  NSString* msg = [[NSUserDefaults standardUserDefaults]
++      stringForKey:@"deskbrowser.jit.fallback_notice"];
++  if (msg.length == 0) {
++    return;
++  }
++  [[NSUserDefaults standardUserDefaults]
++      removeObjectForKey:@"deskbrowser.jit.fallback_notice"];
++  UIAlertController* alert = [UIAlertController
++      alertControllerWithTitle:@"Running without JIT"
++                       message:msg
++                preferredStyle:UIAlertControllerStyleAlert];
++  [alert addAction:[UIAlertAction actionWithTitle:@"OK"
++                                            style:UIAlertActionStyleDefault
++                                          handler:nil]];
++  UIWindow* window = nil;
++  for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
++    if (![scene isKindOfClass:[UIWindowScene class]]) {
++      continue;
++    }
++    for (UIWindow* w in ((UIWindowScene*)scene).windows) {
++      if (w.isKeyWindow || !window) {
++        window = w;
++      }
++    }
++  }
++  UIViewController* root = window.rootViewController;
++  if (!root) {
++    return;
++  }
++  while (root.presentedViewController) {
++    root = root.presentedViewController;
++  }
++  [root presentViewController:alert animated:YES completion:nil];
++}
++
+ - (void)applicationDidReceiveMemoryWarning:(UIApplication*)application {
+   if (_appState.initStage <= AppInitStage::kSafeMode) {
+     return;

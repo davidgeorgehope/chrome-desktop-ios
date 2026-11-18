@@ -1,0 +1,125 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+		B10000000000000100000001 /* DeskBrowserJITHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000100000002 /* DeskBrowserJITHelper.swift */; };
+		B10000000000000100000010 /* StikJIT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B10000000000000100000011 /* StikJIT.framework */; };
+		B10000000000000100000002 /* DeskBrowserJITHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeskBrowserJITHelper.swift; sourceTree = "<group>"; };
+		B10000000000000100000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B10000000000000100000004 /* DeskBrowserJITHelper.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DeskBrowserJITHelper.entitlements; sourceTree = "<group>"; };
+		B10000000000000100000005 /* DeskBrowserJITHelper.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DeskBrowserJITHelper.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000100000011 /* StikJIT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StikJIT.framework; path = "StikJIT.xcframework/ios-arm64/StikJIT.framework"; sourceTree = SOURCE_ROOT; };
+		B10000000000000100000006 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (B10000000000000100000010 /* StikJIT.framework in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
+		B10000000000000100000007 = {isa = PBXGroup; children = (B10000000000000100000008 /* DeskBrowserJITHelper */, B10000000000000100000011 /* StikJIT.framework */, B10000000000000100000009 /* Products */,); sourceTree = "<group>"; };
+		B10000000000000100000008 /* DeskBrowserJITHelper */ = {isa = PBXGroup; children = (B10000000000000100000002 /* DeskBrowserJITHelper.swift */, B10000000000000100000003 /* Info.plist */, B10000000000000100000004 /* DeskBrowserJITHelper.entitlements */,); path = DeskBrowserJITHelper; sourceTree = "<group>"; };
+		B10000000000000100000009 /* Products */ = {isa = PBXGroup; children = (B10000000000000100000005 /* DeskBrowserJITHelper.appex */,); name = Products; sourceTree = "<group>"; };
+		B1000000000000010000000A /* DeskBrowserJITHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B1000000000000010000000B;
+			buildPhases = (B1000000000000010000000C /* Sources */, B10000000000000100000006 /* Frameworks */,);
+			buildRules = ();
+			dependencies = ();
+			name = DeskBrowserJITHelper;
+			productName = DeskBrowserJITHelper;
+			productReference = B10000000000000100000005;
+			productType = "com.apple.product-type.app-extension";
+		};
+		B1000000000000010000000D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 1600; TargetAttributes = {B1000000000000010000000A = {CreatedOnToolsVersion = 16.0;};};};
+			buildConfigurationList = B1000000000000010000000E;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = B10000000000000100000007;
+			productRefGroup = B10000000000000100000009;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (B1000000000000010000000A,);
+		};
+		B1000000000000010000000C /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000100000001 /* DeskBrowserJITHelper.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		B10000000000000100000021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B10000000000000100000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		B10000000000000100000013 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(STIKJIT_XCFRAMEWORK)/ios-arm64";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DeskBrowserJITHelper/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-framework StikJIT";
+				PRODUCT_BUNDLE_IDENTIFIER = com.davidhope.deskbrowser.blink.jithelper;
+				PRODUCT_NAME = DeskBrowserJITHelper;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B10000000000000100000014 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(STIKJIT_XCFRAMEWORK)/ios-arm64";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DeskBrowserJITHelper/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.4;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "-framework StikJIT";
+				PRODUCT_BUNDLE_IDENTIFIER = com.davidhope.deskbrowser.blink.jithelper;
+				PRODUCT_NAME = DeskBrowserJITHelper;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B1000000000000010000000B = {isa = XCConfigurationList; buildConfigurations = (B10000000000000100000013 /* Debug */, B10000000000000100000014 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		B1000000000000010000000E = {isa = XCConfigurationList; buildConfigurations = (B10000000000000100000021 /* Debug */, B10000000000000100000012 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+	};
+	rootObject = B1000000000000010000000D /* Project object */;
+}
