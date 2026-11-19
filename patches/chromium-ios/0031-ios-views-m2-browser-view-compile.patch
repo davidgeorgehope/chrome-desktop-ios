@@ -1,0 +1,10 @@
+# 0031 — Start compiling the real //chrome BrowserView graph on iOS.
+#
+# File-replacement patch. After 0030, copy the sources under 0031-files/
+# over the corresponding paths in Chromium src/. See 0031-files/README.md.
+#
+# Do not apply this to the device chrome target (keep
+# enable_ios_desktop_views off for the jitless device IPA).
+#
+# This is not BrowserView-on-TVOut yet. gn gen stays green.
+# The 0026 look-alike shell is unchanged and is not the goal.

@@ -1,0 +1,8 @@
+build/config/locales.gni
+chrome/app/resources/BUILD.gn
+components/strings/BUILD.gn
+components/omnibox/resources/BUILD.gn
+components/omnibox/browser/BUILD.gn
+components/webui/user_actions/resources/BUILD.gn
+tools/grit/grit_args.gni
+tools/typescript/ts_library.gni
