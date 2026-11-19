@@ -223,6 +223,7 @@ under "iOS ports" below.
 | 0113 | Web contents placement diagnostics | diag: NativeViewHostIOS::ShowWidget logs frame changes (view class, superview, z-index), and the GPU presenter logs each sink superview chain (class, frame, clips, hidden). Used to find why the page covers the whole TVOut window. Temporary. |
 | 0114 | NativeViewHost subview sizing | fix: DeskBrowserViewsContentView layoutSubviews stretched every sublayer, including backing layers of native subviews, so the WebContents UIScrollView covered the whole window. It now only stretches non-UIView (compositor) layers. Page sits in the contents area under the real tab strip and toolbar. |
 | 0115 | Single-process infobar | cut: chrome/browser/ui/startup/bad_flags_prompt.cc leaves switches::kSingleProcess out of kBadFlags on iOS Views (the host always injects it; not a user flag). Infobar gone; web area 1912x984. |
+| 0116 | PA quarantine back on | revert of the 0106 workaround: PartitionAllocSchedulerLoopQuarantine is no longer disabled by the iOS Views host. Its OOM trap was the GetAllOwnedWidgets recursion fixed in 0108. |
 
 ## iOS ports
 
