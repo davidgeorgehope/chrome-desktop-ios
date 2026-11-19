@@ -1,0 +1,6 @@
+# 0123 — chrome_views_ios Info.plist: microphone and camera usage descriptions
+#
+# File-replacement patch. After 0122, copy the sources under 0123-files/
+# over the corresponding paths in Chromium src/. See 0123-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
