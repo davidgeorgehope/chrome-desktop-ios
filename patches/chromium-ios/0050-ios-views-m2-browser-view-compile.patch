@@ -1,0 +1,6 @@
+# 0050 — Add the iOS BrowserNativeWidget and frame view factories.
+#
+# File-replacement patch. After 0049, copy the sources under 0050-files/
+# over the corresponding paths in Chromium src/. See 0050-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
