@@ -1,0 +1,32 @@
+# Copyright 2024 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//extensions/buildflags/buildflags.gni")
+
+assert(enable_extensions_core)
+
+source_set("processes") {
+  sources = [
+    "processes_api.cc",
+    "processes_api.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//chrome/browser/task_manager",
+  ]
+
+  deps = [
+    "//chrome/common/extensions/api",
+    "//content/public/browser",
+    "//content/public/common",
+    "//content/public/common:result_codes",
+  ]
+  if (enable_extensions_core) {
+    public_deps += [ "//extensions/browser" ]
+  }
+  if (enable_extensions_core) {
+    deps += [ "//extensions/common" ]
+  }
+}

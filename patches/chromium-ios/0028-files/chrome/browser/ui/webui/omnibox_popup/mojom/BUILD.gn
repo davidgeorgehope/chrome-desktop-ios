@@ -1,0 +1,22 @@
+# Copyright 2025 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//build/config/ui.gni")
+
+assert(!is_android && (!is_ios || enable_ios_desktop_views))
+
+mojom("mojom") {
+  sources = [
+    "omnibox_popup.mojom",
+    "omnibox_popup_aim.mojom",
+  ]
+  webui_module_path = "/"
+  deps = [
+    "//components/omnibox/browser:mojo_bindings",
+    "//mojo/public/mojom/base",
+    "//ui/gfx/geometry/mojom",
+    "//ui/gfx/range/mojom",
+  ]
+}

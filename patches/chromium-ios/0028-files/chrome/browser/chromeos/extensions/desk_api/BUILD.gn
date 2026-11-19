@@ -1,0 +1,62 @@
+import("//extensions/buildflags/buildflags.gni")
+# Copyright 2024 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+assert(is_chromeos)
+
+static_library("desk_api") {
+  sources = [
+    "desk_api_extension_manager.cc",
+    "desk_api_extension_manager.h",
+    "desk_api_extension_manager_factory.cc",
+    "desk_api_extension_manager_factory.h",
+  ]
+
+  deps = [
+    "//ash/constants",
+    "//base",
+    "//chrome/browser:resources",
+    "//chrome/browser/profiles:profile",
+    "//chromeos/ash/components/browser_context_helper",
+    "//components/keyed_service/content",
+    "//components/keyed_service/core",
+    "//components/prefs",
+    "//components/user_manager",
+    "//ui/base",
+  ]
+  if (enable_extensions_core) {
+    deps += [
+      "//extensions/browser",
+      "//extensions/common",
+    ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [ "desk_api_extension_manager_unittest.cc" ]
+
+  deps = [
+    ":desk_api",
+    "//ash/constants",
+    "//base",
+    "//chrome/browser/ash/login/test:user_session_test_environment_delegate",
+    "//chrome/browser/profiles:profile",
+    "//chrome/test:test_support",
+    "//chrome/test/base:testing_browser_process",
+    "//chromeos/ash/components/browser_context_helper",
+    "//chromeos/ash/components/policy/device_local_account",
+    "//components/account_id",
+    "//components/account_id:test_support",
+    "//components/session_manager/test:test_support",
+    "//components/user_manager",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+  if (enable_extensions_core) {
+    deps += [ "//chrome/browser/extensions" ]
+  }
+}
