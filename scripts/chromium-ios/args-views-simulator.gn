@@ -22,3 +22,6 @@ enable_webui_bookmarks = true
 enable_message_center = true
 # Keep ENABLE_PRINTING consistent with enable_printing (off on iOS).
 enable_printing_tests = false
+
+# Mac parity: Chrome's utility/renderer code assumes the Screen AI service.
+enable_screen_ai_service = true
