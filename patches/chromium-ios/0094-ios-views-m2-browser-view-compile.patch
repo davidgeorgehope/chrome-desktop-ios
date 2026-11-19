@@ -1,0 +1,6 @@
+# 0094 — Name the Command modifier in accelerator text on iOS
+#
+# File-replacement patch. After 0093, copy the sources under 0094-files/
+# over the corresponding paths in Chromium src/. See 0094-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
