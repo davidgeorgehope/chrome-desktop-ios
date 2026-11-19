@@ -25,3 +25,5 @@ enable_printing_tests = false
 
 # Mac parity: Chrome's utility/renderer code assumes the Screen AI service.
 enable_screen_ai_service = true
+# Mac parity: live caption translation assumes on-device translation.
+enable_on_device_translation = true
