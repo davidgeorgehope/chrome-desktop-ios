@@ -1,0 +1,6 @@
+# 0070 — No-op app shortcut dialog for iOS Views
+#
+# File-replacement patch. After 0069, copy the sources under 0070-files/
+# over the corresponding paths in Chromium src/. See 0070-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
