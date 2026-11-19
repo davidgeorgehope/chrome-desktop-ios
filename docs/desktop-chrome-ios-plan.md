@@ -241,7 +241,7 @@ under "iOS ports" below.
 | 0131 | Menu accelerator labels | Accelerator::GetShortcutText falls back to the US-layout character on iOS too, so menus read "Ctrl+R" instead of "Ctrl+". |
 | 0132 | Chrome Desktop name, launch screen | Views app Info.plist: display name "Chrome Desktop", UILaunchScreen dict instead of an empty storyboard name. |
 | 0133 | metagen root target | v8 metagen `gn desc` reuses the build dir's --root-target so the device Views build's //v8:run_metagen resolves. |
-| 0134 | Monitor-only desktop windows | Desktop widgets use only the external scene; phone shows a connect-a-monitor hint, then the trackpad. Runtime plug/unplug check pending. |
+| 0134 | Monitor-only desktop windows | Desktop widgets use only the external scene; phone shows a connect-a-monitor hint, then the trackpad. Plug/unplug verified in the simulator. |
 | — | Desktop-mode verification | verified: Mac desktop UA, Sec-CH-UA-Mobile ?0, platform macOS, userAgentData.mobile false, maxTouchPoints 0, desktop viewport with meta viewport ignored, no m. redirects on whatismybrowser/YouTube/Google/Wikipedia/Reddit/X. See docs/desktop-mode-verification.md. |
 
 ## iOS ports
