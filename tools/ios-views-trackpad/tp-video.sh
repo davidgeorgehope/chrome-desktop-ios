@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: tp-video.sh URL  (sim only) launch with autoplay, then probe <video> + audio state, screenshot TVOut and phone.
+# usage: tp-video.sh URL  (sim only) launch with autoplay, then probe <video> + audio state, screenshot --display=LCD TVOut and phone.
 U=DE1E2D59-E674-4EE1-8096-097886FB5917
 pkill -x chrome_views_ios; sleep 1
 cd ~/chromium-build/logs/views-m2
@@ -12,5 +12,5 @@ for i in 1 2 3; do
   echo "probe $i: $(python3 /tmp/uaecho/eval.py '(()=>{const v=document.querySelector("video");return v?{paused:v.paused,t:Math.round(v.currentTime*10)/10,muted:v.muted,vol:v.volume,w:v.videoWidth,h:v.videoHeight,rs:v.readyState,err:v.error&&v.error.code}:null})()')"
 done
 xcrun simctl io $U screenshot --display=TVOut $R/video-tvout.png >/dev/null 2>&1
-xcrun simctl io $U screenshot $R/video-phone.png >/dev/null 2>&1
+xcrun simctl io $U screenshot --display=LCD $R/video-phone.png >/dev/null 2>&1
 echo $R
