@@ -1,0 +1,6 @@
+# 0127 — iOS Views: route trackpad pointer input only to the active page
+#
+# File-replacement patch. After 0126, copy the sources under 0127-files/
+# over the corresponding paths in Chromium src/. See 0127-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.

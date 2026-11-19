@@ -1,0 +1,4 @@
+content/browser/renderer_host/render_widget_host_view_ios.h
+content/browser/renderer_host/render_widget_host_view_ios.mm
+content/browser/renderer_host/render_widget_host_view_ios_uiview.mm
+chrome/browser/ui/views/ios/views_trackpad_ios.mm
