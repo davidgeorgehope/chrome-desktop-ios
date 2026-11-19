@@ -1,6 +1,7 @@
 #!/bin/bash
 # Usage: notify-poke.sh <job> <status> <rc> <detail-file>
-# Posts to the Sonic hetzner-event-poke routine webhook. Never echoes secrets.
+# Optional: POSTs a JSON job-status message to a webhook (POKE_URL, POKE_KEY
+# from the environment or ~/.config/mini-usb-pipeline-webhook.env). Never echoes secrets.
 set -u
 JOB=$1; ST=$2; RC=$3; DF=${4:-/dev/null}
 ENVF="$HOME/.config/mini-usb-pipeline-webhook.env"

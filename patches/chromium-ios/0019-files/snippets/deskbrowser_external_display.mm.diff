@@ -1,5 +1,5 @@
---- /workspace/repos/linux-ios-fast/patches/chromium-ios/0012-files/ios/chrome/app/deskbrowser_external_display.mm	2026-11-18 14:58:05.942906193 -0500
-+++ /workspace/repos/linux-ios-fast/patches/chromium-ios/0019-files/ios/chrome/app/deskbrowser_external_display.mm	2026-11-18 16:37:39.850071378 -0500
+--- patches/chromium-ios/0012-files/ios/chrome/app/deskbrowser_external_display.mm	2026-11-18 14:58:05.942906193 -0500
++++ patches/chromium-ios/0019-files/ios/chrome/app/deskbrowser_external_display.mm	2026-11-18 16:37:39.850071378 -0500
 @@ -55,29 +55,50 @@
    return vc && [ClassName(vc) isEqualToString:@"DeskBrowserExternalControlSurfaceViewController"];
  }

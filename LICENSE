@@ -27,10 +27,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ---
 
-This license covers the original work in this repository. Patches against and
-files copied from third-party projects keep their upstream copyright and
-license: Chromium code (patches/chromium-ios/, including the *-files/
-directories) is Copyright The Chromium Authors under Chromium's BSD-style
-license (https://chromium.googlesource.com/chromium/src/+/main/LICENSE), and
-patches against other projects (for example the Linux kernel, Kernarium and
-crate) remain under those projects' licenses.
+This license covers the original work in this repository. Code from other
+projects keeps its upstream copyright and license:
+
+- Chromium code (patches/chromium-ios/, including the *-files/ directories)
+  is Copyright The Chromium Authors under Chromium's BSD-style license
+  (https://chromium.googlesource.com/chromium/src/+/main/LICENSE).
+- Code derived from StikJIT under scripts/chromium-ios/autojit/ is under the
+  Mozilla Public License 2.0 (see LICENSE-StikJIT-MPL-2.0.txt there).

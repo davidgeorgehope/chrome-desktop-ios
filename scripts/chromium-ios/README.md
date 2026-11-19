@@ -168,7 +168,7 @@ To use JIT on the phone: attach StikDebug with `universal.js` to
 The wildcard `iOS Team Provisioning Profile: *` does not include
 `increased-memory-limit` or `extended-virtual-addressing`. Those need an
 explicit App ID profile for `com.davidhope.deskbrowser.blink`, the same way
-crate/Henge/Kernarium were registered.
+other sideloaded apps on the team were registered.
 
 # Explicit App ID, memory entitlements, and DrumBrake
 

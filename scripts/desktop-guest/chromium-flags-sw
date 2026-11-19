@@ -1,7 +1,0 @@
---no-sandbox
---password-store=basic
---disable-background-timer-throttling
---disable-renderer-backgrounding
---disable-backgrounding-occluded-windows
---disable-gpu
---start-maximized

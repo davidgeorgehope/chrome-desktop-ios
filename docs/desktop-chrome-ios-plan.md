@@ -394,7 +394,7 @@ before asking for a test.
 - Do not weaken memory entitlements or the heap cap.
 - Long builds run detached with a status file and a
   `notify-poke.sh` completion poke.
-- Commit to `linux-ios-fast` main, no secrets. Do not amend pushed
+- Commit to main, no secrets. Do not amend pushed
   commits.
 - Do not ask David to test until something is signed, installed,
   and verified here.

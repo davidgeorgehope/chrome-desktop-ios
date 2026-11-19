@@ -5,7 +5,7 @@
 #   2. on success, sign in the Aqua session via a one-shot LaunchAgent
 #      running sign-chrome-views-device.sh; poke.
 #   3. run preflight-chrome-views-device.sh; poke with the result.
-# Pokes go to the hetzner-event-poke routine webhook via notify-poke.sh.
+# Pokes go to an optional webhook via notify-poke.sh.
 # Never installs anything on a phone.
 set -u
 B=$HOME/chromium-build

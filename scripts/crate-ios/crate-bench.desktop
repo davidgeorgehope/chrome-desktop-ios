@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=crate bench
-Comment=Run the interactive and gcc/spawn A/B suite
-Exec=/usr/local/bin/crate-bench.sh
-Terminal=false
-X-GNOME-Autostart-enabled=true
-StartupNotify=false

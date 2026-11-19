@@ -3,7 +3,7 @@
 # then signs it and packs an IPA (sign-chrome-ios-device.sh). Meant to run
 # from a one-shot LaunchAgent in the GUI session so codesign can reach the
 # login keychain identity without the security CLI. Reports its own finish or
-# failure through notify-poke.sh (hetzner-event-poke webhook). Resume-safe.
+# failure through notify-poke.sh (optional webhook). Resume-safe.
 #
 # out/Release-iphoneos/args.gn: see chrome-ios-device.args.gn next to this file.
 set -u

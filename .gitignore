@@ -1,14 +1,9 @@
 .DS_Store
-*.sparseimage
-*.ext4
-*.img
-*.cpio
-*.cpio.gz
+__pycache__/
+*.pyc
+*.ipa
 *.app/
 *.xcframework/
-*.xcframework.zip
-vmlinux
-vmlinux.bin
 *.dSYM/
 .build/
 DerivedData/
