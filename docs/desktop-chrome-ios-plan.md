@@ -202,6 +202,7 @@ under "iOS ports" below.
 | 0092 | Supervised user: locally-parent-approved extensions migration pref | registered on iOS Views like Win/Mac/Linux (pref was declared but unregistered) | — |
 | 0093 | Segmentation home-modules card registry (iOS magic stack) | Create() returns nullptr on iOS Views like desktop | — (desktop has no magic stack) |
 | 0094 | Accelerator long-form Cmd modifier text | ported: iOS uses the Mac "Command" string (was NOTREACHED) | — |
+| 0095 | ui::ImageModel vector icon rasterize | ported: ThemedVectorIcon path enabled on iOS Views (was NOTREACHED on iOS) | — |
 
 ## iOS ports
 
