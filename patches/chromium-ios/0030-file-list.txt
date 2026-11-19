@@ -1,0 +1,7 @@
+chrome/browser/ui/BUILD.gn
+chrome/browser/ssl/BUILD.gn
+chrome/browser/apps/app_service/app_icon/BUILD.gn
+chrome/browser/ui/webui/BUILD.gn
+chrome/browser/ui/views/profiles/BUILD.gn
+chrome/browser/ui/views/side_panel/BUILD.gn
+tools/ios-desktop-views/walk-gn-asserts.py

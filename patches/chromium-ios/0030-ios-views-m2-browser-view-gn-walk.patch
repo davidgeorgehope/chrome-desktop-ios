@@ -1,0 +1,11 @@
+# 0030 — Green gn gen of the real //chrome BrowserView graph on iOS.
+#
+# File-replacement patch. After 0029, copy the sources under 0030-files/
+# over the corresponding paths in Chromium src/. See 0030-files/README.md.
+#
+# Do not apply this to the device chrome target (keep
+# enable_ios_desktop_views off for the jitless device IPA).
+#
+# This is not BrowserView-on-TVOut yet. gn gen of
+# out/Release-iphonesimulator-views is green (44915 targets).
+# The 0026 look-alike shell is unchanged and is not the goal.
