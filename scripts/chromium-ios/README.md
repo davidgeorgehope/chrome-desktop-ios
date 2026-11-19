@@ -285,3 +285,20 @@ attached). Canonical copies of the updated sources are in
 
 
 
+
+## Desktop Views app on device (Phase A)
+
+Separate app beside Chromium.app; the existing `out/Release-iphoneos/args.gn`
+is untouched.
+
+- `args-views-device.gn` → `out/Release-iphoneos-views/args.gn`
+  (`enable_ios_desktop_views = true`, `use_aura = false`).
+- `build-chrome-views-device.sh` builds `chrome/browser/ui/views/ios:chrome_views_ios`.
+- `chromeviews-appid-stub/run-xcodebuild.sh` mints the explicit App ID
+  profile for `com.davidhope.deskbrowser.chromeviews` (increased-memory-limit +
+  extended-virtual-addressing) via Xcode automatic signing; reuses the
+  BlinkAppIDStub project with the bundle ID overridden. Run from an Aqua
+  LaunchAgent. The stub binary may fail to link; only the profile matters.
+- `sign-chrome-views-device.sh` refuses to sign unless that profile grants
+  memory, EVA and get-task-allow, covers the phone, and is unexpired; writes
+  `ChromeDesktop-device.ipa`. It never installs.

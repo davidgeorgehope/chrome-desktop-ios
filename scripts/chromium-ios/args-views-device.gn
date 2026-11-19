@@ -1,0 +1,27 @@
+# Phase A (docs/device-build-plan.md): desktop Views app for arm64 iPhone.
+# Separate out dir; out/Release-iphoneos/args.gn is untouched (flag off there).
+target_os = "ios"
+target_environment = "device"
+target_cpu = "arm64"
+use_blink = true
+is_debug = false
+symbol_level = 0
+blink_symbol_level = 0
+v8_symbol_level = 0
+ios_content_shell_bundle_identifier = "com.davidhope.deskbrowser.shell"
+ios_chromium_bundle_id = "com.davidhope.deskbrowser.blink"
+ios_enable_code_signing = false
+v8_enable_drumbrake = true
+enable_ios_desktop_views = true
+use_aura = false
+enable_library_cdms = false
+enable_extensions = true
+enable_guest_view = true
+enable_webui_ntp = true
+enable_webui_history = true
+enable_webui_bookmarks = true
+enable_message_center = true
+enable_printing_tests = false
+enable_screen_ai_service = true
+enable_on_device_translation = true
+enterprise_cloud_content_analysis = false
