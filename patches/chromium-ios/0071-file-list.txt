@@ -1,0 +1,7 @@
+chrome/browser/device_reauth/BUILD.gn
+chrome/browser/device_reauth/chrome_device_authenticator_factory.cc
+chrome/browser/ui/passwords/BUILD.gn
+components/password_manager/core/browser/BUILD.gn
+components/custom_handlers/BUILD.gn
+components/os_crypt/async/browser/BUILD.gn
+components/os_crypt/browser/BUILD.gn
