@@ -1,0 +1,39 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "components/enterprise/browser/reporting/reporting_features.h"
+#include "build/ios_buildflags.h"
+
+#include "base/feature_list.h"
+
+namespace enterprise_reporting {
+
+BASE_FEATURE(kSaasUsageReporting,
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IOS_MOBILE_UI)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
+
+BASE_FEATURE(kGeminiInChromeUsageReporting, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kBrowserLaunchMetadataReporting,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kCbcmAndroidPackageNameIdentifier,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IOS_MOBILE_UI)
+BASE_FEATURE(kIOSSignalSharingEnabled, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IOS_MOBILE_UI)
+
+BASE_FEATURE(kUploadReportOnProfileOpen, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kChromeEnterpriseUMAMetricsCollection,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+}  // namespace enterprise_reporting

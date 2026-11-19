@@ -1,0 +1,6 @@
+# 0057 — Desktopize enterprise, tab groups, translate and autofill content; restore positive platform lists
+#
+# File-replacement patch. After 0056, copy the sources under 0057-files/
+# over the corresponding paths in Chromium src/. See 0057-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
