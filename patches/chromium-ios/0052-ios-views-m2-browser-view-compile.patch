@@ -1,0 +1,6 @@
+# 0052 — Add chrome_paths for desktop Views on iOS.
+#
+# File-replacement patch. After 0051, copy the sources under 0052-files/
+# over the corresponding paths in Chromium src/. See 0052-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
