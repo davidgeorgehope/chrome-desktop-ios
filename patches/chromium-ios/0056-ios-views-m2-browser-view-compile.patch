@@ -1,0 +1,6 @@
+# 0056 — Desktopize autofill, omnibox and bookmarks for the Chrome libs build.
+#
+# File-replacement patch. After 0055, copy the sources under 0056-files/
+# over the corresponding paths in Chromium src/. See 0056-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
