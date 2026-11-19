@@ -1,0 +1,6 @@
+# 0103 — Register the iOS 27 external-display accessory for iOS Views
+#
+# File-replacement patch. After 0102, copy the sources under 0103-files/
+# over the corresponding paths in Chromium src/. See 0103-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.

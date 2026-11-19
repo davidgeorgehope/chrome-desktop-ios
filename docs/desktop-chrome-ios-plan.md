@@ -210,6 +210,7 @@ under "iOS ports" below.
 | 0100 | Browser main loop on iOS | ported: ChromeMainDelegate::RunProcess initializes and leaks a BrowserMainRunner and returns to UIApplicationMain (as content_shell iOS does) | — |
 | 0101 | Feature engagement on-device event storage (iOS mobile path) | cut: iOS Views uses desktop profile-only event storage | — |
 | 0102 | NativeWidgetIOS scene placement | ported: widgets created before any UIScene connects are re-homed on UISceneWillConnect/DidActivate (preferring the external scene); top-level windows fill large screens | — |
+| 0103 | iOS 27 external display scene | ported: phone scene delegate registers UISceneAccessory.externalNonInteractive on its stable root VC (as 0012/0024 did for iOS Chrome); TVOut scene now connects | — |
 
 ## iOS ports
 
