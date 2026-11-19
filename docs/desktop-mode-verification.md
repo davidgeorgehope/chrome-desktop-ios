@@ -40,3 +40,14 @@ tools/desktop-mode/results-2026-11-19.jsonl.
   plausible macOS version string but is the iOS runtime's number.
 - Reddit's bot wall is likely the fresh profile, no cookies and a
   datacenter/sim network; it is a desktop page.
+
+## Re-run on HEAD 06fbcff (19 Nov 2026, 11:41–11:48 AM ET)
+
+Re-run after the trackpad/focus patches 0117–0121, adding the local UA echo
+page to the batch. All sites PASS again: Mac UA (Intel Mac OS X 10_15_7,
+no "Mobile"), Sec-CH-UA-Mobile ?0, Sec-CH-UA-Platform "macOS", form factors
+"Desktop", userAgentData.mobile false, maxTouchPoints 0, no ontouchstart,
+pointer fine + hover, innerWidth = clientWidth = 1912, visualViewport scale 1,
+and no m./mobile redirects (www.youtube.com, en.wikipedia.org, www.reddit.com,
+x.com, www.google.com). Reddit's desktop feed loaded this time (no captcha wall).
+Raw probe output: tools/desktop-mode/results-2026-11-19-rerun-1144.jsonl.
