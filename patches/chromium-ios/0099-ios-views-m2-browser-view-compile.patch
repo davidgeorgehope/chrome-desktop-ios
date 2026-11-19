@@ -1,0 +1,6 @@
+# 0099 — Use desktop resource scale factors on iOS Views
+#
+# File-replacement patch. After 0098, copy the sources under 0099-files/
+# over the corresponding paths in Chromium src/. See 0099-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.

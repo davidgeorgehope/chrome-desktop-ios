@@ -206,6 +206,7 @@ under "iOS ports" below.
 | 0096 | OS-level geolocation permission manager | ported: created at PreMainMessageLoopRun via SystemGeolocationSourceApple, like Mac (new browser_process_platform_part_ios.mm) | — |
 | 0097 | Instant extended API (WebUI NTP instant process) | enabled on iOS Views like desktop (was false for all iOS) | — |
 | 0098 | Native display::Screen for Chrome on iOS Views | ported: ChromeBrowserMainExtraPartsViews::PreCreateThreads installs display::ScopedNativeScreen (ScreenIOS), like ChromeBrowserMainExtraPartsMac | — |
+| 0099 | Resource scale factors | ported: iOS Views supports 100P+200P like desktop/Mac (was only the panel DSF, 300P) | 300P pak if wanted for the 3x panel |
 
 ## iOS ports
 
