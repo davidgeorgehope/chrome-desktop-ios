@@ -1,0 +1,6 @@
+# 0054 — Restore the traffic annotation proto's policy deps on iOS Views.
+#
+# File-replacement patch. After 0053, copy the sources under 0054-files/
+# over the corresponding paths in Chromium src/. See 0054-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
