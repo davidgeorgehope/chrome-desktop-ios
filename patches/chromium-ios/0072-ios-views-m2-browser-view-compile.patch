@@ -1,0 +1,6 @@
+# 0072 — iOS Views first run, notifications, status tray, shell integration
+#
+# File-replacement patch. After 0071, copy the sources under 0072-files/
+# over the corresponding paths in Chromium src/. See 0072-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
