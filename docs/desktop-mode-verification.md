@@ -51,3 +51,27 @@ pointer fine + hover, innerWidth = clientWidth = 1912, visualViewport scale 1,
 and no m./mobile redirects (www.youtube.com, en.wikipedia.org, www.reddit.com,
 x.com, www.google.com). Reddit's desktop feed loaded this time (no captcha wall).
 Raw probe output: tools/desktop-mode/results-2026-11-19-rerun-1144.jsonl.
+
+## Re-run 2026-11-19, 1:15–1:21 PM ET (patches through 0130)
+
+After the context-menu, input, diagnostics-trim, audio and shutdown changes.
+batch.sh now takes the ALIVE/DEAD line from site.sh (the TVOut re-plug notice
+could come first and made the 11:44 run reuse a stale X screenshot) and takes
+a fresh TVOut screenshot after each probe. Raw values:
+tools/desktop-mode/results-2026-11-19-rerun-1315.jsonl.
+
+| Page | UA Mac, no Mobile | platform | uaData.mobile / platform | maxTouchPoints / ontouchstart | pointer fine / hover | innerWidth = clientWidth, dpr, scale | Final URL | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| UA echo | yes | MacIntel | false / macOS | 0 / false | true / true | 1912, 1, 1 | http://127.0.0.1:8765/ | PASS |
+| echo, meta viewport width=400 | yes | MacIntel | false / macOS | 0 / false | true / true | 1912, 1, 1 (meta ignored) | /echo?vp=400 | PASS |
+| whatismybrowser | yes | MacIntel | false / macOS | 0 / false | true / true | 1912, 1, 1 | www.whatismybrowser.com ("Chrome 160 on macOS") | PASS |
+| YouTube | yes | MacIntel | false / macOS | 0 / false | true / true | 1912, 1, 1 | www.youtube.com | PASS |
+| Wikipedia | yes | MacIntel | false / macOS | 0 / false | true / true | 1912, 1, 1 | en.wikipedia.org | PASS |
+| Reddit | yes | MacIntel | false / macOS | 0 / false | true / true | 1912, 1, 1 | www.reddit.com (desktop feed this time) | PASS |
+| X | yes | MacIntel | false / macOS | 0 / false | true / true | 1912, 1, 1 | x.com (fresh desktop login screenshot) | PASS |
+| Google | yes | MacIntel | false / macOS | 0 / false | true / true | 1912, 1, 1 | www.google.com/search?q=chromium | PASS |
+
+Request headers on the echo server: Sec-CH-UA-Mobile ?0, Sec-CH-UA-Platform
+"macOS", Sec-CH-UA-Form-Factors "Desktop", Sec-CH-UA-Model "", Mac UA.
+No m./mobile redirects. Screenshots: views-m2-real/desktop-mode/rerun-1315/
+(contact-sheet.png plus one per page). Result: all PASS.
