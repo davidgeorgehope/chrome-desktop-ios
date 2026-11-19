@@ -1,0 +1,6 @@
+# 0060 — Fix fourth batch of iOS Views browser compile errors
+#
+# File-replacement patch. After 0059, copy the sources under 0060-files/
+# over the corresponding paths in Chromium src/. See 0060-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
