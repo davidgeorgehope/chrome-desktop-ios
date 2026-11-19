@@ -224,6 +224,7 @@ under "iOS ports" below.
 | 0114 | NativeViewHost subview sizing | fix: DeskBrowserViewsContentView layoutSubviews stretched every sublayer, including backing layers of native subviews, so the WebContents UIScrollView covered the whole window. It now only stretches non-UIView (compositor) layers. Page sits in the contents area under the real tab strip and toolbar. |
 | 0115 | Single-process infobar | cut: chrome/browser/ui/startup/bad_flags_prompt.cc leaves switches::kSingleProcess out of kBadFlags on iOS Views (the host always injects it; not a user flag). Infobar gone; web area 1912x984. |
 | 0116 | PA quarantine back on | revert of the 0106 workaround: PartitionAllocSchedulerLoopQuarantine is no longer disabled by the iOS Views host. Its OOM trap was the GetAllOwnedWidgets recursion fixed in 0108. |
+| — | Desktop-mode verification | verified: Mac desktop UA, Sec-CH-UA-Mobile ?0, platform macOS, userAgentData.mobile false, maxTouchPoints 0, desktop viewport with meta viewport ignored, no m. redirects on whatismybrowser/YouTube/Google/Wikipedia/Reddit/X. See docs/desktop-mode-verification.md. |
 
 ## iOS ports
 
