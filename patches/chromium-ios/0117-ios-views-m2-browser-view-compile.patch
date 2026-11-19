@@ -1,0 +1,6 @@
+# 0117 — NativeWidgetIOS: trackpad input entry points and focus listener
+#
+# File-replacement patch. After 0116, copy the sources under 0117-files/
+# over the corresponding paths in Chromium src/. See 0117-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
