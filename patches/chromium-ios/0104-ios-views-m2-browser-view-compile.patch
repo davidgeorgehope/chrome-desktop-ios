@@ -1,0 +1,6 @@
+# 0104 — Resize the Views root when a widget moves to TVOut
+#
+# File-replacement patch. After 0103, copy the sources under 0104-files/
+# over the corresponding paths in Chromium src/. See 0104-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
