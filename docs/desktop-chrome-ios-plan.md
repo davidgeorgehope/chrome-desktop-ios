@@ -240,6 +240,7 @@ under "iOS ports" below.
 | 0130 | Menus: keys, capture, safe close | MenuPreTargetHandlerIOS (was empty) feeds trackpad keys to MenuController via a NativeWidgetIOS key monitor; trackpad sends pointer events to the capture widget; NativeWidgetIOS::Close is async, the compositor releases (not re-sets) its widget, and the owned Widget is freed after delegate_ is cleared. Escape and outside click dismiss, Down+Return activates Reload, no crash on close. |
 | 0131 | Menu accelerator labels | Accelerator::GetShortcutText falls back to the US-layout character on iOS too, so menus read "Ctrl+R" instead of "Ctrl+". |
 | 0132 | Chrome Desktop name, launch screen | Views app Info.plist: display name "Chrome Desktop", UILaunchScreen dict instead of an empty storyboard name. |
+| 0133 | metagen root target | v8 metagen `gn desc` reuses the build dir's --root-target so the device Views build's //v8:run_metagen resolves. |
 | — | Desktop-mode verification | verified: Mac desktop UA, Sec-CH-UA-Mobile ?0, platform macOS, userAgentData.mobile false, maxTouchPoints 0, desktop viewport with meta viewport ignored, no m. redirects on whatismybrowser/YouTube/Google/Wikipedia/Reddit/X. See docs/desktop-mode-verification.md. |
 
 ## iOS ports
