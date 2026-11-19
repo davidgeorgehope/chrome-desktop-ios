@@ -1,0 +1,6 @@
+# 0102 — Re-home iOS Views widgets when a scene connects
+#
+# File-replacement patch. After 0101, copy the sources under 0102-files/
+# over the corresponding paths in Chromium src/. See 0102-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
