@@ -214,6 +214,7 @@ under "iOS ports" below.
 | 0104 | Widget resize on scene move | ported: MoveToPreferredScene goes through SetBounds so RootView/BrowserView get OnNativeWidgetSizeChanged at the new screen size | — |
 | 0105 | ScreenIos displays, cursor, idle | ported: one display::Display per UIScreen (external = primary at origin, panel to its right), GetDisplayNearestWindow/View by UIScreen, scene connect/disconnect refresh; stubs: cursor point = primary center, CalculateIdleTime 0 (no iOS idle timer; enterprise idle timeout never fires) | pointer-based cursor tracking; idle from last UIEvent |
 | 0106 | Child processes / JIT / PA quarantine | cut: iOS Views host defaults to --single-process --in-process-gpu --js-flags=--jitless and disables NetTaskScheduler, NetworkServiceTaskScheduler, PartitionAllocSchedulerLoopQuarantine (no BrowserEngineKit extensions bundled; quarantine OOM-traps on a normal free) | BrowserEngineKit renderer/GPU extensions; investigate quarantine sizing |
+| 0107 | NativeWidgetIOS diagnostics | diag: one-shot CALayer/UIView tree dump 8 s after a TYPE_WINDOW moves scenes, and a widget name/type/contents NSLog on Show, used to find the stray bubbles (BubbleDialogModelHost 334x157). Temporary; trim once the stray widgets are gone. |
 
 ## iOS ports
 
