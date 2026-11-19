@@ -199,6 +199,7 @@ under "iOS ports" below.
 | 0087 | CBCM remote commands + invalidator | not started | build `cbcm_remote_commands_factory` |
 | 0087 | Removable storage list (imageWriterPrivate) | always empty | n/a on iOS |
 | 0091 | Enterprise client certificates: unexportable (Secure Enclave) keys | software keys only (no keychain access group) | keychain access group entitlement |
+| 0092 | Supervised user: locally-parent-approved extensions migration pref | registered on iOS Views like Win/Mac/Linux (pref was declared but unregistered) | — |
 
 ## iOS ports
 
