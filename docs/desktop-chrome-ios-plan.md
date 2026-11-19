@@ -175,6 +175,12 @@ under "iOS ports" below.
 | 0082 | `webAuthenticationProxy` extension API | API not generated, no proxy | build the API + service |
 | 0082 | `networkingPrivate` UI delegate | factory not registered | Wi-Fi/network UI delegate for iOS |
 | 0082 | Captive portal Wi-Fi SSID lookup | SSID left empty (generic captive portal page) | `wifi::WiFiService` for iOS |
+| 0083 | Feedback-disabled dialog | not shown (histogram still recorded) | build `feedback_disabled_dialog` |
+| 0083 | chrome://policy custom command line | not reported | `ScopedInitialCommandLine` on iOS |
+| 0083 | Settings "System" strings, delete-profile on sign out | skipped (single profile, no System page) | System handler / profile_helper |
+| 0083 | Picture-in-picture auto occlusion | stub helper (Android's) | widget occlusion helper |
+| 0083 | System notifications bridge | none, message center only (`CanHandleType` false) | UNUserNotificationCenter bridge |
+| 0083 | Version updater | basic (no update UI, like Linux) | App Store update check |
 
 ## iOS ports
 
@@ -189,6 +195,10 @@ under "iOS ports" below.
 | 0080 | Proxy and cookie settings policy handlers built (components) |
 | 0081 | Web app startup utils (`--app` launches) built (Mac parity) |
 | 0082 | Standalone trusted vault client/frontend built (Mac parity) |
+| 0083 | Bookmark clipboard (copy/paste bookmarks) via ui::Clipboard iOS |
+| 0083 | `HandleAppExitingForPlatform` (closes remaining widgets) |
+| 0083 | `GetDirectLaunchUrlScheme` (empty: no google-chrome:// scheme) |
+| 0083 | `OpaqueBrowserFrameView` implementation linked into the iOS frame factory |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)

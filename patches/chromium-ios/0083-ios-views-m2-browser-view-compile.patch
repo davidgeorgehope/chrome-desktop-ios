@@ -1,0 +1,6 @@
+# 0083 — Port bookmark clipboard, app exit, frame view; cut small desktop-only callers on iOS Views
+#
+# File-replacement patch. After 0082, copy the sources under 0083-files/
+# over the corresponding paths in Chromium src/. See 0083-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
