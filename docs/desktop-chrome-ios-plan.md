@@ -172,6 +172,9 @@ under "iOS ports" below.
 | 0081 | First run experience (FirstRunService, startup FRE, prefs) | not created, startup opens the browser directly | FRE on iOS |
 | 0081 | Profile/signin services: accounts policy manager, profile management disclaimer, token / OIDC signin interceptors and policy services, enterprise signin, browser switcher, Gapis | factories not created | build those targets |
 | 0081 | `--list-apps` web app file writer | narrowed | n/a |
+| 0082 | `webAuthenticationProxy` extension API | API not generated, no proxy | build the API + service |
+| 0082 | `networkingPrivate` UI delegate | factory not registered | Wi-Fi/network UI delegate for iOS |
+| 0082 | Captive portal Wi-Fi SSID lookup | SSID left empty (generic captive portal page) | `wifi::WiFiService` for iOS |
 
 ## iOS ports
 
@@ -185,6 +188,7 @@ under "iOS ports" below.
 | 0077 | `ChromeViewsDelegate` uses content's context factory (Mac file) |
 | 0080 | Proxy and cookie settings policy handlers built (components) |
 | 0081 | Web app startup utils (`--app` launches) built (Mac parity) |
+| 0082 | Standalone trusted vault client/frontend built (Mac parity) |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)
