@@ -1,0 +1,6 @@
+# 0098 — Install the native display Screen on iOS Views
+#
+# File-replacement patch. After 0097, copy the sources under 0098-files/
+# over the corresponding paths in Chromium src/. See 0098-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
