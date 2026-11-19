@@ -1,0 +1,17 @@
+target_os = "ios"
+target_environment = "simulator"
+target_cpu = "arm64"
+use_blink = true
+is_debug = false
+symbol_level = 1
+blink_symbol_level = 0
+v8_symbol_level = 0
+ios_content_shell_bundle_identifier = "com.davidhope.deskbrowser.shell"
+ios_chromium_bundle_id = "com.davidhope.deskbrowser.blink"
+# Desktop Views on iOS (Mac-style: Views without Aura).
+enable_ios_desktop_views = true
+use_aura = false
+enable_library_cdms = false
+# Mac parity: desktop BrowserView assumes the full extensions system.
+enable_extensions = true
+enable_guest_view = true
