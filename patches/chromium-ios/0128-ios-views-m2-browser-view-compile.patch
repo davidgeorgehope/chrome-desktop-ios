@@ -1,0 +1,6 @@
+# 0128 — iOS Views: trim bring-up diagnostics
+#
+# File-replacement patch. After 0127, copy the sources under 0128-files/
+# over the corresponding paths in Chromium src/. See 0128-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
