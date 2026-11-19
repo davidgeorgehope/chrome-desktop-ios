@@ -1,0 +1,6 @@
+# 0132 — iOS Views app: Chrome Desktop name and launch screen
+#
+# File-replacement patch. After 0131, copy the sources under 0132-files/
+# over the corresponding paths in Chromium src/. See 0132-files/README.md.
+#
+# Keep enable_ios_desktop_views off in out/Release-iphoneos (Chromium.app).
