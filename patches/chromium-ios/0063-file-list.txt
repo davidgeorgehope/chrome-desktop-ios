@@ -1,0 +1,3 @@
+chrome/browser/chrome_browser_interface_binders_webui_parts_desktop.cc
+chrome/browser/ui/webui/infobar_internals/BUILD.gn
+chrome/browser/ui/webui/infobar_internals/infobar_internals.mojom
