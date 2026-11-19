@@ -1,0 +1,6 @@
+# 0045 — Fix history side panel mojom deps and iOS native messaging build.
+#
+# File-replacement patch. After 0044, copy the sources under 0045-files/
+# over the corresponding paths in Chromium src/. See 0045-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
