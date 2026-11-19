@@ -1,0 +1,10 @@
+# 0027 — Start walking the real //chrome BrowserView GN graph on iOS.
+#
+# File-replacement patch. After 0026, copy the sources under 0027-files/
+# over the corresponding paths in Chromium src/. See 0027-files/README.md.
+#
+# Do not apply this to the device chrome target (keep
+# enable_ios_desktop_views off for the jitless device IPA).
+#
+# This is not BrowserView-on-TVOut yet. gn gen is still in progress;
+# the 0026 look-alike shell is unchanged and is not the goal.
