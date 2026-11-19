@@ -1,0 +1,6 @@
+# 0080 — Cut desktop-only policy handlers and platform provider on iOS Views
+#
+# File-replacement patch. After 0079, copy the sources under 0080-files/
+# over the corresponding paths in Chromium src/. See 0080-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
