@@ -1,0 +1,6 @@
+# 0129 — iOS Views: wait for pref rundown in EndSession
+#
+# File-replacement patch. After 0128, copy the sources under 0129-files/
+# over the corresponding paths in Chromium src/. See 0129-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
