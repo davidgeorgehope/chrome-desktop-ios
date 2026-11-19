@@ -1,0 +1,6 @@
+# 0106 — Run iOS Views Chrome single-process and jitless by default
+#
+# File-replacement patch. After 0105, copy the sources under 0106-files/
+# over the corresponding paths in Chromium src/. See 0106-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
