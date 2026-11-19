@@ -1,0 +1,6 @@
+# 0081 — Cut first run and desktop signin/profile services on iOS Views
+#
+# File-replacement patch. After 0080, copy the sources under 0081-files/
+# over the corresponding paths in Chromium src/. See 0081-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.

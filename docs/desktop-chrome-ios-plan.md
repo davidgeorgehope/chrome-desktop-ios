@@ -169,6 +169,9 @@ under "iOS ports" below.
 | 0080 | Platform policy provider | null (no managed app config) | `PolicyLoaderIOS` |
 | 0080 | Policies: browser switcher, enterprise skills, memory saver / search aggregator / site search, guest mode / local sync / theme color, Gemini URL, battery saver | handlers not registered | build the handlers' targets |
 | 0080 | Browser switcher, enterprise signin profile prefs | not registered | build `browser_switcher`, `enterprise/signin` |
+| 0081 | First run experience (FirstRunService, startup FRE, prefs) | not created, startup opens the browser directly | FRE on iOS |
+| 0081 | Profile/signin services: accounts policy manager, profile management disclaimer, token / OIDC signin interceptors and policy services, enterprise signin, browser switcher, Gapis | factories not created | build those targets |
+| 0081 | `--list-apps` web app file writer | narrowed | n/a |
 
 ## iOS ports
 
@@ -181,6 +184,7 @@ under "iOS ports" below.
 | 0077 | tabs_api drag input adapter over `EventMonitor` |
 | 0077 | `ChromeViewsDelegate` uses content's context factory (Mac file) |
 | 0080 | Proxy and cookie settings policy handlers built (components) |
+| 0081 | Web app startup utils (`--app` launches) built (Mac parity) |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)
