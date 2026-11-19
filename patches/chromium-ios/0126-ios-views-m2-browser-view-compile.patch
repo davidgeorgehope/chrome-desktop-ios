@@ -1,0 +1,6 @@
+# 0126 — iOS desktop Views: Chrome web context menu
+#
+# File-replacement patch. After 0125, copy the sources under 0126-files/
+# over the corresponding paths in Chromium src/. See 0126-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
