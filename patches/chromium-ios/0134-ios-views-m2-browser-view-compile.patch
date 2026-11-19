@@ -1,0 +1,6 @@
+# 0134 — iOS Views app: desktop windows only on the monitor; phone shows connect hint
+#
+# File-replacement patch. After 0133, copy the sources under 0134-files/
+# over the corresponding paths in Chromium src/. See 0134-files/README.md.
+#
+# Keep enable_ios_desktop_views off in out/Release-iphoneos (Chromium.app).
