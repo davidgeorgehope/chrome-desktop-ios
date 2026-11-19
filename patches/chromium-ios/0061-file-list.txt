@@ -1,0 +1,14 @@
+chrome/browser/component_updater/pki_metadata_component_installer.cc
+chrome/browser/file_system_access/chrome_file_system_access_permission_context.cc
+chrome/browser/glic/host/glic_web_client_handler.cc
+chrome/browser/net/profile_network_context_service.cc
+chrome/browser/policy/chrome_browser_cloud_management_controller_desktop.cc
+chrome/browser/support_tool/support_tool_util.cc
+chrome/browser/ui/read_anything/read_anything_entry_point_controller.cc
+chrome/browser/ui/tabs/tab_features.cc
+chrome/browser/ui/views/bookmarks/bookmark_editor_view.cc
+chrome/browser/ui/views/desktop_capture/desktop_media_picker_views.cc
+chrome/browser/ui/views/frame/picture_in_picture_browser_frame_view.cc
+chrome/browser/ui/webui/infobar_internals/BUILD.gn
+chrome/browser/ui/webui/settings/settings_ui.cc
+chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_page_handler.cc
