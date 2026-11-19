@@ -1,0 +1,6 @@
+# 0076 — Use Mac relaunch banner strings for iOS desktop Views
+#
+# File-replacement patch. After 0075, copy the sources under 0076-files/
+# over the corresponding paths in Chromium src/. See 0076-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
