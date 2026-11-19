@@ -181,6 +181,10 @@ under "iOS ports" below.
 | 0083 | Picture-in-picture auto occlusion | stub helper (Android's) | widget occlusion helper |
 | 0083 | System notifications bridge | none, message center only (`CanHandleType` false) | UNUserNotificationCenter bridge |
 | 0083 | Version updater | basic (no update UI, like Linux) | App Store update check |
+| 0084 | Device signals: agent (CrowdStrike), certificate, desktop OS, file system collectors; system signals host | not collected (profile signals only) | iOS device signals collectors |
+| 0084 | Device trust browser signals decorator | not added | build `browser_signals_decorator` |
+| 0084 | Managed-profile-required interstitial "open in managed profile" | falls back to the plain interstitial | managed profile creation |
+| 0084 | Browser launch event reporting (browser and profile) | none (as on Android) | `browser_launch_event_uploader_desktop` |
 
 ## iOS ports
 
@@ -199,6 +203,8 @@ under "iOS ports" below.
 | 0083 | `HandleAppExitingForPlatform` (closes remaining widgets) |
 | 0083 | `GetDirectLaunchUrlScheme` (empty: no google-chrome:// scheme) |
 | 0083 | `OpaqueBrowserFrameView` implementation linked into the iOS frame factory |
+| 0084 | SaaS usage reporting (Android/desktop shared sources) built |
+| 0084 | Enterprise idle timeout dialog manager + Views idle dialog and enterprise startup dialog built |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)

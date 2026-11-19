@@ -1,0 +1,7 @@
+chrome/browser/enterprise/signals/signals_aggregator_factory.cc
+chrome/browser/enterprise/connectors/device_trust/signals/signals_service_factory.cc
+chrome/browser/enterprise/signin/interstitials/managed_profile_required_page.cc
+chrome/browser/enterprise/reporting/cloud_profile_reporting_service.cc
+chrome/browser/policy/chrome_browser_cloud_management_controller_desktop.cc
+chrome/browser/enterprise/BUILD.gn
+chrome/browser/BUILD.gn
