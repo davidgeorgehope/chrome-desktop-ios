@@ -1,0 +1,6 @@
+# 0124 — iOS Views: desktop cursor/window lookup and right-button web input
+#
+# File-replacement patch. After 0123, copy the sources under 0124-files/
+# over the corresponding paths in Chromium src/. See 0124-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
