@@ -1,0 +1,6 @@
+# 0086 — Cut cast remoting, signin WebUI dialogs, structured metrics and other desktop callers on iOS Views
+#
+# File-replacement patch. After 0085, copy the sources under 0086-files/
+# over the corresponding paths in Chromium src/. See 0086-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.

@@ -185,6 +185,15 @@ under "iOS ports" below.
 | 0084 | Device trust browser signals decorator | not added | build `browser_signals_decorator` |
 | 0084 | Managed-profile-required interstitial "open in managed profile" | falls back to the plain interstitial | managed profile creation |
 | 0084 | Browser launch event reporting (browser and profile) | none (as on Android) | `browser_launch_event_uploader_desktop` |
+| 0086 | Cast remoting (tab mirroring / remote playback permission) | skipped, `ENABLE_MEDIA_REMOTING` is off on iOS | media remoting on iOS |
+| 0086 | Security settings bundle toast, multistep filter observer, walletable pass detection | not created | build those targets |
+| 0086 | Enterprise referrer chain from Safe Browsing nav observer | empty chain | Safe Browsing on iOS Views |
+| 0086 | Deprecated Chrome Apps dialogs | not shown | build `web_apps` deprecated dialogs |
+| 0086 | Password keychain-error relaunch bubble, biometric auth bubbles | not shown | relaunch view / iOS biometrics |
+| 0086 | History sync opt-in dialog, managed user notice dialog, signin intercept FRE dialog | `NOTIMPLEMENTED()`, flow skipped | build HistorySyncOptinUI / ManagedUserProfileNoticeUI |
+| 0086 | Managed-profile disclaimer in DICE interception and history sync | skipped (managed accounts skip history sync opt-in) | `ProfileManagementDisclaimerService` |
+| 0086 | Structured metrics recorder | not created | build `chrome_structured_metrics_delegate` |
+| 0086 | UI DevTools DOM/overlay agents | server runs with tracing only | `DOMAgentIOS` / `OverlayAgentIOS` |
 
 ## iOS ports
 

@@ -1,0 +1,15 @@
+chrome/browser/media/router/mojo/media_router_desktop.cc
+chrome/browser/media/cast_mirroring_service_host.cc
+chrome/browser/ssl/https_first_mode_settings_tracker.cc
+chrome/browser/ui/tabs/tab_features.cc
+chrome/browser/enterprise/connectors/referrer_cache_utils.cc
+chrome/browser/ui/views/tab_dialogs_views.cc
+chrome/browser/ui/views/passwords/password_bubble_view_base.cc
+chrome/browser/ui/views/profiles/signin_view_controller_delegate_views.h
+chrome/browser/ui/views/profiles/signin_view_controller_delegate_views.cc
+chrome/browser/metrics/chrome_metrics_service_client.cc
+chrome/browser/ui/signin/signin_view_controller.cc
+chrome/browser/ui/webui/signin/history_sync_optin_helper.cc
+chrome/browser/ui/webui/signin/history_sync_optin_service.cc
+chrome/browser/signin/dice_web_signin_interceptor.cc
+components/ui_devtools/views/devtools_server_util.cc
