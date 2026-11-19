@@ -220,6 +220,7 @@ under "iOS ports" below.
 | 0110 | System UI font | port: PlatformFontIOS::GetCTFont asks UIKit for systemFontOfSize:weight: (plus italic trait) when the font name is dot-prefixed (".SFUI-Regular"), which fontWithName: maps to Times New Roman on iOS 13+. Views UI now renders in SF. ENABLE_IOS_DESKTOP_VIEWS only. |
 | 0111 | In-process WebContents compositing | port: with --in-process-gpu/--single-process the presenter parents each surface root CALayer directly on its CALayerFrameSinkProvider (RWHV) layer instead of handing it to a BELayerHierarchy nobody hosts, and inserts it at index 0 so native subviews stay on top. First real Blink page (example.com) on TVOut. |
 | 0112 | On-device model service | cut: content/utility/services.cc RunOnDeviceModel returns null on iOS Views (in-process utilities never run the on-device-model pre-sandbox hook; CHECK fired ~3 min after launch). Callers see a disconnect = on-device AI unavailable. |
+| 0113 | Web contents placement diagnostics | diag: NativeViewHostIOS::ShowWidget logs frame changes (view class, superview, z-index), and the GPU presenter logs each sink superview chain (class, frame, clips, hidden). Used to find why the page covers the whole TVOut window. Temporary. |
 
 ## iOS ports
 
