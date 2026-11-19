@@ -1,0 +1,6 @@
+components/autofill_payments_strings.grdp
+components/resources/autofill_scaled_resources.grdp
+components/resources/crash_scaled_resources.grdp
+chrome/browser/resources/new_tab_footer/BUILD.gn
+chrome/browser/resources/new_tab_shared/BUILD.gn
+chrome/browser/ui/webui/customize_buttons/BUILD.gn
