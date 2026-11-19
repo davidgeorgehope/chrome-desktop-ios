@@ -1,0 +1,29 @@
+# Copyright 2021 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//media/gpu/args.gni")
+import("//media/media_options.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+
+mojom("mojom") {
+  generate_blink = true
+  generate_java = true
+  sources = [
+    "context.mojom",
+    "sandbox.mojom",
+  ]
+
+  enabled_features = []
+  if (is_ios && enable_ios_desktop_views) {
+    # Utility sandboxes that desktop Chrome on iOS uses like Mac.
+    enabled_features += [ "ios_desktop_views" ]
+  }
+  if (use_linux_video_acceleration) {
+    enabled_features += [ "enable_oop_video_accelerators" ]
+  }
+  if (enable_oop_video_decoder) {
+    enabled_features += [ "enable_oop_video_decoder" ]
+  }
+}
