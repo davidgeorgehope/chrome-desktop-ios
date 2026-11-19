@@ -2,9 +2,9 @@
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 set -u
 TAG="${1:-ff}"
-UDID=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB
-SHOTDIR="/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-sim-0022-${TAG}-manual"
-LIST=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/list-windows
+UDID=${SIM_UDID:-booted}
+SHOTDIR="$HOME/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-sim-0022-${TAG}-manual"
+LIST=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop/list-windows
 mkdir -p "$SHOTDIR"
 LOG="$SHOTDIR/watch.log"
 echo "WATCH_START $(date) udid=$UDID tag=$TAG" | tee -a "$LOG"

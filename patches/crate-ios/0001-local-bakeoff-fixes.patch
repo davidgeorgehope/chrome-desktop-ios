@@ -328,7 +328,7 @@ index 386e1ce..d15be79 100644
 +    settings:
 +      base:
 +        PRODUCT_BUNDLE_IDENTIFIER: com.davidhope.crate.d4probe
-+        DEVELOPMENT_TEAM: 4P2629648N
++        DEVELOPMENT_TEAM: YOURTEAMID
 +        CODE_SIGN_STYLE: Automatic
 +        CODE_SIGN_IDENTITY[sdk=iphoneos*]: Apple Development
 +        GENERATE_INFOPLIST_FILE: YES

@@ -13,7 +13,7 @@ set -euo pipefail
 OUT="${CHROMIUM_OUT:-$HOME/chromium-build/chromium/src/out/Release-iphonesimulator}"
 APP="${CHROME_APP:-$OUT/Chromium.app}"
 BUNDLE_ID="${CHROME_BUNDLE_ID:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")}"
-UDID="${SIM_UDID:-6532E3AA-A7DF-48F4-9E87-6C4EA94F4C74}"   # iPad (A16)
+UDID="${SIM_UDID:-booted}"   # iPad (A16)
 WORKDIR="${WORKDIR:-$HOME/chromium-sim-run/chrome}"
 log() { printf '%s %s\n' "$(date '+%F %T %Z')" "$*"; }
 

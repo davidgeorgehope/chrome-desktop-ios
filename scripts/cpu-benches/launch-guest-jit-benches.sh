@@ -2,9 +2,9 @@
 set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 export LANG=C
-ROOT=/Users/davidhope/linux-ios-bakeoff/src/Kernarium
+ROOT=$HOME/linux-ios-bakeoff/src/Kernarium
 BIN="$ROOT/.build/presets/macos-integration/bin/uml-darwin"
-NOTES=/Users/davidhope/linux-ios-bakeoff/notes
+NOTES=$HOME/linux-ios-bakeoff/notes
 PACK="$NOTES/cpu-benches"
 ROOTFS=/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-minimal.ext4
 [ -x "$BIN" ] || { echo "missing uml-darwin"; exit 1; }

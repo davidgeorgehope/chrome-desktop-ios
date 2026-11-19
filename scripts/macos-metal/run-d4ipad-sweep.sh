@@ -1,7 +1,7 @@
 #!/bin/bash
 # Usage: run-d4ipad-sweep.sh "BUDGET/EXEC/browser-n" ...   e.g. 3G/128M/cr-1
 # GUEST_MIB=3072 and IMG_B (image browser part, e.g. fflean) are optional env.
-D=/Users/davidhope/linux-ios-bakeoff/notes/ios-interactive
+D=$HOME/linux-ios-bakeoff/notes/ios-interactive
 for spec in "$@"; do
   JB=${spec%%/*}; rest=${spec#*/}; JE=${rest%%/*}; t=${rest#*/}; b=${t%-*}
   GM=${GUEST_MIB:-4096}; tag=sw$JB-$JE-g$GM-$t

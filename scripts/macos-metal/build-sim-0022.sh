@@ -4,10 +4,10 @@ export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
 export LANG=C
-ROOT=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean
+ROOT=$HOME/linux-ios-bakeoff/src/Kernarium-0022-clean
 export ROOT_DIR="$ROOT"
-NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
-UDID=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB
+NOTES=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop
+UDID=${SIM_UDID:-booted}
 LOG="$NOTES/build-sim-0022-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee -a "$LOG") 2>&1
 echo "BUILD_START $(date) log=$LOG root=$ROOT"
@@ -41,7 +41,7 @@ xcodebuild build \
   -jobs 8 \
   CODE_SIGNING_ALLOWED=NO \
   EXCLUDED_ARCHS=x86_64 \
-  DEVELOPMENT_TEAM=4P2629648N
+  DEVELOPMENT_TEAM=YOURTEAMID
 echo "XCODEBUILD_OK $(date)"
 APP="$ROOT/.build/kernarium-simulator-derived/Build/Products/Release-iphonesimulator/Kernarium.app"
 ls -la "$APP/Kernarium"

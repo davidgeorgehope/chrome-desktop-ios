@@ -29,7 +29,7 @@ What this patch does
   ui::MouseEvent press/release into the Views root.
 
 Verified 8:03 PM ET on the iOS 27.2 iPhone Duo simulator
-(UDID DE1E2D59-E674-4EE1-8096-097886FB5917), hinge 180, TVOut
+(UDID SIM-UDID), hinge 180, TVOut
 1920x1080: 02-tvout.png shows the tab strip and toolbar; a later
 axe tap on the inner LCD placed the software cursor in the contents
 area (04-tvout-after-tap.png). The inner LCD shows the "Trackpad"

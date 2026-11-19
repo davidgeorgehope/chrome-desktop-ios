@@ -1,9 +1,9 @@
 #!/bin/zsh
 # usage: crate-ext-simtest.sh <tag> <pattern:0|1> <WxH> [WxH...]
 set -u
-S=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB
-D=CAC98107-008E-4D2B-83AA-62E0C94759F6
-D2=7AF85721-E13C-4149-8FB9-DE588DCA6032
+S=${SIM_UDID:-booted}
+D=${SIM_UDID:-booted}
+D2=${SIM_UDID:-booted}
 APP=$HOME/linux-ios-bakeoff/dd-crate-sim/Build/Products/Debug-iphonesimulator/Crate.app
 OUT=$HOME/linux-ios-bakeoff/screenshots/crate-ext; mkdir -p $OUT
 tag=$1; pat=$2; shift 2

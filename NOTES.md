@@ -1,7 +1,7 @@
 # Linux-in-iOS Simulator bakeoff
 
 Date: Thu Nov 12, 2026, evening ET (America/New_York).
-Host: mac.lan (Darwin 25.3.0, arm64 T6020). Xcode 26.6, iOS 26.5 Simulator "Peek iPhone 17" (UDID 8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB).
+Host: mac.lan (Darwin 25.3.0, arm64 T6020). Xcode 26.6, iOS 26.5 Simulator "Peek iPhone 17" (UDID SIM-UDID).
 Work dir: ~/linux-ios-bakeoff. Simulator only. Nothing was installed on the iPhone.
 Caveat: the Simulator runs guest code on the Mac's Apple Silicon, so absolute numbers are much faster than a phone. The JIT numbers below also use a Simulator-only MAP_JIT path that a physical iPhone does not have unless a debugger (StikDebug) is attached. Use the gadget-engine column as the "no debugger on device" estimate.
 
@@ -62,7 +62,7 @@ Screenshots (box `/workspace/`, also on the mini under `~/linux-ios-bakeoff/scre
 
 Date: Thu Nov 12, 2026, 8:13–8:25 PM ET. Same JIT-enabled Kernarium build, now also honoring `KERNARIUM_DISPLAY_WIDTH`/`HEIGHT`. Official KDE erofs (~3.8 GB) is unpublished, so this uses a grown Alpine 3.24.2 ext4 instead of waiting on it.
 
-Guest: Alpine 3.24.2, Linux 6.18.60-gf89b4c310c47, XFCE 4.20 on Xorg modesetting, Firefox 151, pcmanfm, xfce4-terminal, mesa-demos, weston/labwc installed as fallbacks. 4 GiB ext4 (~1.3 GiB used). JIT on, 4096 MiB guest RAM, 8 vCPUs. Surface requested 1920×1080 at 160 DPI (`SIMCTL_CHILD_KERNARIUM_DISPLAY_*`). Host: iPad (A16) Simulator, UDID `6532E3AA-A7DF-48F4-9E87-6C4EA94F4C74`, portrait 1640×2360 screenshot (the 16:9 guest is scaled into the view).
+Guest: Alpine 3.24.2, Linux 6.18.60-gf89b4c310c47, XFCE 4.20 on Xorg modesetting, Firefox 151, pcmanfm, xfce4-terminal, mesa-demos, weston/labwc installed as fallbacks. 4 GiB ext4 (~1.3 GiB used). JIT on, 4096 MiB guest RAM, 8 vCPUs. Surface requested 1920×1080 at 160 DPI (`SIMCTL_CHILD_KERNARIUM_DISPLAY_*`). Host: iPad (A16) Simulator, UDID `SIM-UDID`, portrait 1640×2360 screenshot (the 16:9 guest is scaled into the view).
 
 Init is still slim (no OpenRC): mount, DHCP, then `start-desktop.sh` (udev, dbus, `/dev/pts`, XFCE). Scripts are in `scripts/desktop-guest/`.
 
@@ -383,7 +383,7 @@ The host VNC path was already wired end-to-end: the display maps keys and the po
 
 The production default was `WLR_BACKENDS=drm`. In wlroots, naming only `drm` disables the libinput backend, so labwc never created a keyboard or pointer seat. The fix is `WLR_BACKENDS=drm,libinput` (still overridable) plus a best-effort `chmod 666` of the evdev nodes so they are openable as soon as labwc starts, before udev retags them `root:input`. No new virtio-input device or uinput/evdev bridge was needed.
 
-Proof, via `vncdotool` against `127.0.0.1:5900`, with a distinctive local page (`INPUT_HOME`, yellow `CLICK_ME` link, plus `typed.html` / `clicked.html` targets). Screenshots are in `notes/desktop-input-proof/` (copies also under `/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/`):
+Proof, via `vncdotool` against `127.0.0.1:5900`, with a distinctive local page (`INPUT_HOME`, yellow `CLICK_ME` link, plus `typed.html` / `clicked.html` targets). Screenshots are in `notes/desktop-input-proof/` (copies also under `~/linux-ios-bakeoff/notes/macos-metal-desktop/`):
 
 - `input-proof-home.png` — Firefox showing `INPUT_HOME` / `file:///tmp/ff-local/index.html`.
 - `input-proof-click-hover.png` — pointer over `CLICK_ME`; Firefox status tooltip `file:///tmp/ff-local/clicked.html`.
@@ -563,7 +563,7 @@ The initiator is in `log show`:
 
 ### Simulator JIT through a48d90a
 
-The 4:15 AM reboot cleared the wedged Simulator. Peek iPhone 17 (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`) and iPad (A16) (`6532E3AA-A7DF-48F4-9E87-6C4EA94F4C74`) both booted cleanly. Nothing was installed on a physical iPhone.
+The 4:15 AM reboot cleared the wedged Simulator. Peek iPhone 17 (`SIM-UDID`) and iPad (A16) (`SIM-UDID`) both booted cleanly. Nothing was installed on a physical iPhone.
 
 The live Kernarium tree was still at the pre-evict JIT sources (official evict/packed/arena builds had been side copies). For this Simulator rebuild only, `patches/0013-jit-publish-arena/` (evict-on-full + packed publish + bump arena) was copied onto `darwin/cpu/arm64/jit/{jit_shared_translations.cpp,jit_shared_translations.hpp,jit_executor_cache.cpp}`. `cmake --build --preset kernarium-ios-simulator` first failed because `darwin/memory/mmu/user_map.cpp` (mtime 01:09 AM ET) includes `<mach/mach_vm.h>`, which the iPhoneSimulator 26.5 SDK rejects (`#error mach_vm.h unsupported`). `inventory_holes()` was switched to `vm_region_64` so the Simulator SDK can compile it; the official macOS binary was not rebuilt (inode 244909018 unchanged). Then KRuntime was packaged and `xcodebuild` produced `Release-iphonesimulator/Kernarium.app` at 4:36 AM ET (`SIMCTL_CHILD_KERNARIUM_EXECUTION_ENGINE=jit`, cache budget 1 GiB). MesaEGL/MesaGallium xcframeworks were reused from the 12 Nov 11:48 PM ET Simulator build.
 
@@ -600,7 +600,7 @@ First painted boot, 4:49:02 AM ET launch, iPad (A16) 1920×1080, JIT, 1 GiB cach
 | Firefox chrome painted (New Tab, blank content) | — | 4:49:38 AM (~31 s after READY) |
 | example.com painted | — | 4:50:22 AM (~75 s after READY) |
 
-Proof screenshot: `/Users/davidhope/linux-ios-bakeoff/screenshots/kernarium-sim-labwc-pixman-painted.png` (same bytes as `kernarium-sim-labwc-pixman-55s.png`, taken 4:50:22 AM ET). Earlier chrome-only frame: `kernarium-sim-labwc-pixman-25s.png`. The guest surface shows the labwc/Firefox window with the Example Domain page (a Firefox Privacy Notice tab also opened).
+Proof screenshot: `~/linux-ios-bakeoff/screenshots/kernarium-sim-labwc-pixman-painted.png` (same bytes as `kernarium-sim-labwc-pixman-55s.png`, taken 4:50:22 AM ET). Earlier chrome-only frame: `kernarium-sim-labwc-pixman-25s.png`. The guest surface shows the labwc/Firefox window with the Example Domain page (a Firefox Privacy Notice tab also opened).
 
 A second boot (Simulator had been shut down and rebooted; `DESKTOP_READY` **6.55 s**) measured Firefox time-to-page with `simctl io screenshot` every 5–10 s after READY (`screenshots/ttp/plus-*.png`, log `notes/macos-metal-desktop/kernarium-sim-labwc-pixman-ttp.log`):
 
@@ -659,14 +659,14 @@ Rebuild the Simulator app with `scripts/build-kernarium-simulator.sh`. Launch wi
 
 David approved a 26.x upgrade so Xcode 26.6 would accept this Mac as a Designed-for-iPad destination. The mini was on macOS Tahoe 26.3.1 (25D2128, Darwin 25.3.0) and is now on **macOS Tahoe 26.7.3 (25G342, Darwin 25.6.0)**. Catalog at 6:02 AM ET also listed macOS 27.2.1-26B131; that was not installed. 26.6.2 was a previous notification, not the current latest 26.x.
 
-`softwareupdate -i 'macOS Tahoe 26.7.3-25G342' --restart --agree-to-license --stdinpass --user davidhope` must run as root (`--restart` exits 13 otherwise). The volume-owner password came from 1Password (vault Grokbot, item "Mac mini login (davidhope)") and was not logged. Download + prepare ran 6:04:32–6:25:01 AM ET; required free space was 26.4 GB, about 39 GB was free. Post-logout apply started at 6:25:22 (`Applying MSU update`). SSH dropped around 6:28; the mini was reachable again at **6:37:24 AM ET** on 26.7.3. `softwareupdate --history` records the install at 6:26:31 AM ET.
+`softwareupdate -i 'macOS Tahoe 26.7.3-25G342' --restart --agree-to-license --stdinpass --user <admin>` must run as root (`--restart` exits 13 otherwise). The volume-owner password came from a password manager and was not logged. Download + prepare ran 6:04:32–6:25:01 AM ET; required free space was 26.4 GB, about 39 GB was free. Post-logout apply started at 6:25:22 (`Applying MSU update`). SSH dropped around 6:28; the mini was reachable again at **6:37:24 AM ET** on 26.7.3. `softwareupdate --history` records the install at 6:26:31 AM ET.
 
 Pre-upgrade (6:01 AM ET): Tailscale 1.104.2, Xcode 26.6 (17F113), voxl-launch still at `~/voxl-compare/voxl-launch` (not moved), LaunchAgents `com.davidhope.voxl` (127.0.0.1:6911, `--output-size=1366x768`) and `com.davidhope.voxl-1080` (6912), Tailscale serve 8443→6911 and 8444→6912, `com.davidhope.securityd-guard` StartInterval 60. No uml-darwin / xcodebuild / booted Simulator was running.
 
 Post-reboot checks:
 
-- Tailscale: reachable over 100.110.59.5 (`mac`) and 100.117.9.1 (`davids-mac-mini-1`). CLI still 1.104.2 (client commit e26db7a57 vs daemon c3430f0d2, same mismatch as before). Serve mappings came back on their own.
-- voxl: both LaunchAgents started; `voxl-launch` path unchanged. After boot, ScreenCaptureKit captured the 1920×1080 display at 1364×768 (6911) and 2698×1518 (6912) with no permission error. From the mini, `https://davids-mac-mini-1.taile209c0.ts.net:8443/` and `:8444/` return HTTP 401 (Basic auth), as does `http://127.0.0.1:6911/` and `:6912/`. Display resolution was not changed; voxl resize was not enabled; Screen Sharing was left alone.
+- Tailscale: reachable over 100.x.y.z (`mac`) and 100.x.y.z (`your-mac`). CLI still 1.104.2 (client commit e26db7a57 vs daemon c3430f0d2, same mismatch as before). Serve mappings came back on their own.
+- voxl: both LaunchAgents started; `voxl-launch` path unchanged. After boot, ScreenCaptureKit captured the 1920×1080 display at 1364×768 (6911) and 2698×1518 (6912) with no permission error. From the mini, `https://your-mac.your-tailnet.ts.net:8443/` and `:8444/` return HTTP 401 (Basic auth), as does `http://127.0.0.1:6911/` and `:6912/`. Display resolution was not changed; voxl resize was not enabled; Screen Sharing was left alone.
 - securityd-guard: still loaded, periodic, last exit 0; `runs` counted up after boot (2 then 3+). `/usr/sbin/securityd` was running. The Keychain/`security` CLI was not used for the upgrade or the app build.
 - `/Volumes/KernariumCS` did **not** auto-remount (no LaunchAgent). Re-attach with `hdiutil attach ~/linux-ios-bakeoff/KernariumCS.sparseimage`. After that it was 50 GiB, 25 GiB used, contents intact.
 - Xcode 26.6 (17F113) still launches.
@@ -675,13 +675,13 @@ Post-reboot checks:
 
 Destination now includes:
 
-`{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00006020-0009715A216B401E, name:My Mac }`
+`{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:YOUR-MAC-UDID, name:My Mac }`
 
 `cmake --preset kernarium-ios-device -DUML_IOS_DEBUGGER_JIT=OFF` and the Linux-only packager `~/linux-ios-bakeoff/notes/package-ios-linux-device.sh` succeeded (official `package-ios-frameworks.sh` still wants the missing Android runtime). `xcodebuild -scheme Kernarium -configuration Release -destination 'platform=macOS,variant=Designed for iPad' CODE_SIGNING_ALLOWED=NO` **BUILD SUCCEEDED** at 6:46 AM ET (product: `.build/kernarium-xcode-derived/Build/Products/Release-iphoneos/Kernarium.app`). KosmicKrisp was embedded for the device. Nothing was installed on a paired phone.
 
 Launch is still blocked on signing, so there are no Designed-for-iPad READY or CPU bench numbers yet:
 
-- Automatic signing with `DEVELOPMENT_TEAM=4P2629648N` fails: `com.imxieyi.Kernarium` cannot be registered to the signed-in team, the wildcard `iOS Team Provisioning Profile: *` lacks Extended Virtual Addressing and Increased Memory Limit, and it does not include this Mac (`00006020-0009715A216B401E`).
+- Automatic signing with `DEVELOPMENT_TEAM=YOURTEAMID` fails: `com.imxieyi.Kernarium` cannot be registered to the signed-in team, the wildcard `iOS Team Provisioning Profile: *` lacks Extended Virtual Addressing and Increased Memory Limit, and it does not include this Mac (`YOUR-MAC-UDID`).
 - Unsigned install is rejected by `IDEInstallLocalMacService` (`0xe800801c`, no code signature).
 - Ad-hoc (`codesign -s -`) is not allowed with the iOS 26.5 SDK, and the entitlements require a development certificate.
 - `devicectl` does not list the host Mac. Do not install on Silver or Yellow.
@@ -690,13 +690,13 @@ That signing blocker was lifted later the same morning with a unique bundle ID o
 
 ## Designed-for-iPad launch, Metal, and gadget benches (13 Nov 2026, 6:50–7:17 AM ET)
 
-Date: Fri Nov 13, 2026, America/New_York. Host: Mac mini (M2 Pro, 16 GB) on macOS Tahoe 26.7.3 (25G342), Xcode 26.6 (17F113). Destination: `platform=macOS,variant=Designed for iPad` (`My Mac`, UDID `00006020-0009715A216B401E`) only. Nothing was installed on Silver, Yellow, or any other phone.
+Date: Fri Nov 13, 2026, America/New_York. Host: Mac mini (M2 Pro, 16 GB) on macOS Tahoe 26.7.3 (25G342), Xcode 26.6 (17F113). Destination: `platform=macOS,variant=Designed for iPad` (`My Mac`, UDID `YOUR-MAC-UDID`) only. Nothing was installed on Silver, Yellow, or any other phone.
 
 ### Signing
 
-`patches/0016-designed-for-ipad-bundle-id` makes the official IDs overridable. Official defaults stay `com.imxieyi.Kernarium` (and the Tests / UITests / Automation IDs). A checkout sets its own IDs and `DEVELOPMENT_TEAM` in the gitignored `Signing.local.xcconfig`. The bakeoff mini uses team `4P2629648N` (the same team Voxl Pocket uses) and `com.davidhope.kernarium`.
+`patches/0016-designed-for-ipad-bundle-id` makes the official IDs overridable. Official defaults stay `com.imxieyi.Kernarium` (and the Tests / UITests / Automation IDs). A checkout sets its own IDs and `DEVELOPMENT_TEAM` in the gitignored `Signing.local.xcconfig`. The bakeoff mini uses team `YOURTEAMID` (the same team Voxl Pocket uses) and `com.davidhope.kernarium`.
 
-Xcode automatic signing registered that App ID and issued `iOS Team Provisioning Profile: com.davidhope.kernarium` (`15037936-0469-4427-9395-41245e88b070`), identity `Apple Development: email.djhope@gmail.com (M9KY49FP5F)`. The profile includes this Mac and the kernel capabilities. The signed app entitlements are:
+Xcode automatic signing registered that App ID and issued `iOS Team Provisioning Profile: com.davidhope.kernarium` (`PROFILE-UUID`), identity `Apple Development: you@example.com (M9KY49FP5F)`. The profile includes this Mac and the kernel capabilities. The signed app entitlements are:
 
 - `com.apple.developer.kernel.extended-virtual-addressing`
 - `com.apple.developer.kernel.increased-memory-limit`
@@ -739,7 +739,7 @@ Logs on the mini: `~/linux-ios-bakeoff/notes/macos-metal-desktop/kernarium-ipad-
 
 ## Designed-for-iPad debugger JIT on My Mac (13 Nov 2026, 7:20–7:33 AM ET)
 
-Date: Fri Nov 13, 2026, America/New_York. Same host and destination as the gadget-engine pass: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3 (25G342), Xcode 26.6, `platform=macOS,variant=Designed for iPad` (`My Mac`, UDID `00006020-0009715A216B401E`) only. Nothing was installed on Silver, Yellow, or any other phone. Display resolution and voxl were not changed.
+Date: Fri Nov 13, 2026, America/New_York. Same host and destination as the gadget-engine pass: Mac mini (M2 Pro, 16 GB), macOS Tahoe 26.7.3 (25G342), Xcode 26.6, `platform=macOS,variant=Designed for iPad` (`My Mac`, UDID `YOUR-MAC-UDID`) only. Nothing was installed on Silver, Yellow, or any other phone. Display resolution and voxl were not changed.
 
 ### Runtime and attach
 
@@ -823,7 +823,7 @@ Date: Fri Nov 13, 2026, America/New_York. Mac mini (M2 Pro, 16 GB), macOS Tahoe 
 
 ### KernariumCS LaunchAgent
 
-`KernariumCS.sparseimage` is unencrypted (`image-encrypted: false`). After the 26.7.3 upgrade it needed a manual `hdiutil attach`. A login LaunchAgent now attaches it without the Keychain or the `security` CLI: `scripts/macos-metal/attach-kernariumcs.sh` and `com.davidhope.kernariumcs-attach.plist`. ProgramArguments point at the stable bakeoff copy `/Users/davidhope/linux-ios-bakeoff/scripts/macos-metal/attach-kernariumcs.sh`. Installed under `~/Library/LaunchAgents/` and bootstrapped in `gui/501`. The script is idempotent if the volume is already mounted; the 8:05:12 AM ET login/bootstrap log line was `already mounted at /Volumes/KernariumCS`. The cache lives on that volume (the data volume is tight; do not put a multi-GB JIT cache there).
+`KernariumCS.sparseimage` is unencrypted (`image-encrypted: false`). After the 26.7.3 upgrade it needed a manual `hdiutil attach`. A login LaunchAgent now attaches it without the Keychain or the `security` CLI: `scripts/macos-metal/attach-kernariumcs.sh` and `com.davidhope.kernariumcs-attach.plist`. ProgramArguments point at the stable bakeoff copy `~/linux-ios-bakeoff/scripts/macos-metal/attach-kernariumcs.sh`. Installed under `~/Library/LaunchAgents/` and bootstrapped in `gui/501`. The script is idempotent if the volume is already mounted; the 8:05:12 AM ET login/bootstrap log line was `already mounted at /Volumes/KernariumCS`. The cache lives on that volume (the data volume is tight; do not put a multi-GB JIT cache there).
 
 ### Persistent store
 
@@ -856,7 +856,7 @@ The debugger-JIT waiter was extended to 300 s. A first JIT cold at **8:28:16 AM 
 
 The cache was then pointed at the app container, which the test already uses for the rootfs and guest logs:
 
-`~/Library/Containers/6C8222CA-6C25-43B8-8EAD-1F9880730E07/Data/Documents/jit-cache`
+`~/Library/Containers/APP-CONTAINER-UUID/Data/Documents/jit-cache`
 
 with `UML_JIT_PERSISTENT_CACHE_SOURCE` set to the in-container `alpine-3.24.2-desktop-labwc.ext4`. `vm.swapusage` stayed **0.00M used**. Window shots were taken from a machine-targeted shell.
 
@@ -1222,7 +1222,7 @@ Kernel for these iOS builds is local2 (`6.18.60-g8246678b2d74`). Guest: 1920×10
 
 ### Build overlays (local, not pushed to Kernarium)
 
-The clean 0022 tree needed the same bakeoff overlays official 0014 / 0021 D4iPad used, copied in rather than taken from persist-v2: `darwin/memory/CMakeLists.txt` lists `mmu/user_map.cpp`; official 0014 `user_map.hpp` (37-line API header, no persist markers); Signing.xcconfig + gitignored Signing.local.xcconfig (team `4P2629648N`, bundle `com.davidhope.kernarium`) and pbxproj `PRODUCT_BUNDLE_IDENTIFIER=$(KERNARIUM_BUNDLE_IDENTIFIER)`; ContentView.swift honors `KERNARIUM_DISPLAY_WIDTH/HEIGHT` (1920×1080); `KernariumRuntime.mm` honors `KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET` / `UML_JIT_EXECUTOR_CACHE_BUDGET` and passes `--jit-executor-cache-budget=`. D4iPad: Aqua `gui/501` LaunchAgent + lldb `jit_serve` one-shot prepare (2 GiB cache / 128 MiB executor). Simulator: `CODE_SIGNING_ALLOWED=NO`, Peek iPhone 17 (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`), `-parallel-testing-enabled NO`, one destination, default 1 GiB cache / 256 MiB executor (same as 0021 Sim).
+The clean 0022 tree needed the same bakeoff overlays official 0014 / 0021 D4iPad used, copied in rather than taken from persist-v2: `darwin/memory/CMakeLists.txt` lists `mmu/user_map.cpp`; official 0014 `user_map.hpp` (37-line API header, no persist markers); Signing.xcconfig + gitignored Signing.local.xcconfig (team `YOURTEAMID`, bundle `com.davidhope.kernarium`) and pbxproj `PRODUCT_BUNDLE_IDENTIFIER=$(KERNARIUM_BUNDLE_IDENTIFIER)`; ContentView.swift honors `KERNARIUM_DISPLAY_WIDTH/HEIGHT` (1920×1080); `KernariumRuntime.mm` honors `KERNARIUM_JIT_EXECUTOR_CACHE_BUDGET` / `UML_JIT_EXECUTOR_CACHE_BUDGET` and passes `--jit-executor-cache-budget=`. D4iPad: Aqua `gui/501` LaunchAgent + lldb `jit_serve` one-shot prepare (2 GiB cache / 128 MiB executor). Simulator: `CODE_SIGNING_ALLOWED=NO`, Peek iPhone 17 (`SIM-UDID`), `-parallel-testing-enabled NO`, one destination, default 1 GiB cache / 256 MiB executor (same as 0021 Sim).
 
 Scripts (repointed at `Kernarium-0022-clean`): `scripts/macos-metal/build-d4ipad-0022.sh`, `build-sim-0022.sh`, `launch-d4ipad-0022.sh`, `bootstrap-d4ipad-0022.sh`, `com.davidhope.d4ipad-0022.plist`, `watch-d4ipad-0022-shots.sh`, `watch-sim-0022-shots.sh`, `launch-sim-0022-test.sh`. `package-ios-linux-device-and-simulator.sh` is `ROOT_DIR`-overridable (build scripts export `ROOT_DIR` to the clean tree; the default is still the dirty checkout). Mid-run SWAP_ABORT in `launch-sim-0022-test.sh` stays on even when `UML_ALLOW_HEAVY=1` is used to pass start-of-run preflight. Do not weaken `preflight-uml-darwin.sh` for uml-darwin. The 4G+2G headroom gate cannot pass on this 16 GB mini once Peek is Booted (~12 GiB RSS); Simulator runs used `UML_ALLOW_HEAVY=1` for start only.
 
@@ -1284,7 +1284,7 @@ was started.
 
 ### What changed
 
-Worktree `/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-fetch`,
+Worktree `~/linux-ios-bakeoff/src/Kernarium-0022-fetch`,
 branch `exclusive/0022-fetch-view` from `9676ead` (Kernarium-0022-clean).
 Not pushed (origin is upstream `imxieyi/Kernarium`). Six files:
 `guest_address_space.hpp` grows a default `host_pointer(address, size,
@@ -1597,7 +1597,7 @@ Logs stay on the mini under `~/linux-ios-bakeoff/notes/macos-metal-desktop/`
 `session-interactive-official0022-cr-fix-*`).
 
 The near pass-through worktree
-`/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-passthrough`
+`~/linux-ios-bakeoff/src/Kernarium-0022-passthrough`
 (branch `exclusive/0022-near-pass-through` from `9676ead`) is in place
 with shared `.build/{dependencies,kernel,rootfs}` symlinks. Prototype
 code has not been written yet.
@@ -1717,7 +1717,7 @@ Logs on the mini: `session-interactive-official0022-cr-scrollx-*`.
 ## Near pass-through prototype (branch only, 13 Nov 2026, 5:36–5:38 PM ET)
 
 Date: Fri Nov 13, 2026, America/New_York. Worktree
-`/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-passthrough`,
+`~/linux-ios-bakeoff/src/Kernarium-0022-passthrough`,
 branch `exclusive/0022-near-pass-through` from official 0022 `9676ead`,
 commit `8cfda0a` (not pushed; Kernarium is not pushed from the mini).
 Official 0022 `uml-darwin-official-0022-20261113` md5 is still
@@ -1818,7 +1818,7 @@ Logs:
 ## Near pass-through identity hook (branch only, 13 Nov 2026, 5:46–5:54 PM ET)
 
 Date: Fri Nov 13, 2026, America/New_York. Worktree
-`/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-passthrough`,
+`~/linux-ios-bakeoff/src/Kernarium-0022-passthrough`,
 branch `exclusive/0022-near-pass-through` (from official 0022 `9676ead`,
 prior commit `8cfda0a`). Official 0022
 `uml-darwin-official-0022-20261113` md5 stayed
@@ -1878,7 +1878,7 @@ Default-off on this same side binary boots hello, so the regression is
 the armed hook. Official 0022 is unchanged. Full write-up:
 `notes/near-pass-through-prototype.md` in the Kernarium worktree.
 Logs under
-`/Users/davidhope/linux-ios-bakeoff/notes/jit-baseline/compile-alloc/hello-near-pt-*.log`
+`~/linux-ios-bakeoff/notes/jit-baseline/compile-alloc/hello-near-pt-*.log`
 and `atomic-stress-near-pt-on-stackwin-20261113-175354.log`.
 
 ## Near pass-through /init fix and defer variant (branch only, 13 Nov 2026, 6:07–6:48 PM ET)
@@ -3097,7 +3097,7 @@ Phone-default profile throughout: JIT 3584M/64M, guest 3072 MiB, 8 vCPUs, 1920×
 
 ### D4iPad is Designed-for-iPad on the Mac mini, not a physical iPad
 
-A previous pass treated `xcrun devicectl list devices` showing `iPad.coredevice.local` (iPad mini 6th gen, unavailable) as a blocker. That was an agent misread, not a launch-script destination bug. `launch-d4ipad-0022.sh` already uses `-destination "platform=macOS,variant=Designed for iPad"` (My Mac UDID `00006020-0009715A216B401E`), Aqua `gui/501` LaunchAgent, and lldb `jit_serve`. This session confirmed that destination on the live xcodebuild command line. The other iOS target is Peek iPhone 17 Simulator (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`). Nothing was rebooted; no physical iPad was chased.
+A previous pass treated `xcrun devicectl list devices` showing `iPad.coredevice.local` (iPad mini 6th gen, unavailable) as a blocker. That was an agent misread, not a launch-script destination bug. `launch-d4ipad-0022.sh` already uses `-destination "platform=macOS,variant=Designed for iPad"` (My Mac UDID `YOUR-MAC-UDID`), Aqua `gui/501` LaunchAgent, and lldb `jit_serve`. This session confirmed that destination on the live xcodebuild command line. The other iOS target is Peek iPhone 17 Simulator (`SIM-UDID`). Nothing was rebooted; no physical iPad was chased.
 
 ### Same-session hybrid 97/93 baseline, then c2, on D4iPad-on-Mac
 
@@ -3124,7 +3124,7 @@ D4iPad vs this session's hybrid: Firefox cold is parity once the first-after-idl
 
 ### Peek Simulator
 
-c2 sim slice **4420992a**, packaged with device+sim (MesaEGL/MesaGallium/HostBattery/HostVideoEncoder keep both slices; a D4iPad-only package would have left them device-only, as last night). Destination `platform=iOS Simulator,id=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`, `-parallel-testing-enabled NO`. Peek was Shutdown during the D4iPad gate and only booted for this block.
+c2 sim slice **4420992a**, packaged with device+sim (MesaEGL/MesaGallium/HostBattery/HostVideoEncoder keep both slices; a D4iPad-only package would have left them device-only, as last night). Destination `platform=iOS Simulator,id=SIM-UDID`, `-parallel-testing-enabled NO`. Peek was Shutdown during the D4iPad gate and only booted for this block.
 
 No same-session Simulator hybrid baseline (the sim slice was removed by the device-only package, then rebuilt as c2). Comparison is last-night's same-machine, same-profile hybrid 97/93 (01:15–01:29 ET) and official simoff-ff-1.
 
@@ -3548,7 +3548,7 @@ ic2 (`aec2625` / `uml-darwin-port-ic2` **`e4217bd5`**) was a clear uml-darwin wi
 
 Firefox cold is ~2 s slower than c2 on both runs. Chromium cold is ~1 s slower on both runs. Scroll is in the same band (Chromium ic2-cr-1 is a bit faster). Footprint: Firefox +~50–100 MB vs the c2 band; Chromium overlaps c2 (3832–3868 vs 3829–3862). Swap stayed 1529/3072 MiB; no SWAP_ABORT.
 
-**Peek iPhone 17 Simulator** (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`). Only Peek was booted (4:58:07 PM ET); no other sim. Same phone profile. Firefox ×2 and Chromium ×2, 4:58:10–5:11:51 PM ET. All four: `input=ok`, `INTERACTIVE_DONE`, **TEST SUCCEEDED**, xcodebuild exit=0, shared evict **0**. The sim-one wrapper reported rc=1 because `run-sim-interactive.sh` ends with `grep SWAP_ABORT` under `pipefail` (no abort line → grep 1). That is a false wrapper failure, same class as earlier sessions; the tests passed. Peek was shut down at 5:12:12 PM ET. Compared to the same-day c2 Peek gate (c2sim-cr-1 is the clean Chromium sample; c2sim-cr-2b was discarded).
+**Peek iPhone 17 Simulator** (`SIM-UDID`). Only Peek was booted (4:58:07 PM ET); no other sim. Same phone profile. Firefox ×2 and Chromium ×2, 4:58:10–5:11:51 PM ET. All four: `input=ok`, `INTERACTIVE_DONE`, **TEST SUCCEEDED**, xcodebuild exit=0, shared evict **0**. The sim-one wrapper reported rc=1 because `run-sim-interactive.sh` ends with `grep SWAP_ABORT` under `pipefail` (no abort line → grep 1). That is a false wrapper failure, same class as earlier sessions; the tests passed. Peek was shut down at 5:12:12 PM ET. Compared to the same-day c2 Peek gate (c2sim-cr-1 is the clean Chromium sample; c2sim-cr-2b was discarded).
 
 | run | cold s | scroll fps (frames, p95 ms) | warm s | peak phys_footprint MB | evict |
 |---|---:|---:|---:|---:|---:|
@@ -3577,11 +3577,11 @@ Scratch crate-ios is at `linux-ios-bakeoff/scratch/crate-ios`, tip **`7c351b0`**
 
 ### Why the first phone build could not do 4 GB, and how Henge can
 
-The wildcard `iOS Team Provisioning Profile: *` for team `4P2629648N` does **not** include `com.apple.developer.kernel.increased-memory-limit` or `extended-virtual-addressing`. The first device build, signed as upstream `com.amendez.crate` with that wildcard, logged a process limit of 3,539,992,576 bytes (~3.54 GB). A 4 GB guest plus 1024 MB of JIT cannot fit in that.
+The wildcard `iOS Team Provisioning Profile: *` for team `YOURTEAMID` does **not** include `com.apple.developer.kernel.increased-memory-limit` or `extended-virtual-addressing`. The first device build, signed as upstream `com.amendez.crate` with that wildcard, logged a process limit of 3,539,992,576 bytes (~3.54 GB). A 4 GB guest plus 1024 MB of JIT cannot fit in that.
 
-`com.amendez.crate` cannot be registered to `4P2629648N` ("not available"). Explicit App ID profiles already used by Henge, LinuxRunner, and Kernarium on this team **do** include both entitlements. Henge on this 16 Pro (8 GB, 7643–7644 MiB physical) logs "increased memory limit: yes; extended addressing: yes; limit 6141 MB."
+`com.amendez.crate` cannot be registered to `YOURTEAMID` ("not available"). Explicit App ID profiles already used by Henge, LinuxRunner, and Kernarium on this team **do** include both entitlements. Henge on this 16 Pro (8 GB, 7643–7644 MiB physical) logs "increased memory limit: yes; extended addressing: yes; limit 6141 MB."
 
-The working device build is **`com.davidhope.crate`** / helper `com.davidhope.crate.jithelper`, signed with "iOS Team Provisioning Profile: com.davidhope.crate" (`-allowProvisioningUpdates`, team `4P2629648N`). Entitlements: `get-task-allow` plus both memory entitlements. The helper must not inherit the kernel entitlements (do not set `CODE_SIGN_ENTITLEMENTS` globally). crate.log after that rebuild, 6:57:47 PM ET: limit **6,442,450,944** bytes (exactly 6 GiB), available ~6,440,385,952.
+The working device build is **`com.davidhope.crate`** / helper `com.davidhope.crate.jithelper`, signed with "iOS Team Provisioning Profile: com.davidhope.crate" (`-allowProvisioningUpdates`, team `YOURTEAMID`). Entitlements: `get-task-allow` plus both memory entitlements. The helper must not inherit the kernel entitlements (do not set `CODE_SIGN_ENTITLEMENTS` globally). crate.log after that rebuild, 6:57:47 PM ET: limit **6,442,450,944** bytes (exactly 6 GiB), available ~6,440,385,952.
 
 Caveat vs Henge: Henge can keep guest RAM out of the jetsam limit once a debugger is attached (or page it to a file). Crate still counts guest RAM plus resident JIT pages against the process limit (JIT pages are made resident at claim time). 4 GB guest + 1024 MB JIT leaves about 1 GiB of headroom under the 6 GiB cap. If jetsam kills it, step the guest down to 3.5 GB.
 
@@ -3629,9 +3629,9 @@ Spawn and Chromium cold are the other leftover from this afternoon's NOTES: afte
 
 ### Phone install (`com.davidhope.crate` on Daddy's iPhone 16 Pro)
 
-Target, approved 6:34 PM ET: UDID `00008140-000E44300EE1401C`, CoreDevice `29AAC2A9-E6D4-5090-AA07-297089BD5FE6`, iOS 26.6.1, iPhone17,1, 256 GB, Developer Mode on. Not "David's iPhone" and not any other phone.
+Target, approved 6:34 PM ET: UDID `YOUR-IPHONE-UDID`, CoreDevice `29AAC2A9-E6D4-5090-AA07-297089BD5FE6`, iOS 26.6.1, iPhone17,1, 256 GB, Developer Mode on. Not "David's iPhone" and not any other phone.
 
-- Built from the scratch clone with the local patches, signed team `4P2629648N`, installed with `devicectl`. Data container `EF64AE62-2031-4135-8F53-AB775383F3DE`.
+- Built from the scratch clone with the local patches, signed team `YOURTEAMID`, installed with `devicectl`. Data container `APP-CONTAINER-UUID`.
 - Pairing file was copied from Henge's `Documents/StikJIT/pairingFile.plist` (501 bytes) into crate's Documents. Never printed. Temp copies shredded. StikDebug is not installed as a visible app; JIT is built-in StikJIT. LocalDevVPN (`com.jkcoxson.LocalDevVPN`) was launched with `localdevvpn://enable?scheme=crate` after the first claim timed out on 10.7.0.1:49152. ExpressVPN was left alone.
 - Prefs: 4 GB RAM, 8 GB disk, 1024 MB code region, `builtInStikJIT`, turn on at launch, machine `2CE8C8C8-89C9-40E8-88EC-32FE1C3EB8E2`. UserDefaults written via AFC can be overwritten by a stale cfprefsd cache; the safe sequence was: terminate crate, write the plist, terminate cfprefsd (they respawn), verify, then launch. This matters because `removeStrayFiles()` deletes UUID VM folders that are not in the machines list.
 - The 8 GiB Debian disk (ext4 UUID `61cdfc67-124b-43bb-a341-2256920976f1`, same image as the D4 run, with autologin / home chown / crate-bench baked in) finished copying into the container at 7:03:04 PM ET.
@@ -3652,7 +3652,6 @@ Target, approved 6:34 PM ET: UDID `00008140-000E44300EE1401C`, CoreDevice `29AAC
 ### Screenshots (copied to this repo)
 
 - `notes/crate-ios-shots/d4-chromium-metrics.png` — D4 crate Chromium on the metrics page (scroll 58.80 fps).
-- `notes/crate-ios-shots/d4-desktop.png` — D4 Debian 13 Xfce desktop.
 - `notes/crate-ios-shots/phone-boot.png`, `phone-after-allow.png`, `phone-later.png` — Daddy's iPhone, all still showing the Local Network prompt (last pulled 7:14 PM ET). Same prompt was still up at 7:16 PM ET.
 
 ### Verdict
@@ -3718,7 +3717,7 @@ left alone. LinuxRunner stays uninstalled. The mounted DDI was not replaced.
 
 ### What was patched
 
-Scratch tree: `/Users/davidhope/linux-ios-bakeoff/scratch/crate-ios` (dirty
+Scratch tree: `~/linux-ios-bakeoff/scratch/crate-ios` (dirty
 on `7c351b0`; do not push to `oneamendez/crate-ios`).
 
 Patch: `patches/crate-ios/0002-external-display-mouse-trackpad.patch`
@@ -3751,18 +3750,18 @@ change: Debian Chromium/Firefox are already desktop browsers.
 
 ### Builds
 
-`com.davidhope.crate` 0.1.3 / 5, team `4P2629648N`,
+`com.davidhope.crate` 0.1.3 / 5, team `YOURTEAMID`,
 `-allowProvisioningUpdates`. Built Info.plist has the scene manifest and
 `Crate.ExternalDisplaySceneDelegate`.
 
-- **D4iPad** (`platform=macOS,arch=arm64,id=00006020-0009715A216B401E`):
+- **D4iPad** (`platform=macOS,arch=arm64,id=YOUR-MAC-UDID`):
   **BUILD SUCCEEDED**, signed with the `com.davidhope.crate` profile.
   Opening the existing Designed-for-iPad `.XCInstall` wrapper after a
   manual rsync failed (`RBSRequestErrorDomain` 5 / POSIX 162) because that
   wrapper was created for `com.amendez.crate` v4; it was restored
   afterwards and the 4 GB D4 VM was not started. A proper Xcode/D4 install
   of the new bundle ID is still needed to launch this build on My Mac.
-- **Peek iPhone 17 Simulator** (`8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB`,
+- **Peek iPhone 17 Simulator** (`SIM-UDID`,
   iOS 26.5): **BUILD SUCCEEDED**, installed, launched. JIT is ineligible
   in the Simulator (`debugged=false eligible=false`), so no guest was
   started and the phone stayed on Home / “No VMs Yet”. External display
@@ -3860,7 +3859,7 @@ reports overscanCompensation `scale` with zero insets, and one available
 mode equal to the geometry. The real phone's values will be in crate.log
 (`external display: … available […] … overscan …`).
 
-**Device build**: `com.davidhope.crate` 0.1.3 / **6**, team 4P2629648N,
+**Device build**: `com.davidhope.crate` 0.1.3 / **6**, team YOURTEAMID,
 profile "iOS Team Provisioning Profile: com.davidhope.crate" (contains the
 16 Pro's UDID), entitlements increased-memory-limit +
 extended-virtual-addressing + get-task-allow, `codesign --verify --deep
@@ -3874,13 +3873,13 @@ the tree was rsynced to the internal `~/crate-devbuild/crate-ios`. Not
 installed (David is at work in NYC). Install when the phone is on the
 mini's network (LocalDevVPN state does not matter for this):
 
-    xcrun devicectl device install app --device 00008140-000E44300EE1401C \
+    xcrun devicectl device install app --device YOUR-IPHONE-UDID \
       ~/crate-devbuild/dd/Build/Products/Debug-iphoneos/Crate.app
 
 Same bundle ID, so it upgrades in place (VMs, pairing file and settings stay).
 
 **Remote install over Tailscale (10:16–10:18 AM ET, read-only)**: phone is
-`iphone171-1` 100.73.94.66; `tailscale ping` pongs via DERP nyc (46–98 ms,
+`your-iphone` 100.x.y.z; `tailscale ping` pongs via DERP nyc (46–98 ms,
 no direct path); TCP 62078 and 49152 accept, but lockdownd resets the
 connection on the first QueryType (pymobiledevice3 `create_using_tcp`, no
 autopair), and `devicectl list devices` does not show the phone. Not

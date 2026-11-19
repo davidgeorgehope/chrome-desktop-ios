@@ -1,6 +1,6 @@
 #!/bin/bash
 # Usage: run-d4ipad-budget.sh BUDGET EXEC tags...  (tags like cr-1)
-D=/Users/davidhope/linux-ios-bakeoff/notes/ios-interactive
+D=$HOME/linux-ios-bakeoff/notes/ios-interactive
 JB=$1; JE=$2; shift 2
 for t in "$@"; do
   b=${t%-*}

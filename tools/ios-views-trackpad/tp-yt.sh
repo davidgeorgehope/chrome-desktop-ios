@@ -1,6 +1,6 @@
 #!/bin/bash
 # Trackpad test on a loaded page: scroll, web click+type into YouTube search, right-click.
-U=DE1E2D59-E674-4EE1-8096-097886FB5917
+U=${SIM_UDID:-booted}
 R=$(ls -td ~/chromium-build/logs/views-m2/run/* | head -1)
 E(){ python3 /tmp/uaecho/eval.py "$1"; }
 sw(){ axe swipe --start-x $1 --start-y $2 --end-x $3 --end-y $4 --duration 0.5 --udid $U >/dev/null 2>&1; sleep 0.5; }

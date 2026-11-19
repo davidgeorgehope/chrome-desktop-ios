@@ -8,7 +8,7 @@ while read -r tag wait url; do
   j=$(python3 /tmp/uaecho/cdp.py 2>&1 | tail -1)
   # Fresh screenshot of this run, after the probe (never a stale file).
   rm -f $OUT/$tag-tvout.png
-  xcrun simctl io DE1E2D59-E674-4EE1-8096-097886FB5917 screenshot --display=TVOut $OUT/$tag-tvout.png >/dev/null 2>&1
+  xcrun simctl io ${SIM_UDID:-booted} screenshot --display=TVOut $OUT/$tag-tvout.png >/dev/null 2>&1
   echo "$tag $R $(date +%T)" >> $OUT/runs.txt
   echo "{\"tag\":\"$tag\",\"url\":\"$url\",\"state\":\"$(echo $r|awk '{print $1}')\",\"t\":\"$(date +%H:%M:%S)\",\"probe\":$(python3 -c 'import json,sys;s=sys.argv[1];
 try: json.loads(s); print(s)

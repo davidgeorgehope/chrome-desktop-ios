@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
-UDID=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB
+UDID=${SIM_UDID:-booted}
 BUNDLE=com.imxieyi.Kernarium
-ROOT=/Users/davidhope/linux-ios-bakeoff
+ROOT=$HOME/linux-ios-bakeoff
 LOG=$ROOT/notes/kernarium-benches.log
 exec > >(tee "$LOG") 2>&1
 echo "==== CAPTURE START $(date) ===="

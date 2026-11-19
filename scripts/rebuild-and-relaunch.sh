@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
-ROOT=/Users/davidhope/linux-ios-bakeoff
+ROOT=$HOME/linux-ios-bakeoff
 K=$ROOT/src/Kernarium
-UDID=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB
+UDID=${SIM_UDID:-booted}
 BUNDLE=com.imxieyi.Kernarium
 LOG=$ROOT/notes/rebuild-and-relaunch.log
 exec >>"$LOG" 2>&1

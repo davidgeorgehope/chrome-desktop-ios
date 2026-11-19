@@ -27,7 +27,7 @@ sleep 2
 open "$WRAPPER"
 echo OPEN_RC=$? | tee -a "$LOG"
 # Truncate the crate log so a stale "jit: on" cannot match this launch.
-CLOG=/Users/davidhope/Library/Containers/FDD810C1-810B-4414-9FB7-3E506CE3509A/Data/Library/Caches/crate.log
+CLOG=$HOME/Library/Containers/APP-CONTAINER-UUID/Data/Library/Caches/crate.log
 : > "$CLOG"
 # wait for a fresh claim, up to 90s
 for i in $(seq 1 90); do

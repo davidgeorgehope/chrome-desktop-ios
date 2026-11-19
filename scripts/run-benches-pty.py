@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import os, pty, select, subprocess, sys, time, tty, termios
 
-UDID = "8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB"
+UDID = os.environ.get("SIM_UDID", "booted")
 BUNDLE = "com.imxieyi.Kernarium"
 ROOTFS = "alpine-3.24.2-minimal.ext4"
-OUT = "/Users/davidhope/linux-ios-bakeoff/notes/kernarium-benches.log"
+OUT = os.path.expanduser("~/linux-ios-bakeoff/notes/kernarium-benches.log")
 
 def main():
     log = open(OUT, "w", buffering=1)

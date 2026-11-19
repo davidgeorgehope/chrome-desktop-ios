@@ -8,8 +8,8 @@
 set -uo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 TAG=$1; ROOTFS=$2
-D=/Users/davidhope/linux-ios-bakeoff/notes/ios-interactive
-N=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
+D=$HOME/linux-ios-bakeoff/notes/ios-interactive
+N=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop
 if pgrep -f '[u]ml-darwin|[x]codebuild' >/dev/null; then echo "refuse: overlap"; exit 2; fi
 [ -n "${3:-}" ] && export JIT_BUDGET=$3
 [ -n "${4:-}" ] && export JIT_EXECUTOR_BUDGET=$4

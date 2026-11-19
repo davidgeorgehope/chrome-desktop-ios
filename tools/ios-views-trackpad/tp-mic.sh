@@ -1,6 +1,6 @@
 #!/bin/bash
 # Simulator-only mic test: launch echo page, getUserMedia + level meter + 3 s MediaRecorder.
-U=DE1E2D59-E674-4EE1-8096-097886FB5917
+U=${SIM_UDID:-booted}
 pkill -x chrome_views_ios; sleep 1
 cd ~/chromium-build/logs/views-m2
 WAIT=${WAIT:-25} bash run-tvout.sh --no-first-run --no-default-browser-check --hide-crash-restore-bubble --remote-debugging-port=9333 '--remote-allow-origins=*' --use-fake-ui-for-media-stream $EXTRA 'http://127.0.0.1:8765/' >/tmp/tvout.out 2>&1

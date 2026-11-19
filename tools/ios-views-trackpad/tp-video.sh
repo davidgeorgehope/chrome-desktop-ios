@@ -1,6 +1,6 @@
 #!/bin/bash
 # usage: tp-video.sh URL  (sim only) launch with autoplay, then probe <video> + audio state, screenshot TVOut and phone.
-U=DE1E2D59-E674-4EE1-8096-097886FB5917
+U=${SIM_UDID:-booted}
 pkill -x chrome_views_ios; sleep 1
 cd ~/chromium-build/logs/views-m2
 WAIT=${WAIT:-30} bash run-tvout.sh --no-first-run --no-default-browser-check --hide-crash-restore-bubble --remote-debugging-port=9333 '--remote-allow-origins=*' --autoplay-policy=no-user-gesture-required "$1" >/tmp/tvout.out 2>&1

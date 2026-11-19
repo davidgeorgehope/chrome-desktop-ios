@@ -5,9 +5,9 @@
 set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin
 
-IMAGE="${KERNARIUMCS_IMAGE:-/Users/davidhope/linux-ios-bakeoff/KernariumCS.sparseimage}"
+IMAGE="${KERNARIUMCS_IMAGE:-$HOME/linux-ios-bakeoff/KernariumCS.sparseimage}"
 MOUNT="${KERNARIUMCS_MOUNT:-/Volumes/KernariumCS}"
-LOG="${KERNARIUMCS_LOG:-/Users/davidhope/Library/Logs/kernariumcs-attach.log}"
+LOG="${KERNARIUMCS_LOG:-$HOME/Library/Logs/kernariumcs-attach.log}"
 mkdir -p "$(dirname "$LOG")"
 ts() { date '+%Y-%m-%d %H:%M:%S %Z'; }
 

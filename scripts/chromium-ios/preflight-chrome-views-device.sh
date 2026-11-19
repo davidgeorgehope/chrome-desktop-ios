@@ -5,7 +5,7 @@ set -uo pipefail
 SRC=${CHROMIUM_SRC:-$HOME/chromium-build/chromium/src}
 OUT=${CHROMIUM_OUT:-$SRC/out/Release-iphoneos-views}
 IPA=${IPA:-$OUT/ChromeDesktop-device.ipa}
-UDID=${PHONE_UDID:-00008140-000E44300EE1401C}
+UDID=${PHONE_UDID:?set PHONE_UDID}
 fails=0
 ok(){ echo "PASS $*"; }; bad(){ echo "FAIL $*"; fails=$((fails+1)); }
 chk(){ local d=$1; shift; if "$@" >/dev/null 2>&1; then ok "$d"; else bad "$d"; fi; }
@@ -53,7 +53,7 @@ e(){ /usr/libexec/PlistBuddy -c "Print :$1" "$W/ent.plist" 2>/dev/null; }
 for k in com.apple.developer.kernel.increased-memory-limit com.apple.developer.kernel.extended-virtual-addressing get-task-allow; do
   [ "$(e $k)" = true ] && ok "signed entitlement $k" || bad "signed entitlement $k"
 done
-[ "$(e application-identifier)" = 4P2629648N.com.davidhope.deskbrowser.chromeviews ] && ok "application-identifier" || bad "application-identifier $(e application-identifier)"
+[ "$(e application-identifier)" = YOURTEAMID.com.davidhope.deskbrowser.chromeviews ] && ok "application-identifier" || bad "application-identifier $(e application-identifier)"
 e dynamic-codesigning >/dev/null && bad "unexpected JIT entitlement dynamic-codesigning" || ok "no JIT entitlement (jitless)"
 openssl smime -inform der -verify -noverify -in "$APP/embedded.mobileprovision" 2>/dev/null > "$W/prof.plist"
 pp(){ /usr/libexec/PlistBuddy -c "Print :$1" "$W/prof.plist" 2>/dev/null; }

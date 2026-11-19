@@ -2,12 +2,12 @@
 # k-cpu.sh TAG : official uml-darwin 0022, slim Alpine, 4 CPUs / 4G, cmp-benches.sh twice (swap guard as launch-benches-bin.sh).
 set -uo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin LANG=C
-D=/Users/davidhope/linux-ios-bakeoff/scratch/crate-bench; PACK=/Users/davidhope/linux-ios-bakeoff/notes/cpu-benches
-BIN=/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin-official-0022-20261113
+D=$HOME/linux-ios-bakeoff/scratch/crate-bench; PACK=$HOME/linux-ios-bakeoff/notes/cpu-benches
+BIN=$HOME/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin-official-0022-20261113
 ROOTFS=/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-minimal.ext4
 LOG=$D/logs/$1.log
 export UML_PREFLIGHT_GUEST_MEM=4G
-. /Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
+. $HOME/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
 pgrep -f '[c]rate-run --' >/dev/null && { echo "refuse: crate running"; exit 2; }
 unset UML_JIT_PERSISTENT_CACHE UML_JIT_PERSISTENT_CACHE_SOURCE KERNARIUM_JIT_PERSISTENT_CACHE KERNARIUM_JIT_PERSISTENT_CACHE_SOURCE
 export UML_JIT_CACHE_BUDGET=4G UML_JIT_EXECUTOR_CACHE_BUDGET=128M

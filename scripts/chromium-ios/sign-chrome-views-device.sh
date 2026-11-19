@@ -10,9 +10,9 @@ set -euo pipefail
 export TMPDIR=/tmp TMP=/tmp
 SRC=${CHROMIUM_SRC:-$HOME/chromium-build/chromium/src}
 OUT=${CHROMIUM_OUT:-$SRC/out/Release-iphoneos-views}
-TEAM=${TEAM_ID:-4P2629648N}
+TEAM=${TEAM_ID:?set TEAM_ID to your Apple team ID}
 WANT_BID=com.davidhope.deskbrowser.chromeviews
-UDID=${PHONE_UDID:-00008140-000E44300EE1401C}
+UDID=${PHONE_UDID:?set PHONE_UDID}
 IDENTITY=${SIGN_IDENTITY:-$(grep -oE "SIGN_IDENTITY:-[0-9A-F]{40}" $HOME/chromium-build/sign-chrome-ios-device-mem.sh | cut -d- -f2)}
 PROFILE=${PROFILE:-$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/7e7e9352-0ddd-456f-bcd5-042e3e8eadac.mobileprovision}
 STAGE=$OUT/device-sign

@@ -10,5 +10,5 @@ copied into Kernarium. Approach (not source) was taken from Henge's
 GPL-2.0 external-display scene, GCMouse, and trackpad design; no Henge files
 are included.
 
-Build as `com.davidhope.crate` with `DEVELOPMENT_TEAM=4P2629648N` and
+Build as `com.davidhope.crate` with `DEVELOPMENT_TEAM=YOURTEAMID` and
 `-allowProvisioningUpdates`. Do not push this clone to `oneamendez/crate-ios`.

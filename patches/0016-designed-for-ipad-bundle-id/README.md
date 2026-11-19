@@ -47,11 +47,11 @@ PY
 ```
 
 Do not commit `Signing.local.xcconfig`. On the bakeoff mini that file sets
-team `4P2629648N` (the same team Voxl Pocket uses) and
+team `YOURTEAMID` (the same team Voxl Pocket uses) and
 `com.davidhope.kernarium` / `.tests` / `.uitests` / `.automation`. Xcode
 automatic signing then registers the App ID, issues an iOS Team Provisioning
 Profile that includes the kernel entitlements, `get-task-allow`, and this Mac
-(`00006020-0009715A216B401E`). `com.apple.security.cs.allow-jit` stays in the
+(`YOUR-MAC-UDID`). `com.apple.security.cs.allow-jit` stays in the
 source entitlements but is stripped at sign time: it is not in the iOS
 profile, and forcing it back yields `0xe8008015`.
 

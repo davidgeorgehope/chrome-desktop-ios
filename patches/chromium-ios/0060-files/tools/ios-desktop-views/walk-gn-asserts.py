@@ -8,10 +8,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC = Path("/Users/davidhope/chromium-build/chromium/src")
+SRC = (Path.home() / "chromium-build/chromium/src")
 OUT = SRC / os.environ.get("WALK_OUT", "out/Release-iphonesimulator-views")
-LOG = Path("/Users/davidhope/chromium-build/logs/views-m2/gn-walk.log")
-CHANGES = Path("/Users/davidhope/chromium-build/logs/views-m2/gn-walk-changes.txt")
+LOG = (Path.home() / "chromium-build/logs/views-m2/gn-walk.log")
+CHANGES = (Path.home() / "chromium-build/logs/views-m2/gn-walk-changes.txt")
 UI_IMPORT = 'import("//build/config/ui.gni")'
 MAX_ITERS = 2000
 

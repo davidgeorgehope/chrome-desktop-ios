@@ -2,8 +2,8 @@
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 set -u
 TAG="${1:-reuse}"
-SHOTDIR="/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-d4ipad-0022-${TAG}-manual"
-LIST=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/list-windows
+SHOTDIR="$HOME/linux-ios-bakeoff/notes/macos-metal-desktop/persist-ttp-d4ipad-0022-${TAG}-manual"
+LIST=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop/list-windows
 mkdir -p "$SHOTDIR"
 LOG="$SHOTDIR/watch.log"
 echo "WATCH_START $(date)" | tee -a "$LOG"

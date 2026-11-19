@@ -6,7 +6,7 @@
 # UML_PREFLIGHT_GUEST_MEM (default matches mem).
 set -uo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin LANG=C
-PACK=/Users/davidhope/linux-ios-bakeoff/notes/cpu-benches
+PACK=$HOME/linux-ios-bakeoff/notes/cpu-benches
 ROOTFS=/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-minimal.ext4
 LOGDIR=${LOGDIR:-/tmp/k-harness}
 BIN=${KBIN:?set KBIN to the uml-darwin binary}
@@ -16,7 +16,7 @@ TIMEOUT=${TIMEOUT:-25}
 mkdir -p "$LOGDIR"
 LOG=$LOGDIR/${1:?tag}.log
 export UML_PREFLIGHT_GUEST_MEM=${UML_PREFLIGHT_GUEST_MEM:-$MEM}
-. /Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
+. $HOME/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
 pgrep -f '[u]ml-darwin' >/dev/null && { echo "refuse: uml-darwin already running"; exit 2; }
 unset UML_JIT_PERSISTENT_CACHE UML_JIT_PERSISTENT_CACHE_SOURCE
 unset KERNARIUM_JIT_PERSISTENT_CACHE KERNARIUM_JIT_PERSISTENT_CACHE_SOURCE

@@ -46,7 +46,7 @@ What this patch does
   (SkColor 0xC81D25, label "DeskBrowser Views M1").
 
 Verified 7:49 PM ET on the iOS 27.2 iPhone Duo simulator
-(UDID DE1E2D59-E674-4EE1-8096-097886FB5917), hinge 180, TVOut
+(UDID SIM-UDID), hinge 180, TVOut
 1920x1080: 14-tvout.png is 1920x1080 with 2,071,396 pixels of
 exact 0xC81D25 and 574 white label pixels. The inner LCD is
 dark because the widget moved to the official external scene.

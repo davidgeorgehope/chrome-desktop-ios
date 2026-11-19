@@ -4,7 +4,7 @@
 # with David's explicit go-ahead. Leaves com.davidhope.deskbrowser.blink alone.
 set -euo pipefail
 export PATH=/opt/homebrew/bin:$PATH
-UDID=${PHONE_UDID:-00008140-000E44300EE1401C}
+UDID=${PHONE_UDID:?set PHONE_UDID}
 IPA=${IPA:-$HOME/chromium-build/chromium/src/out/Release-iphoneos-views/ChromeDesktop-device.ipa}
 L=$HOME/chromium-build/logs/views-device/install-$(date +%H%M%S).log
 echo "log $L"

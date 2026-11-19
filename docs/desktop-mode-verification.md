@@ -1,6 +1,6 @@
 # Desktop-mode verification: iOS desktop Views BrowserView
 
-Run: 2026-11-19, 10:51–11:00 AM ET. iOS 27.2 Simulator (DE1E2D59…), TVOut
+Run: 2026-11-19, 10:51–11:00 AM ET. iOS 27.2 Simulator (SIM-UDID), TVOut
 1920x1080 @1x, build out/Release-iphonesimulator-views at patch 0116.
 Tools: tools/desktop-mode/server.py (local UA echo: request headers plus
 Accept-CH/Critical-CH, JS values), cdp.py (DevTools on 127.0.0.1:9333, the

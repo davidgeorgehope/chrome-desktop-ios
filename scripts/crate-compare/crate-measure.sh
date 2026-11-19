@@ -2,7 +2,7 @@
 # crate-measure.sh TAG BROWSER : one boot -> desktop -> browser metrics run (same page and markers as
 # Kernarium's measure-interactive.sh); VNC key+click once the page arms. After the warm page, re-open
 # the metrics page in the running browser once for a supplemental warm scroll pass.
-D=/Users/davidhope/linux-ios-bakeoff/scratch/crate-bench; L=$D/logs/$1.log; B=$2
+D=$HOME/linux-ios-bakeoff/scratch/crate-bench; L=$D/logs/$1.log; B=$2
 ( for i in $(seq 1 600); do
     if grep -aq "INTERACTIVE_READY_FOR_INPUT" $L 2>/dev/null; then sleep 0.5
       python3 $D/crate/tools/vnc.py $D/vnc.sock key a; sleep 0.3; python3 $D/crate/tools/vnc.py $D/vnc.sock click 960 400

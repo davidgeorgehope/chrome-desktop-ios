@@ -18,8 +18,8 @@ export LANG=C
 TAG="${1:?tag}"
 BIN="${2:?bin}"
 BROWSER="${3:-firefox}"
-NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
-FAST=/Users/davidhope/linux-ios-bakeoff/notes/desktop-guest-fast
+NOTES=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop
+FAST=$HOME/linux-ios-bakeoff/notes/desktop-guest-fast
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 # Prefer the repo copy of the guest pack, then the mini bakeoff overlay.
 GUEST_PACK="$HERE/desktop-guest"
@@ -185,7 +185,7 @@ for i in $(seq 1 110); do
       vncdotool -s "$VNC" key a pause 0.3 click 1 || true
     else
       rfb=""
-      for c in         "$HERE/macos-metal/vnc_rfb.py"         /Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/vnc_rfb.py         /Users/davidhope/linux-ios-bakeoff/notes/interactive-pack/scripts/macos-metal/vnc_rfb.py
+      for c in         "$HERE/macos-metal/vnc_rfb.py"         $HOME/linux-ios-bakeoff/notes/macos-metal-desktop/vnc_rfb.py         $HOME/linux-ios-bakeoff/notes/interactive-pack/scripts/macos-metal/vnc_rfb.py
       do
         [ -f "$c" ] && rfb=$c && break
       done

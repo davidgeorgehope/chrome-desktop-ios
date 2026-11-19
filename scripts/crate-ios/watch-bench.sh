@@ -1,9 +1,9 @@
 #!/bin/bash
 set -u
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
-CLOG=/Users/davidhope/Library/Containers/FDD810C1-810B-4414-9FB7-3E506CE3509A/Data/Library/Caches/console.log
-CRATELOG=/Users/davidhope/Library/Containers/FDD810C1-810B-4414-9FB7-3E506CE3509A/Data/Library/Caches/crate.log
-SHOTDIR=/Users/davidhope/linux-ios-bakeoff/scratch/crate-ios-shots
+CLOG=$HOME/Library/Containers/APP-CONTAINER-UUID/Data/Library/Caches/console.log
+CRATELOG=$HOME/Library/Containers/APP-CONTAINER-UUID/Data/Library/Caches/crate.log
+SHOTDIR=$HOME/linux-ios-bakeoff/scratch/crate-ios-shots
 MARK=/tmp/k-harness/logs/crate-bench-watch.log
 mkdir -p "$SHOTDIR"
 echo "WATCH_START $(date)" | tee "$MARK"

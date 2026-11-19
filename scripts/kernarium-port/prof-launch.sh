@@ -6,7 +6,7 @@
 set -uo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin LANG=C
 HERE=$(cd "$(dirname "$0")" && pwd)
-PACK=/Users/davidhope/linux-ios-bakeoff/notes/cpu-benches
+PACK=$HOME/linux-ios-bakeoff/notes/cpu-benches
 LOGDIR=${LOGDIR:-/tmp/k-harness}
 TAG=$1
 BIN=${KBIN:?set KBIN to the uml-darwin binary}
@@ -19,7 +19,7 @@ PD=$LOGDIR/logs/$TAG.prof
 mkdir -p "$PD"
 # Do not inherit leftover 2G k-boot env; callers override with MEM / CACHE_BUDGET.
 export UML_PREFLIGHT_GUEST_MEM=$MEM
-. /Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
+. $HOME/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
 pgrep -f '[u]ml-darwin' >/dev/null && { echo "refuse: uml-darwin already running"; exit 2; }
 unset UML_JIT_PERSISTENT_CACHE UML_JIT_PERSISTENT_CACHE_SOURCE
 unset KERNARIUM_JIT_PERSISTENT_CACHE KERNARIUM_JIT_PERSISTENT_CACHE_SOURCE

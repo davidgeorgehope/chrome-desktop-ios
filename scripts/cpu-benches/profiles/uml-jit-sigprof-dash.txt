@@ -8,7 +8,7 @@ samples=1411 dropped=0 unique=1092
        8  0x133c1a2f8  jit+0x9ae2f8
        7  0x133c46d70  jit+0x9dad70
        7  0x133c46d38  jit+0x9dad38
-       7  0x1027ba894  _ZN3uml3cpu5arm6411jit_profile7enabledEv+0x18  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       7  0x1027ba894  _ZN3uml3cpu5arm6411jit_profile7enabledEv+0x18  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        6  0x6000003e2970
        6  0x192971428  _platform_memmove+0xa8  (/usr/lib/system/libsystem_platform.dylib)
        6  0x133bf8a48  jit+0x98ca48
@@ -31,7 +31,7 @@ samples=1411 dropped=0 unique=1092
        4  0x133c467a4  jit+0x9da7a4
        4  0x192898150  _ZNSt3__1L22__libcpp_atomic_notifyEPVKv+0x5c  (/usr/lib/libc++.1.dylib)
        3  0x133c98804  jit+0xa2c804
-       3  0x1027c4100  _ZZ31uml_arm64_jit_execute_exclusiveENK3$_0clEv+0x14  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       3  0x1027c4100  _ZZ31uml_arm64_jit_execute_exclusiveENK3$_0clEv+0x14  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        3  0x133bf88d0  jit+0x98c8d0
        3  0x133bc8b10  jit+0x95cb10
        3  0x133bab530  jit+0x93f530
@@ -41,7 +41,7 @@ samples=1411 dropped=0 unique=1092
        3  0x1929393bc  mach_boottime_usec+0x8  (/usr/lib/system/libsystem_kernel.dylib)
        3  0x133bab464  jit+0x93f464
        3  0x133c90668  jit+0xa24668
-       3  0x1027c1774  _ZNSt3__112__hash_tableIPN3uml3cpu5arm648CpuStateENS_4hashIS5_EENS_8equal_toIS5_EENS_9allocatorIS5_EEE25__emplace_unique_key_argsIS5_JS5_EEENS_4pairINS_15__hash_iteratorIPNS_11__hash_nodeIS5_PvEEEEbEERKT_DpOT0_+0x9c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       3  0x1027c1774  _ZNSt3__112__hash_tableIPN3uml3cpu5arm648CpuStateENS_4hashIS5_EENS_8equal_toIS5_EENS_9allocatorIS5_EEE25__emplace_unique_key_argsIS5_JS5_EEENS_4pairINS_15__hash_iteratorIPNS_11__hash_nodeIS5_PvEEEEbEERKT_DpOT0_+0x9c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        3  0x133c45b00  jit+0x9d9b00
        3  0x133c5e234  jit+0x9f2234
        3  0x133c4624c  jit+0x9da24c
@@ -73,21 +73,21 @@ samples=1411 dropped=0 unique=1092
        2  0x133c6a944  jit+0x9fe944
        2  0x133c4eda4  jit+0x9e2da4
        2  0x133c46db4  jit+0x9dadb4
-       2  0x1027ba884  _ZN3uml3cpu5arm6411jit_profile7enabledEv+0x8  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027ba884  _ZN3uml3cpu5arm6411jit_profile7enabledEv+0x8  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133c6edbc  jit+0xa02dbc
        2  0x133c47060  jit+0x9db060
-       2  0x1027c0878  _ZN3uml3cpu5arm6426JitExclusiveOperationScopeC2Ev+0x40  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       2  0x1027de514  _ZNK3uml6memory9FillIndex6lookupEy+0x48  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027c0878  _ZN3uml3cpu5arm6426JitExclusiveOperationScopeC2Ev+0x40  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027de514  _ZNK3uml6memory9FillIndex6lookupEy+0x48  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133c4a490  jit+0x9de490
        2  0x133c47064  jit+0x9db064
-       2  0x1027de40c  _ZN3uml6memory12_GLOBAL__N_112AddressSpace12translate_inERNS0_15GenerationStateEy24darwin_uml_static_accessPPv+0x68  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       2  0x1027c7070  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x458  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027de40c  _ZN3uml6memory12_GLOBAL__N_112AddressSpace12translate_inERNS0_15GenerationStateEy24darwin_uml_static_accessPPv+0x68  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027c7070  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x458  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133c1a364  jit+0x9ae364
        2  0x133c1a360  jit+0x9ae360
        2  0x133c1a304  jit+0x9ae304
-       2  0x1027b8498  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x71c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027b8498  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x71c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133bab898  jit+0x93f898
-       2  0x1027c30a8  _ZN3uml3cpu5arm643jit8semantic17exclusive_handlerEj+0x80  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027c30a8  _ZN3uml3cpu5arm643jit8semantic17exclusive_handlerEj+0x80  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x19292b0bc  __pselect+0x8  (/usr/lib/system/libsystem_kernel.dylib)
        2  0x133baf200  jit+0x943200
        2  0x19278b224  _xzm_xzone_malloc_tiny+0xa4  (/usr/lib/system/libsystem_malloc.dylib)
@@ -97,10 +97,10 @@ samples=1411 dropped=0 unique=1092
        2  0x133b81ff8  jit+0x915ff8
        2  0x133cb1eb4  jit+0xa45eb4
        2  0x133c65e5c  jit+0x9f9e5c
-       2  0x1027c4008  uml_arm64_jit_execute_exclusive+0x5c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       2  0x1027b7fc4  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x248  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027c4008  uml_arm64_jit_execute_exclusive+0x5c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027b7fc4  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x248  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133b75de8  jit+0x909de8
-       2  0x1027fdc8c  _ZN3uml7routing13current_routeEv+0x64  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027fdc8c  _ZN3uml7routing13current_routeEv+0x64  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133c45b24  jit+0x9d9b24
        2  0x192567304  _tlv_get_addr+0xc  (/usr/lib/system/libdyld.dylib)
        2  0x133b65ad4  jit+0x8f9ad4
@@ -125,12 +125,12 @@ samples=1411 dropped=0 unique=1092
        2  0x133ca525c  jit+0xa3925c
        2  0x133c47818  jit+0x9db818
        2  0x133c739c4  jit+0xa079c4
-       2  0x1027b8068  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x2ec  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027b8068  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x2ec  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133c49094  jit+0x9dd094
-       2  0x1027b806c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x2f0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027b806c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x2f0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133c49088  jit+0x9dd088
        2  0x133c99078  jit+0xa2d078
-       2  0x10277c05c  _ZN3uml6memory3Tlb9translateEyNS0_6AccessE+0x15c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x10277c05c  _ZN3uml6memory3Tlb9translateEyNS0_6AccessE+0x15c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x1927877f8  _xzm_free+0xb4  (/usr/lib/system/libsystem_malloc.dylib)
        2  0x133c98fe8  jit+0xa2cfe8
        2  0x133c58e54  jit+0x9ece54
@@ -143,16 +143,16 @@ samples=1411 dropped=0 unique=1092
        2  0x133c5bc08  jit+0x9efc08
        2  0x133bdfca0  jit+0x973ca0
        2  0x133bf89dc  jit+0x98c9dc
-       2  0x1027c0920  _ZN3uml3cpu5arm6426JitExclusiveOperationScopeC2Ev+0xe8  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027c0920  _ZN3uml3cpu5arm6426JitExclusiveOperationScopeC2Ev+0xe8  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133c988d8  jit+0xa2c8d8
        2  0x133c987ec  jit+0xa2c7ec
        2  0x133bab4b0  jit+0x93f4b0
        2  0x133c988bc  jit+0xa2c8bc
        2  0x133c87da4  jit+0xa1bda4
-       2  0x1027b7f48  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x1cc  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       2  0x1027b7f48  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x1cc  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        2  0x133c680f8  jit+0x9fc0f8
        1  0x133ca5df0  jit+0xa39df0
-       1  0x1027d9e18  darwin_uml_static_vm_discard_if_stale+0x1ac  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027d9e18  darwin_uml_static_vm_discard_if_stale+0x1ac  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bf884c  jit+0x98c84c
        1  0x133bbc870  jit+0x950870
        1  0x133c3c870  jit+0x9d0870
@@ -213,20 +213,20 @@ samples=1411 dropped=0 unique=1092
        1  0x133c5c77c  jit+0x9f077c
        1  0x133bf8a80  jit+0x98ca80
        1  0x133cb8a9c  jit+0xa4ca9c
-       1  0x1027f8aa0  _ZN3uml6memory20native_address_spaceEv+0x3b4  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027f8aa0  _ZN3uml6memory20native_address_spaceEv+0x3b4  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c84ae4  jit+0xa18ae4
        1  0x133ba8774  jit+0x93c774
        1  0x133bcc770  jit+0x960770
        1  0x133bc8b48  jit+0x95cb48
        1  0x192928b4c  __gettimeofday+0xc  (/usr/lib/system/libsystem_kernel.dylib)
-       1  0x102784b94  _ZN3uml3cpu5arm643jit19JitCompilerFamilies21attach_family_emitterEPvPbb+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x102784b94  _ZN3uml3cpu5arm643jit19JitCompilerFamilies21attach_family_emitterEPvPbb+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bbcb94  jit+0x950b94
        1  0x192928bd0  __write_nocancel+0x8  (/usr/lib/system/libsystem_kernel.dylib)
        1  0x133ca0c10  jit+0xa34c10
        1  0x133c6c768  jit+0xa00768
        1  0x133bccc40  jit+0x960c40
-       1  0x1027b8c74  _ZN3uml3cpu5arm6411JitExecutor14Implementation13prepare_linksEmy+0x24  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027b8c80  _ZN3uml3cpu5arm6411JitExecutor14Implementation13prepare_linksEmy+0x30  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b8c74  _ZN3uml3cpu5arm6411JitExecutor14Implementation13prepare_linksEmy+0x24  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b8c80  _ZN3uml3cpu5arm6411JitExecutor14Implementation13prepare_linksEmy+0x30  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c48c98  jit+0x9dcc98
        1  0x133ca0cac  jit+0xa34cac
        1  0x133c3ccb8  jit+0x9d0cb8
@@ -299,18 +299,18 @@ samples=1411 dropped=0 unique=1092
        1  0x133c98708  jit+0xa2c708
        1  0x133c3d078  jit+0x9d1078
        1  0x1925f1080  _ZNK5dyld311MachOLoaded17findClosestSymbolEyPPKcPy+0x13c  (/usr/lib/dyld)
-       1  0x1027dd080  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xd7c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dd080  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xd7c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c50700  jit+0x9e4700
        1  0x192971090  __bzero+0x40  (/usr/lib/system/libsystem_platform.dylib)
-       1  0x1027dd090  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xd8c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dd090  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xd8c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c706d0  jit+0xa046d0
        1  0x133c6909c  jit+0x9fd09c
        1  0x133c39090  jit+0x9cd090
        1  0x1925f1090  _ZNK5dyld311MachOLoaded17findClosestSymbolEyPPKcPy+0x14c  (/usr/lib/dyld)
-       1  0x1027dd094  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xd90  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dd094  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xd90  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c8509c  jit+0xa1909c
-       1  0x1027dd0b4  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xdb0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x10277d0c8  _ZN3uml3cpu5arm646detail19run_translated_loopINS2_8A64EntryELb0ENS1_11JitExecutorEEENS0_15ExecutionResultERT1_RNS0_16ExecutionRequestERNS_6memory17StaticGuestMemoryE+0xb8  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dd0b4  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xdb0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x10277d0c8  _ZN3uml3cpu5arm646detail19run_translated_loopINS2_8A64EntryELb0ENS1_11JitExecutorEEENS0_15ExecutionResultERT1_RNS0_16ExecutionRequestERNS_6memory17StaticGuestMemoryE+0xb8  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c490d8  jit+0x9dd0d8
        1  0x133be50dc  jit+0x9790dc
        1  0x133c3d0f0  jit+0x9d10f0
@@ -341,9 +341,9 @@ samples=1411 dropped=0 unique=1092
        1  0x133bed1d0  jit+0x9811d0
        1  0x133c9d1dc  jit+0xa311dc
        1  0x133c751fc  jit+0xa091fc
-       1  0x1027dd200  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xefc  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dd200  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xefc  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133ca920c  jit+0xa3d20c
-       1  0x1027dd20c  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xf08  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dd20c  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0xf08  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c75220  jit+0xa09220
        1  0x133cb9228  jit+0xa4d228
        1  0x133be1248  jit+0x975248
@@ -368,7 +368,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133c3d3b0  jit+0x9d13b0
        1  0x133c753b8  jit+0xa093b8
        1  0x133c38688  jit+0x9cc688
-       1  0x1027c13c0  _ZN3uml3cpu5arm6419end_jit_reservationERNS1_8CpuStateE+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c13c0  _ZN3uml3cpu5arm6419end_jit_reservationERNS1_8CpuStateE+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133cb93c4  jit+0xa4d3c4
        1  0x133c493c4  jit+0x9dd3c4
        1  0x1929713d8  _platform_memmove+0x58  (/usr/lib/system/libsystem_platform.dylib)
@@ -427,7 +427,7 @@ samples=1411 dropped=0 unique=1092
        1  0x1929716bc  _platform_strchr+0x3c  (/usr/lib/system/libsystem_platform.dylib)
        1  0x133c5d6bc  jit+0x9f16bc
        1  0x133c3d6cc  jit+0x9d16cc
-       1  0x1027b8600  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x884  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b8600  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x884  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133ca96f0  jit+0xa3d6f0
        1  0x133c516fc  jit+0x9e56fc
        1  0x133be571c  jit+0x97971c
@@ -437,15 +437,15 @@ samples=1411 dropped=0 unique=1092
        1  0x133be5738  jit+0x979738
        1  0x133c485d8  jit+0x9dc5d8
        1  0x133b7574c  jit+0x90974c
-       1  0x10272976c  darwin_uml_static_guest_interrupt_sequence+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x10272976c  darwin_uml_static_guest_interrupt_sequence+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133b75770  jit+0x909770
        1  0x133c705d0  jit+0xa045d0
        1  0x133bbd778  jit+0x951778
        1  0x133c95798  jit+0xa29798
        1  0x133c8579c  jit+0xa1979c
-       1  0x1027dd7a4  darwin_uml_static_vm_execution_context_sequences+0x20  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dd7a4  darwin_uml_static_vm_execution_context_sequences+0x20  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c717a4  jit+0xa057a4
-       1  0x1027297b8  darwin_uml_static_guest_interrupt_sequence+0x4c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027297b8  darwin_uml_static_guest_interrupt_sequence+0x4c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c705c0  jit+0xa045c0
        1  0x133c497c4  jit+0x9dd7c4
        1  0x133c497cc  jit+0x9dd7cc
@@ -456,7 +456,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133c3d7fc  jit+0x9d17fc
        1  0x133c71800  jit+0xa05800
        1  0x133b71818  jit+0x905818
-       1  0x1027c1818  _ZNSt3__112__hash_tableIPN3uml3cpu5arm648CpuStateENS_4hashIS5_EENS_8equal_toIS5_EENS_9allocatorIS5_EEE25__emplace_unique_key_argsIS5_JS5_EEENS_4pairINS_15__hash_iteratorIPNS_11__hash_nodeIS5_PvEEEEbEERKT_DpOT0_+0x140  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c1818  _ZNSt3__112__hash_tableIPN3uml3cpu5arm648CpuStateENS_4hashIS5_EENS_8equal_toIS5_EENS_9allocatorIS5_EEE25__emplace_unique_key_argsIS5_JS5_EEENS_4pairINS_15__hash_iteratorIPNS_11__hash_nodeIS5_PvEEEEbEERKT_DpOT0_+0x140  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133b71824  jit+0x905824
        1  0x133b71834  jit+0x905834
        1  0x133bad874  jit+0x941874
@@ -471,19 +471,19 @@ samples=1411 dropped=0 unique=1092
        1  0x12a4d58b8  jit+0xed18b8
        1  0x133c3d8bc  jit+0x9d18bc
        1  0x133bd18fc  jit+0x9658fc
-       1  0x1027b9904  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x8  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b9904  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x8  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x192925908  read+0x8  (/usr/lib/system/libsystem_kernel.dylib)
-       1  0x1027b990c  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x10  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027b9908  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0xc  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027b9910  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x14  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b990c  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x10  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b9908  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0xc  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b9910  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x14  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c9d95c  jit+0xa3195c
-       1  0x1027b996c  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x70  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b996c  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x70  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bf5974  jit+0x989974
-       1  0x1027b9978  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x7c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b9978  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x7c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bc599c  jit+0x95999c
        1  0x133c6599c  jit+0x9f999c
-       1  0x1027b99a8  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0xac  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027c19ac  _ZNSt3__112__hash_tableIPN3uml3cpu5arm648CpuStateENS_4hashIS5_EENS_8equal_toIS5_EENS_9allocatorIS5_EEE25__emplace_unique_key_argsIS5_JS5_EEENS_4pairINS_15__hash_iteratorIPNS_11__hash_nodeIS5_PvEEEEbEERKT_DpOT0_+0x2d4  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b99a8  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0xac  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c19ac  _ZNSt3__112__hash_tableIPN3uml3cpu5arm648CpuStateENS_4hashIS5_EENS_8equal_toIS5_EENS_9allocatorIS5_EEE25__emplace_unique_key_argsIS5_JS5_EEENS_4pairINS_15__hash_iteratorIPNS_11__hash_nodeIS5_PvEEEEbEERKT_DpOT0_+0x2d4  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c9d9b4  jit+0xa319b4
        1  0x133c705a8  jit+0xa045a8
        1  0x133bdd9b4  jit+0x9719b4
@@ -493,14 +493,14 @@ samples=1411 dropped=0 unique=1092
        1  0x133be5a14  jit+0x979a14
        1  0x133bf5a18  jit+0x989a18
        1  0x133bf5a20  jit+0x989a20
-       1  0x1027c1a34  _ZTWN3uml3cpu5arm6429current_jit_store_participantE+0x18  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c1a34  _ZTWN3uml3cpu5arm6429current_jit_store_participantE+0x18  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133be5a44  jit+0x979a44
-       1  0x1027b9a48  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x14c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b9a48  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x14c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c69aa0  jit+0x9fdaa0
        1  0x133c45ab0  jit+0x9d9ab0
        1  0x133c45ab4  jit+0x9d9ab4
        1  0x133c45ab8  jit+0x9d9ab8
-       1  0x102729ab4  darwin_uml_jit_enter_guest+0x208  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x102729ab4  darwin_uml_jit_enter_guest+0x208  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bddac8  jit+0x971ac8
        1  0x133bac59c  jit+0x94059c
        1  0x133be4590  jit+0x978590
@@ -511,20 +511,20 @@ samples=1411 dropped=0 unique=1092
        1  0x133b65b64  jit+0x8f9b64
        1  0x133badb94  jit+0x941b94
        1  0x133c55b98  jit+0x9e9b98
-       1  0x1027b9b9c  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x2a0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b9b9c  _ZZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRmENK3$_2clEPFyPS4_PNS6_3TlbEPNS1_13JitChainStateEEbb+0x2a0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c45bc4  jit+0x9d9bc4
        1  0x133c45bc8  jit+0x9d9bc8
        1  0x133b81bd8  jit+0x915bd8
        1  0x133badbfc  jit+0x941bfc
        1  0x133bf5c10  jit+0x989c10
-       1  0x1027e5c20  _ZN3uml6memory12_GLOBAL__N_112AddressSpace9translateEyy24darwin_uml_static_accessPPv+0x5c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027fdc28  _ZN3uml7routing13current_routeEv+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027fdc3c  _ZN3uml7routing13current_routeEv+0x14  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027fdc50  _ZN3uml7routing13current_routeEv+0x28  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027e5c20  _ZN3uml6memory12_GLOBAL__N_112AddressSpace9translateEyy24darwin_uml_static_accessPPv+0x5c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027fdc28  _ZN3uml7routing13current_routeEv+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027fdc3c  _ZN3uml7routing13current_routeEv+0x14  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027fdc50  _ZN3uml7routing13current_routeEv+0x28  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133b81c54  jit+0x915c54
        1  0x133b81c64  jit+0x915c64
        1  0x133cb9c74  jit+0xa4dc74
-       1  0x1027fdc78  _ZN3uml7routing13current_routeEv+0x50  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027fdc78  _ZN3uml7routing13current_routeEv+0x50  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133be4580  jit+0x978580
        1  0x133c4dcc0  jit+0x9e1cc0
        1  0x133cb5cc4  jit+0xa49cc4
@@ -534,15 +534,15 @@ samples=1411 dropped=0 unique=1092
        1  0x133c69cf8  jit+0x9fdcf8
        1  0x133c4dd00  jit+0x9e1d00
        1  0x133b75d24  jit+0x909d24
-       1  0x1027c1d4c  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x284  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c1d4c  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x284  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c4dd50  jit+0x9e1d50
        1  0x133badd6c  jit+0x941d6c
        1  0x133ca5d80  jit+0xa39d80
        1  0x133c41d90  jit+0x9d5d90
        1  0x133b75d98  jit+0x909d98
        1  0x133c69dd0  jit+0x9fddd0
-       1  0x1027c1dd0  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x308  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027c1dd4  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x30c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c1dd0  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x308  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c1dd4  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x30c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c69de0  jit+0x9fdde0
        1  0x133c60568  jit+0x9f4568
        1  0x133c44550  jit+0x9d8550
@@ -559,7 +559,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133cb1edc  jit+0xa45edc
        1  0x133c55f08  jit+0x9e9f08
        1  0x12a55df14  jit+0xf59f14
-       1  0x1027c5f1c  _ZN3uml3cpu5arm6412_GLOBAL__N_117JitSemanticMemory14atomic_pointerEymNS_6memory12MemoryAccessE+0x5c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c5f1c  _ZN3uml3cpu5arm6412_GLOBAL__N_117JitSemanticMemory14atomic_pointerEymNS_6memory12MemoryAccessE+0x5c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bf5f30  jit+0x989f30
        1  0x133cb1f58  jit+0xa45f58
        1  0x133b81f64  jit+0x915f64
@@ -569,9 +569,9 @@ samples=1411 dropped=0 unique=1092
        1  0x133c61fa8  jit+0x9f5fa8
        1  0x133be1fd8  jit+0x975fd8
        1  0x133b81fe0  jit+0x915fe0
-       1  0x1027c1fe8  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x520  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c1fe8  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x520  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133b81ff0  jit+0x915ff0
-       1  0x1027c1ff4  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x52c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c1ff4  _ZN3uml3cpu5arm643jit8semantic20load_store_exclusiveERNS1_8CpuStateERNS_6memory17GuestAddressSpaceEj+0x52c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c444fc  jit+0x9d84fc
        1  0x133be2000  jit+0x976000
        1  0x133c6e004  jit+0xa02004
@@ -587,7 +587,7 @@ samples=1411 dropped=0 unique=1092
        1  0x12ac720dc  jit+0x166e0dc
        1  0x133cae0ec  jit+0xa420ec
        1  0x133cac4e4  jit+0xa404e4
-       1  0x1027c6118  _ZN3uml3cpu5arm643jit8semantic17reservation_storeERNS1_8CpuStateEm+0x20  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c6118  _ZN3uml3cpu5arm643jit8semantic17reservation_storeERNS1_8CpuStateEm+0x20  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bee11c  jit+0x98211c
        1  0x133bf2170  jit+0x986170
        1  0x133c96174  jit+0xa2a174
@@ -600,7 +600,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133bde210  jit+0x972210
        1  0x133c9c4d0  jit+0xa304d0
        1  0x133c42240  jit+0x9d6240
-       1  0x1027dc4c8  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0x1c4  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dc4c8  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0x1c4  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c9c4c4  jit+0xa304c4
        1  0x133be6254  jit+0x97a254
        1  0x133c3a258  jit+0x9ce258
@@ -618,10 +618,10 @@ samples=1411 dropped=0 unique=1092
        1  0x133c6e290  jit+0xa02290
        1  0x133bde294  jit+0x972294
        1  0x133bde298  jit+0x972298
-       1  0x10272a288  _ZN3uml8emulator12_GLOBAL__N_18load_cpuERNS_3cpu5arm648CpuStateERK26darwin_uml_guest_registersRK29darwin_uml_guest_fp_registersyb+0xa8  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x10272a288  _ZN3uml8emulator12_GLOBAL__N_18load_cpuERNS_3cpu5arm648CpuStateERK26darwin_uml_guest_registersRK29darwin_uml_guest_fp_registersyb+0xa8  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c8a280  jit+0xa1e280
        1  0x133bea2cc  jit+0x97e2cc
-       1  0x1027c62d0  _ZN3uml3cpu5arm643jit8semantic17atomic_load_valueERNS_6memory17GuestAddressSpaceEymNSt3__112memory_orderERyRm+0x58  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c62d0  _ZN3uml3cpu5arm643jit8semantic17atomic_load_valueERNS_6memory17GuestAddressSpaceEymNSt3__112memory_orderERyRm+0x58  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c94838  jit+0xa28838
        1  0x133ca22d8  jit+0xa362d8
        1  0x133bbe2dc  jit+0x9522dc
@@ -629,14 +629,14 @@ samples=1411 dropped=0 unique=1092
        1  0x133c6049c  jit+0x9f449c
        1  0x12ac3c468  jit+0x1638468
        1  0x133c5a33c  jit+0x9ee33c
-       1  0x1027b8464  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x6e8  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027b8458  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x6dc  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b8464  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x6e8  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b8458  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x6dc  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c1a370  jit+0x9ae370
-       1  0x1027b844c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x6d0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b844c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x6d0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133ca6384  jit+0xa3a384
        1  0x133c463a8  jit+0x9da3a8
        1  0x12a86e3c0  jit+0x126a3c0
-       1  0x1027de3e4  _ZN3uml6memory12_GLOBAL__N_112AddressSpace12translate_inERNS0_15GenerationStateEy24darwin_uml_static_accessPPv+0x40  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027de3e4  _ZN3uml6memory12_GLOBAL__N_112AddressSpace12translate_inERNS0_15GenerationStateEy24darwin_uml_static_accessPPv+0x40  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c46404  jit+0x9da404
        1  0x133c68430  jit+0x9fc430
        1  0x133c3841c  jit+0x9cc41c
@@ -645,7 +645,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133c9c40c  jit+0xa3040c
        1  0x133bf2494  jit+0x986494
        1  0x133c9e490  jit+0xa32490
-       1  0x1027de4a0  _ZN3uml6memory12_GLOBAL__N_112AddressSpace12translate_inERNS0_15GenerationStateEy24darwin_uml_static_accessPPv+0xfc  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027de4a0  _ZN3uml6memory12_GLOBAL__N_112AddressSpace12translate_inERNS0_15GenerationStateEy24darwin_uml_static_accessPPv+0xfc  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c424b8  jit+0x9d64b8
        1  0x133c1a4bc  jit+0x9ae4bc
        1  0x133c1a4cc  jit+0x9ae4cc
@@ -655,13 +655,13 @@ samples=1411 dropped=0 unique=1092
        1  0x133c8a4ec  jit+0xa1e4ec
        1  0x133c5a4f0  jit+0x9ee4f0
        1  0x133bde4fc  jit+0x9724fc
-       1  0x1027de504  _ZNK3uml6memory9FillIndex6lookupEy+0x38  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027de504  _ZNK3uml6memory9FillIndex6lookupEy+0x38  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bd250c  jit+0x96650c
        1  0x133c8a510  jit+0xa1e510
        1  0x133c38408  jit+0x9cc408
        1  0x133c9a518  jit+0xa2e518
        1  0x133c8a514  jit+0xa1e514
-       1  0x1027de524  _ZNK3uml6memory9FillIndex6lookupEy+0x58  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027de524  _ZNK3uml6memory9FillIndex6lookupEy+0x58  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c1a538  jit+0x9ae538
        1  0x133c1a53c  jit+0x9ae53c
        1  0x133bf2544  jit+0x986544
@@ -673,39 +673,39 @@ samples=1411 dropped=0 unique=1092
        1  0x133c9656c  jit+0xa2a56c
        1  0x133cb25cc  jit+0xa465cc
        1  0x133cb25e4  jit+0xa465e4
-       1  0x1027be5fc  _ZN3uml3cpu5arm6411JitExecutor13end_executionEv+0x28  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027be620  _ZN3uml3cpu5arm6411JitExecutor13end_executionEv+0x4c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027be5fc  _ZN3uml3cpu5arm6411JitExecutor13end_executionEv+0x28  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027be620  _ZN3uml3cpu5arm6411JitExecutor13end_executionEv+0x4c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c5e620  jit+0x9f2620
        1  0x19292663c  pread+0x8  (/usr/lib/system/libsystem_kernel.dylib)
        1  0x133bae650  jit+0x942650
        1  0x1929726b8  sys_icache_invalidate+0x28  (/usr/lib/system/libsystem_platform.dylib)
        1  0x133bee6c0  jit+0x9826c0
        1  0x133c5e6c4  jit+0x9f26c4
-       1  0x1027b66d8  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x14  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b66d8  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x14  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133cb26e0  jit+0xa466e0
        1  0x133cb2704  jit+0xa46704
-       1  0x1027b6708  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x44  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b6708  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x44  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c76730  jit+0xa0a730
-       1  0x1027b673c  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x78  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027b6740  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x7c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b673c  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x78  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b6740  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x7c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c5e740  jit+0x9f2740
        1  0x133bae748  jit+0x942748
-       1  0x1027b6748  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x84  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b6748  _ZN3uml3cpu5arm6411JitExecutor14Implementation4findEmyyRNS_6memory17StaticGuestMemoryE+0x84  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c3e7a0  jit+0x9d27a0
        1  0x133c68404  jit+0x9fc404
        1  0x133c467b0  jit+0x9da7b0
        1  0x133c4a7c8  jit+0x9de7c8
        1  0x133c5e7d4  jit+0x9f27d4
        1  0x133c76820  jit+0xa0a820
-       1  0x1027c03b8  _ZN3uml3cpu5arm6420JitIndirectLinkTable14find_or_createEym+0x94  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c03b8  _ZN3uml3cpu5arm6420JitIndirectLinkTable14find_or_createEym+0x94  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c82848  jit+0xa16848
        1  0x133cb6848  jit+0xa4a848
        1  0x133c42860  jit+0x9d6860
-       1  0x102720374  _ZNSt3__112__hash_tableIPN3uml3cpu5arm648CpuStateENS_4hashIS5_EENS_8equal_toIS5_EENS_9allocatorIS5_EEE4findIS5_EENS_15__hash_iteratorIPNS_11__hash_nodeIS5_PvEEEERKT_+0x84  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027ba87c  _ZN3uml3cpu5arm6411jit_profile7enabledEv+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x102720374  _ZNSt3__112__hash_tableIPN3uml3cpu5arm648CpuStateENS_4hashIS5_EENS_8equal_toIS5_EENS_9allocatorIS5_EEE4findIS5_EENS_15__hash_iteratorIPNS_11__hash_nodeIS5_PvEEEERKT_+0x84  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027ba87c  _ZN3uml3cpu5arm6411jit_profile7enabledEv+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bbc360  jit+0x950360
-       1  0x1027ba890  _ZN3uml3cpu5arm6411jit_profile7enabledEv+0x14  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027dc350  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0x4c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027ba890  _ZN3uml3cpu5arm6411jit_profile7enabledEv+0x14  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dc350  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0x4c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c9a89c  jit+0xa2e89c
        1  0x133bba8b4  jit+0x94e8b4
        1  0x133c4a8b8  jit+0x9de8b8
@@ -715,16 +715,16 @@ samples=1411 dropped=0 unique=1092
        1  0x133c4a8e8  jit+0x9de8e8
        1  0x133c828f8  jit+0xa168f8
        1  0x6000002da904
-       1  0x1027be920  _ZN3uml3cpu5arm6415JitExecutorPool7releaseEjyPNS1_11JitExecutorE+0x50  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027be920  _ZN3uml3cpu5arm6415JitExecutorPool7releaseEjyPNS1_11JitExecutorE+0x50  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c6a928  jit+0x9fe928
        1  0x133bd2930  jit+0x966930
        1  0x133bda934  jit+0x96e934
        1  0x133c5e938  jit+0x9f2938
-       1  0x1027dc340  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0x3c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027dc340  _ZN3uml6memory12_GLOBAL__N_113address_spaceEv+0x3c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c6e950  jit+0xa02950
        1  0x133c6e95c  jit+0xa0295c
        1  0x133ca4328  jit+0xa38328
-       1  0x1027e298c  _ZN3uml6memory9FillIndex7reserveEy+0x1d0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027e298c  _ZN3uml6memory9FillIndex7reserveEy+0x1d0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133ca298c  jit+0xa3698c
        1  0x133c5a994  jit+0x9ee994
        1  0x133c04324  jit+0x998324
@@ -741,7 +741,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133c6aa30  jit+0x9fea30
        1  0x133c96a38  jit+0xa2aa38
        1  0x133beea58  jit+0x982a58
-       1  0x1027d6a70  _ZN3uml6memory23ConfiguredAddressLayout8is_guestEy+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027d6a70  _ZN3uml6memory23ConfiguredAddressLayout8is_guestEy+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c6ea80  jit+0xa02a80
        1  0x133c6ea8c  jit+0xa02a8c
        1  0x133c6c308  jit+0xa00308
@@ -762,7 +762,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133c36c60  jit+0x9cac60
        1  0x133c9ec74  jit+0xa32c74
        1  0x133c46c7c  jit+0x9dac7c
-       1  0x1027c6c80  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x68  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c6c80  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x68  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c742f0  jit+0xa082f0
        1  0x133be6c8c  jit+0x97ac8c
        1  0x133c482c0  jit+0x9dc2c0
@@ -806,16 +806,16 @@ samples=1411 dropped=0 unique=1092
        1  0x133bd2e80  jit+0x966e80
        1  0x133bd2ea4  jit+0x966ea4
        1  0x133bc2f04  jit+0x956f04
-       1  0x1027faf08  _ZNSt3__112__hash_tableINS_17__hash_value_typeImN3uml6memory18NativeAddressSpace13DirectMappingEEENS_22__unordered_map_hasherImNS_4pairIKmS5_EENS3_15PageAddressHashENS_8equal_toImEELb0EEENS_21__unordered_map_equalImSA_SD_SB_Lb1EEENS3_15DomainAllocatorISA_EEE25__emplace_unique_key_argsImJRS9_S5_EEENS8_INS_15__hash_iteratorIPNS_11__hash_nodeIS6_PvEEEEbEERKT_DpOT0_+0x154  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027faf08  _ZNSt3__112__hash_tableINS_17__hash_value_typeImN3uml6memory18NativeAddressSpace13DirectMappingEEENS_22__unordered_map_hasherImNS_4pairIKmS5_EENS3_15PageAddressHashENS_8equal_toImEELb0EEENS_21__unordered_map_equalImSA_SD_SB_Lb1EEENS3_15DomainAllocatorISA_EEE25__emplace_unique_key_argsImJRS9_S5_EEENS8_INS_15__hash_iteratorIPNS_11__hash_nodeIS6_PvEEEEbEERKT_DpOT0_+0x154  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bd2f04  jit+0x966f04
        1  0x133c6ef24  jit+0xa02f24
        1  0x19292af30  kevent+0x8  (/usr/lib/system/libsystem_kernel.dylib)
-       1  0x102c0ef5c  /Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin+0x826f5c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x102c0ef5c  ~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin+0x826f5c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bcefa0  jit+0x962fa0
        1  0x133c9afc4  jit+0xa2efc4
        1  0x133c9afc8  jit+0xa2efc8
        1  0x133ca7010  jit+0xa3b010
-       1  0x102c0f028  /Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin+0x827028  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x102c0f028  ~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin+0x827028  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c8b03c  jit+0xa1f03c
        1  0x133bf81d4  jit+0x98c1d4
        1  0x133c6b050  jit+0x9ff050
@@ -827,25 +827,25 @@ samples=1411 dropped=0 unique=1092
        1  0x133c501c4  jit+0x9e41c4
        1  0x133cb0194  jit+0xa44194
        1  0x133bbf0ac  jit+0x9530ac
-       1  0x1027970b4  _ZN3uml3cpu5arm6412Arm64Emitter6finishEv+0x20  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027970b4  _ZN3uml3cpu5arm6412Arm64Emitter6finishEv+0x20  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133ba819c  jit+0x93c19c
        1  0x133be30d0  jit+0x9770d0
        1  0x133c4710c  jit+0x9db10c
        1  0x133c4711c  jit+0x9db11c
        1  0x133cb3120  jit+0xa47120
-       1  0x102c0f124  /Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin+0x827124  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x102c0f124  ~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin+0x827124  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bf3128  jit+0x987128
        1  0x133c37138  jit+0x9cb138
        1  0x133cb3140  jit+0xa47140
        1  0x133cb3148  jit+0xa47148
        1  0x19277b14c  malloc_type_malloc+0x18  (/usr/lib/system/libsystem_malloc.dylib)
        1  0x133ca7154  jit+0xa3b154
-       1  0x1027c7180  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x568  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c7180  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x568  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c47188  jit+0x9db188
-       1  0x1027c7194  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x57c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c7194  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x57c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c471a0  jit+0x9db1a0
        1  0x133c471a4  jit+0x9db1a4
-       1  0x1027c71a8  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x590  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c71a8  _ZN3uml3cpu5arm643jit8semantic28atomic_store_exclusive_valueERNS_6memory17GuestAddressSpaceEymRKNS3_14MonitoredValueEyNSt3__112memory_orderERm+0x590  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c471b0  jit+0x9db1b0
        1  0x133bf31b4  jit+0x9871b4
        1  0x133bcf1c0  jit+0x9631c0
@@ -877,7 +877,7 @@ samples=1411 dropped=0 unique=1092
        1  0x6000002eb3f8
        1  0x133c4b434  jit+0x9df434
        1  0x133c9f440  jit+0xa33440
-       1  0x10270f444  uml_arm64_jit_tlb_translate_preserving+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x10270f444  uml_arm64_jit_tlb_translate_preserving+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c47450  jit+0x9db450
        1  0x133c04174  jit+0x998174
        1  0x133bdf458  jit+0x973458
@@ -893,13 +893,13 @@ samples=1411 dropped=0 unique=1092
        1  0x133c4b49c  jit+0x9df49c
        1  0x133bf814c  jit+0x98c14c
        1  0x133ba8144  jit+0x93c144
-       1  0x1027db4c4  darwin_uml_static_vm_translate+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027db4c4  darwin_uml_static_vm_translate+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c90130  jit+0xa24130
        1  0x133c874ec  jit+0xa1b4ec
        1  0x133c474f8  jit+0x9db4f8
        1  0x133c87508  jit+0xa1b508
        1  0x133c4750c  jit+0x9db50c
-       1  0x10270f510  uml_arm64_jit_tlb_translate_preserving+0xcc  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x10270f510  uml_arm64_jit_tlb_translate_preserving+0xcc  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c8c12c  jit+0xa2012c
        1  0x133c47528  jit+0x9db528
        1  0x133bf811c  jit+0x98c11c
@@ -936,14 +936,14 @@ samples=1411 dropped=0 unique=1092
        1  0x133c8c104  jit+0xa20104
        1  0x133ba80f0  jit+0x93c0f0
        1  0x133c3783c  jit+0x9cb83c
-       1  0x10271c0ec  _ZNSt3__112__hash_tableINS_17__hash_value_typeIPvmEENS_22__unordered_map_hasherIS2_NS_4pairIKS2_mEENS_4hashIS2_EENS_8equal_toIS2_EELb1EEENS_21__unordered_map_equalIS2_S7_SB_S9_Lb1EEENS_9allocatorIS7_EEE6removeENS_21__hash_const_iteratorIPNS_11__hash_nodeIS3_S2_EEEE+0x30  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x10271c0ec  _ZNSt3__112__hash_tableINS_17__hash_value_typeIPvmEENS_22__unordered_map_hasherIS2_NS_4pairIKS2_mEENS_4hashIS2_EENS_8equal_toIS2_EELb1EEENS_21__unordered_map_equalIS2_S7_SB_S9_Lb1EEENS_9allocatorIS7_EEE6removeENS_21__hash_const_iteratorIPNS_11__hash_nodeIS3_S2_EEEE+0x30  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133ba80e8  jit+0x93c0e8
        1  0x12a47b854  jit+0xe77854
        1  0x133bab854  jit+0x93f854
        1  0x133c900c0  jit+0xa240c0
        1  0x133bab88c  jit+0x93f88c
        1  0x133c47898  jit+0x9db898
-       1  0x1027b8098  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x31c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b8098  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x31c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bf8090  jit+0x98c090
        1  0x133bf78a0  jit+0x98b8a0
        1  0x133bab8a8  jit+0x93f8a8
@@ -951,7 +951,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133c5b8cc  jit+0x9ef8cc
        1  0x1927878d8  _xzm_free+0x194  (/usr/lib/system/libsystem_malloc.dylib)
        1  0x133c438f0  jit+0x9d78f0
-       1  0x1027c4088  uml_arm64_jit_execute_exclusive+0xdc  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027c4088  uml_arm64_jit_execute_exclusive+0xdc  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bdb91c  jit+0x96f91c
        1  0x133c9b920  jit+0xa2f920
        1  0x133c4392c  jit+0x9d792c
@@ -996,9 +996,9 @@ samples=1411 dropped=0 unique=1092
        1  0x133bd7b34  jit+0x96bb34
        1  0x133bbfb38  jit+0x953b38
        1  0x133c47b40  jit+0x9dbb40
-       1  0x1027b8060  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x2e4  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b8060  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x2e4  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c33b4c  jit+0x9c7b4c
-       1  0x1027ebb50  _ZN3uml6memory18NativeAddressSpace10map_directEmiyyi+0x1150  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027ebb50  _ZN3uml6memory18NativeAddressSpace10map_directEmiyyi+0x1150  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bbfb50  jit+0x953b50
        1  0x133ba7b58  jit+0x93bb58
        1  0x133ba7b70  jit+0x93bb70
@@ -1040,22 +1040,22 @@ samples=1411 dropped=0 unique=1092
        1  0x133cabd0c  jit+0xa3fd0c
        1  0x133bbfd14  jit+0x953d14
        1  0x133cabd1c  jit+0xa3fd1c
-       1  0x102793d5c  _ZN3uml3cpu5arm6412Arm64Emitter4emitEj+0xc4  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x102793d5c  _ZN3uml3cpu5arm6412Arm64Emitter4emitEj+0xc4  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bebd5c  jit+0x97fd5c
        1  0x133cabd5c  jit+0xa3fd5c
        1  0x133c87d68  jit+0xa1bd68
        1  0x6000004ffd7c
        1  0x133c0402c  jit+0x99802c
-       1  0x1027b7dac  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x30  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027b7db8  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x3c  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027b7dbc  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x40  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b7dac  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x30  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b7db8  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x3c  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b7dbc  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x40  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bebdcc  jit+0x97fdcc
        1  0x133cb7dd4  jit+0xa4bdd4
        1  0x133bcfdd8  jit+0x963dd8
-       1  0x1027b7e04  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x88  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b7e04  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x88  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c3be08  jit+0x9cfe08
        1  0x133bbfe0c  jit+0x953e0c
-       1  0x1027b7e0c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x90  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b7e0c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x90  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bbbe20  jit+0x94fe20
        1  0x133be7e38  jit+0x97be38
        1  0x133bbbe40  jit+0x94fe40
@@ -1063,8 +1063,8 @@ samples=1411 dropped=0 unique=1092
        1  0x133c4be60  jit+0x9dfe60
        1  0x133bbfe60  jit+0x953e60
        1  0x133c77e68  jit+0xa0be68
-       1  0x1027b7e6c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0xf0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
-       1  0x1027b7e78  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0xfc  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b7e6c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0xf0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b7e78  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0xfc  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x12a47be8c  jit+0xe77e8c
        1  0x133c53ea8  jit+0x9e7ea8
        1  0x133c73ec4  jit+0xa07ec4
@@ -1077,7 +1077,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133bebeec  jit+0x97feec
        1  0x133c9fef8  jit+0xa33ef8
        1  0x133cb7ef8  jit+0xa4bef8
-       1  0x10277bf00  _ZN3uml6memory3Tlb9translateEyNS0_6AccessE+0x0  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x10277bf00  _ZN3uml6memory3Tlb9translateEyNS0_6AccessE+0x0  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133c4bf00  jit+0x9dff00
        1  0x133c3bf14  jit+0x9cff14
        1  0x133cb7f1c  jit+0xa4bf1c
@@ -1086,7 +1086,7 @@ samples=1411 dropped=0 unique=1092
        1  0x133c3bf50  jit+0x9cff50
        1  0x133bebf78  jit+0x97ff78
        1  0x133cb7f88  jit+0xa4bf88
-       1  0x1027b7f8c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x210  (/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
+       1  0x1027b7f8c  _ZN3uml3cpu5arm6411JitExecutor14Implementation9run_blockERNS1_8CpuStateERNS_6memory17StaticGuestMemoryEmRm+0x210  (~/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin)
        1  0x133bcffb0  jit+0x963fb0
        1  0x133c77fb4  jit+0xa0bfb4
        1  0x133c9bfc0  jit+0xa2ffc0

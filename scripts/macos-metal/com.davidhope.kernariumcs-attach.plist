@@ -6,7 +6,7 @@
   <string>com.davidhope.kernariumcs-attach</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/Users/davidhope/linux-ios-bakeoff/scripts/macos-metal/attach-kernariumcs.sh</string>
+    <string>/Users/YOU/linux-ios-bakeoff/scripts/macos-metal/attach-kernariumcs.sh</string>
   </array>
   <key>RunAtLoad</key>
   <true/>
@@ -15,8 +15,8 @@
     <string>Aqua</string>
   </array>
   <key>StandardOutPath</key>
-  <string>/Users/davidhope/Library/Logs/kernariumcs-attach.stdout.log</string>
+  <string>/Users/YOU/Library/Logs/kernariumcs-attach.stdout.log</string>
   <key>StandardErrorPath</key>
-  <string>/Users/davidhope/Library/Logs/kernariumcs-attach.stderr.log</string>
+  <string>/Users/YOU/Library/Logs/kernariumcs-attach.stderr.log</string>
 </dict>
 </plist>

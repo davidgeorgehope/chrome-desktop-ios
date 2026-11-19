@@ -13,8 +13,8 @@ JIT_BUDGET="${3:-3584M}"
 JIT_EXECUTOR_BUDGET="${4:-64M}"
 # Guest RAM in MiB (default 3072, phone profile; 4096 for the Mac profile).
 GUEST_MIB="${5:-3072}"
-NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
-KERNARIUM=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean
+NOTES=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop
+KERNARIUM=$HOME/linux-ios-bakeoff/src/Kernarium-0022-clean
 STAMP=$(date +%Y%m%d-%H%M%S)
 LOG="$NOTES/kernarium-ipad-0022-$TAG-session-$STAMP.log"
 SERVE="$NOTES/kernarium-ipad-0022-$TAG-serve-$STAMP.log"
@@ -134,7 +134,7 @@ set +e
     "-only-testing:KernariumTests/GuestSessionTests" \
     -allowProvisioningUpdates \
     -allowProvisioningDeviceRegistration \
-    DEVELOPMENT_TEAM=4P2629648N \
+    DEVELOPMENT_TEAM=YOURTEAMID \
     ENABLE_TESTABILITY=YES \
     test \
     >"$XC_LOG" 2>&1

@@ -5,9 +5,9 @@ export HOMEBREW_NO_AUTO_UPDATE=1
 export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
 export LANG=C
 # Official 0022 tree. Do not build from the dirty persist-v2 worktree.
-ROOT=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean
+ROOT=$HOME/linux-ios-bakeoff/src/Kernarium-0022-clean
 export ROOT_DIR="$ROOT"
-NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
+NOTES=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop
 LOG="$NOTES/build-d4ipad-0022-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee -a "$LOG") 2>&1
 echo "BUILD_START $(date) log=$LOG root=$ROOT"

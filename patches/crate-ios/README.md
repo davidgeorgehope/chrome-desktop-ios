@@ -17,7 +17,7 @@ What the patch carries:
 - `CRATE_HAS_IOS27_SDK` guards around iOS 27 hinge / toolbar APIs so the
   tree builds with an older SDK.
 - Bundle IDs `com.davidhope.crate` / `.jithelper` / `.d4probe`. Upstream
-  `com.amendez.crate` cannot be registered to team `4P2629648N` ("not
+  `com.amendez.crate` cannot be registered to team `YOURTEAMID` ("not
   available"). The wildcard `iOS Team Provisioning Profile: *` does not
   include `increased-memory-limit` or `extended-virtual-addressing`. An
   explicit App ID profile for `com.davidhope.crate` does (same as Henge,
@@ -25,7 +25,7 @@ What the patch carries:
 - `Resources/Crate.entitlements` (and the copy here) has `get-task-allow`
   plus both memory entitlements. Do not set `CODE_SIGN_ENTITLEMENTS`
   globally: the JIT helper must not inherit the kernel entitlements.
-  Build with `DEVELOPMENT_TEAM=4P2629648N` and `-allowProvisioningUpdates`.
+  Build with `DEVELOPMENT_TEAM=YOURTEAMID` and `-allowProvisioningUpdates`.
 
 On a 16 Pro (8 GB), the process limit without those entitlements was
 ~3.54 GB. With them, crate.log reports 6 GiB (6,442,450,944 bytes). A

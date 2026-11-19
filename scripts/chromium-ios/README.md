@@ -108,7 +108,7 @@ hover, `maxTouchPoints = 0`, no touch-event feature detection.
 
 # Real iPhone (arm64 device) Chrome on Blink
 
-Our team (4P2629648N) has no `com.apple.developer.web-browser-engine.*`
+Our team (YOURTEAMID) has no `com.apple.developer.web-browser-engine.*`
 entitlements, so BrowserEngineKit child processes cannot run on a device.
 The device build is therefore single-process:
 
@@ -174,9 +174,9 @@ crate/Henge/Kernarium were registered.
 
 The wildcard `iOS Team Provisioning Profile: *` cannot carry
 `increased-memory-limit` or `extended-virtual-addressing`. An explicit
-App ID `com.davidhope.deskbrowser.blink` on team `4P2629648N` is minted
+App ID `com.davidhope.deskbrowser.blink` on team `YOURTEAMID` is minted
 the same way crate's was: Xcode automatic signing of the stub project in
-`scripts/chromium-ios/blink-appid-stub/` (`DEVELOPMENT_TEAM=4P2629648N`,
+`scripts/chromium-ios/blink-appid-stub/` (`DEVELOPMENT_TEAM=YOURTEAMID`,
 `-allowProvisioningUpdates`), run from an Aqua LaunchAgent so codesign
 can use the unlocked login keychain. Do not use the `security` CLI.
 

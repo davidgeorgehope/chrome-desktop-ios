@@ -6,19 +6,19 @@
 # notes/ios-interactive/bake-guest.sh on the mini (repo: bake-ios-interactive-guest.sh).
 set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
-D=/Users/davidhope/linux-ios-bakeoff/notes/ios-interactive
+D=$HOME/linux-ios-bakeoff/notes/ios-interactive
 R=${R:-/Volumes/KernariumCS/rootfs/starter-20261112}
 G=$D/desktop-guest
 M=$G/interactive-metrics
-FAST=/Users/davidhope/linux-ios-bakeoff/notes/desktop-guest-fast
-BIN=/Users/davidhope/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin-official-0022-20261113
+FAST=$HOME/linux-ios-bakeoff/notes/desktop-guest-fast
+BIN=$HOME/linux-ios-bakeoff/src/Kernarium/.build/presets/macos-integration/bin/uml-darwin-official-0022-20261113
 [ "$(md5 -q "$BIN")" = 6ea8180e05fc6736d32530811ba3c439 ] || { echo "official md5 mismatch"; exit 2; }
 BASE=$R/$1; OUT=$R/$2; BROWSER=$3
 [ -e "$OUT" ] && { echo "refuse: $OUT exists"; exit 2; }
 cp -c "$BASE" "$OUT"; chmod 644 "$OUT"
 echo 1 > $D/flag; printf '%s\n' "$BROWSER" > $D/browser-$BROWSER
 export UML_PREFLIGHT_GUEST_MEM=2G
-. /Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
+. $HOME/linux-ios-bakeoff/notes/macos-metal-desktop/preflight-uml-darwin.sh
 LOG=$D/bake-$2-$(date +%Y%m%d-%H%M%S).log
 /usr/bin/script -q "$LOG" "$BIN" --execution-engine=jit --gpu-display=native --gpu-width=1920 --gpu-height=1080 --gpu-auto-resize=off \
   --guest-file=/boot.env=$D/boot.env-upper-none \

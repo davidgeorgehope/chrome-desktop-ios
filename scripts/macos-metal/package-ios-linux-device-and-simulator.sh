@@ -3,7 +3,7 @@
 # Package Linux ios-device + ios-simulator slices without Android.
 # Keeps the Designed-for-iPad device slice while adding Simulator slices.
 set -eu
-ROOT_DIR=${ROOT_DIR:-/Users/davidhope/linux-ios-bakeoff/src/Kernarium}
+ROOT_DIR=${ROOT_DIR:-$HOME/linux-ios-bakeoff/src/Kernarium}
 OUTPUT="$ROOT_DIR/.build/kernarium-xcframeworks"
 fail() { printf '%s\n' "package-ios-linux-device-and-simulator.sh: $*" >&2; exit 1; }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Closed-loop cursor move on the phone trackpad (simulator only): tp-goto.py X Y
 import sys, subprocess, re, glob, os, time
-U='DE1E2D59-E674-4EE1-8096-097886FB5917'
+U=os.environ.get('SIM_UDID', 'booted')
 R=sorted(glob.glob(os.path.expanduser('~/chromium-build/logs/views-m2/run/*')), key=os.path.getmtime)[-1]
 tx,ty=float(sys.argv[1]),float(sys.argv[2])
 def cur():

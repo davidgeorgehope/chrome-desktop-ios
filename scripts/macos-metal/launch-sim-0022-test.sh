@@ -4,9 +4,9 @@ export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 export LANG=C
 TAG="${1:-ff}"
 ROOTFS_NAME="${2:-alpine-3.24.2-desktop-labwc.ext4}"
-K=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean
-NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
-UDID=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB
+K=$HOME/linux-ios-bakeoff/src/Kernarium-0022-clean
+NOTES=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop
+UDID=${SIM_UDID:-booted}
 STAMP=$(date +%Y%m%d-%H%M%S)
 LOG="$NOTES/kernarium-sim-0022-$TAG-session-$STAMP.log"
 MEMLOG="$NOTES/kernarium-sim-0022-$TAG-memory-$STAMP.log"
@@ -100,7 +100,7 @@ set +e
     "-only-testing:KernariumTests/GuestSessionTests" \
     CODE_SIGNING_ALLOWED=NO \
     EXCLUDED_ARCHS=x86_64 \
-    DEVELOPMENT_TEAM=4P2629648N \
+    DEVELOPMENT_TEAM=YOURTEAMID \
     ENABLE_TESTABILITY=YES \
     test \
     >"$XC_LOG" 2>&1
@@ -113,8 +113,8 @@ echo "LOG=$LOG MEMLOG=$MEMLOG XC_LOG=$XC_LOG" | tee -a "$LOG"
 kill "$MEMPID" 2>/dev/null || true
 wait "$MEMPID" 2>/dev/null || true
 
-find /Users/davidhope/Library/Developer/XCTestDevices \
-     /Users/davidhope/Library/Developer/CoreSimulator/Devices/$UDID/data/Containers/Data/Application \
+find $HOME/Library/Developer/XCTestDevices \
+     $HOME/Library/Developer/CoreSimulator/Devices/$UDID/data/Containers/Data/Application \
   \( -name 'guest-session.log' -o -name 'guest-serial.log' \) 2>/dev/null | while read f; do
     bn=$(basename "$(dirname "$f")")_$(basename "$f")
     cp -p "$f" "$NOTES/kernarium-sim-0022-$TAG-$bn" 2>/dev/null || true

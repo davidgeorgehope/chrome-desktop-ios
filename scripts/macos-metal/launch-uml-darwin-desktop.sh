@@ -24,9 +24,9 @@ set -euo pipefail
 export PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin
 export LANG=C
 
-ROOT=/Users/davidhope/linux-ios-bakeoff/src/Kernarium
-NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
-FAST=/Users/davidhope/linux-ios-bakeoff/notes/desktop-guest-fast
+ROOT=$HOME/linux-ios-bakeoff/src/Kernarium
+NOTES=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop
+FAST=$HOME/linux-ios-bakeoff/notes/desktop-guest-fast
 BIN="$ROOT/.build/presets/macos-integration/bin/uml-darwin"
 if [ ! -x "$BIN" ]; then
 	BIN="$ROOT/.build/macos-integration/bin/uml-darwin"

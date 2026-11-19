@@ -1,6 +1,6 @@
 #!/bin/bash
 # YouTube via phone trackpad (sim only): click search box, type $1, Return, click first video.
-U=DE1E2D59-E674-4EE1-8096-097886FB5917
+U=${SIM_UDID:-booted}
 R=$(ls -td ~/chromium-build/logs/views-m2/run/* | head -1)
 E(){ python3 /tmp/uaecho/eval.py "$1"; }
 shot(){ xcrun simctl io $U screenshot --display=TVOut $R/$1.png >/dev/null 2>&1; }

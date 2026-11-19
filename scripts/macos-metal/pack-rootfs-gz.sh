@@ -66,7 +66,7 @@ run_e2fsck() {
 		limactl shell kernarium-linux -- sudo -n bash -c "
 			set -euo pipefail
 			src=\$(printf '%s' $(printf '%q' "$img"))
-			work=/home/davidhope.guest/pack-rootfs-e2fsck.ext4
+			work=/home/guest/pack-rootfs-e2fsck.ext4
 			cp -f \"\$src\" \"\$work\"
 			sync
 			e2fsck -fy \"\$work\" || true

@@ -1,8 +1,8 @@
 #!/bin/bash
 set -u
 # Checkout + out/ live under ROOT. Override to use a different disk, e.g. the USB volume.
-ROOT="${CHROMIUM_BUILD_ROOT:-/Users/davidhope/chromium-build}"
-export PATH="$ROOT/depot_tools:/Users/davidhope/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
+ROOT="${CHROMIUM_BUILD_ROOT:-$HOME/chromium-build}"
+export PATH="$ROOT/depot_tools:$HOME/bin:/opt/homebrew/bin:/usr/bin:/bin:$PATH"
 FETCH_LOG=$ROOT/logs/fetch.log
 BUILD_LOG=$ROOT/logs/build.log
 mkdir -p "$ROOT/logs" "$ROOT/chromium"

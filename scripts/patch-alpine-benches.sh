@@ -1,9 +1,9 @@
 #!/bin/bash
 set -euo pipefail
 SRC=/Volumes/KernariumCS/rootfs/starter-20261112/alpine-3.24.2-minimal.ext4
-SCRIPT=/Users/davidhope/linux-ios-bakeoff/notes/guest-run-benches.sh
-WORK=/home/davidhope.guest/alpine-console.ext4
-MNT=/home/davidhope.guest/mnt-alpine
+SCRIPT=$HOME/linux-ios-bakeoff/notes/guest-run-benches.sh
+WORK=/home/guest/alpine-console.ext4
+MNT=/home/guest/mnt-alpine
 
 echo "==== PATCH START $(date) ===="
 chmod u+w "$SRC" || true

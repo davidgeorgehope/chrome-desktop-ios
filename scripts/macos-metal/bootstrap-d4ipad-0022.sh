@@ -9,7 +9,7 @@ ROOTFS="${2:-alpine-3.24.2-desktop-labwc.ext4}"
 JIT_BUDGET="${3:-3584M}"
 JIT_EXECUTOR_BUDGET="${4:-64M}"
 GUEST_MIB="${5:-3072}"
-NOTES=/Users/davidhope/linux-ios-bakeoff/notes/macos-metal-desktop
+NOTES=$HOME/linux-ios-bakeoff/notes/macos-metal-desktop
 LABEL=com.davidhope.d4ipad-0022
 SRC="$NOTES/com.davidhope.d4ipad-0022.plist"
 PLIST="/tmp/com.davidhope.d4ipad-0022-$TAG.plist"
@@ -19,8 +19,8 @@ echo "BOOTSTRAP $(date) label=$LABEL tag=$TAG rootfs=$ROOTFS jit=$JIT_BUDGET/$JI
 launchctl bootout "gui/501/$LABEL" 2>/dev/null || true
 # reset last-exit so waiters do not see a previous run
 rm -f "$NOTES/d4ipad-0022-last-exit.txt"
-: > /Users/davidhope/Library/Logs/d4ipad-0022-launch.stdout.log
-: > /Users/davidhope/Library/Logs/d4ipad-0022-launch.stderr.log
+: > $HOME/Library/Logs/d4ipad-0022-launch.stdout.log
+: > $HOME/Library/Logs/d4ipad-0022-launch.stderr.log
 launchctl bootstrap gui/501 "$PLIST"
 echo "BOOTSTRAPPED $(date)"
 echo "PLIST=$PLIST"

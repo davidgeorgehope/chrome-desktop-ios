@@ -80,7 +80,7 @@ cmake --build --preset kernarium-ios-simulator
 # package-ios-frameworks.sh --sdk simulator also wants the Android runtime
 # and is heavier than this app needs.
 # Then:
-UDID=8C95FCCB-F375-4B29-BF3B-1CBEBB6F2EEB
+UDID=<your-simulator-udid>
 xcodebuild build \
   -project Kernarium/Kernarium.xcodeproj \
   -scheme Kernarium \
@@ -197,7 +197,7 @@ Launch on an iPad Simulator (larger view than the iPhone 17), after symlinking
 the ext4 into the app Documents container and deleting `tmp/kernarium-overlay.ext4`. Use `alpine-3.24.2-desktop-labwc.ext4` for the baked ~2.5 s labwc session, `alpine-3.24.2-desktop-fast.ext4` for sessionless XFCE (~8.7 s), or overlay `scripts/desktop-guest/start-desktop-labwc.sh` (or `start-desktop.sh` for XFCE) onto the previous image:
 
 ```sh
-UDID=6532E3AA-A7DF-48F4-9E87-6C4EA94F4C74   # iPad (A16)
+UDID=<your-simulator-udid>   # iPad (A16)
 export SIMCTL_CHILD_KERNARIUM_ROOTFS=alpine-3.24.2-desktop-labwc.ext4
 export SIMCTL_CHILD_KERNARIUM_EXECUTION_ENGINE=jit
 export SIMCTL_CHILD_KERNARIUM_DISPLAY_WIDTH=1920
@@ -401,7 +401,7 @@ Build from `Kernarium-0022-clean`, not `src/Kernarium`. Export
 `ROOT_DIR` to that tree when packaging:
 
 ```
-ROOT_DIR=/Users/davidhope/linux-ios-bakeoff/src/Kernarium-0022-clean \
+ROOT_DIR=~/linux-ios-bakeoff/src/Kernarium-0022-clean \
   scripts/macos-metal/package-ios-linux-device-and-simulator.sh
 ```
 

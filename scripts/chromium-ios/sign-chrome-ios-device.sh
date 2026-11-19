@@ -1,6 +1,6 @@
 #!/bin/bash
 # Signs out/Release-iphoneos/Chromium.app for David's iPhone with team
-# 4P2629648N (Apple Development identity) and packs Chromium-device.ipa.
+# YOURTEAMID (Apple Development identity) and packs Chromium-device.ipa.
 # Single-process build: BrowserEngineKit child-process extensions (Extensions/)
 # and app extensions (PlugIns/) are dropped since we lack the
 # web-browser-engine / app-group entitlements. Uses the team wildcard
@@ -8,8 +8,8 @@
 set -euo pipefail
 SRC=${CHROMIUM_SRC:-$HOME/chromium-build/chromium/src}
 OUT=${CHROMIUM_OUT:-$SRC/out/Release-iphoneos}
-TEAM=${TEAM_ID:-4P2629648N}
-IDENTITY=${SIGN_IDENTITY:-25CEDB906C81B51A388B7E41B7CC0F2F27E7502F}  # Apple Development: email.djhope@gmail.com
+TEAM=${TEAM_ID:?set TEAM_ID to your Apple team ID}
+IDENTITY=${SIGN_IDENTITY:?set SIGN_IDENTITY to your Apple Development identity SHA-1}
 PROFILE=${PROFILE:-$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/4d14b35d-df44-468b-89a4-dac7d68e4362.mobileprovision}
 STAGE=$OUT/device-sign
 IPA=$OUT/Chromium-device.ipa

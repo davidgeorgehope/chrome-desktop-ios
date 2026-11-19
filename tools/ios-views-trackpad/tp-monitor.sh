@@ -1,7 +1,7 @@
 #!/bin/bash
 # Simulator-only: launch with no monitor, plug TVOut, unplug; screenshot each.
 export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH
-U=DE1E2D59-E674-4EE1-8096-097886FB5917
+U=${SIM_UDID:-booted}
 T(){ timeout 90 "$@"; }
 pkill -x chrome_views_ios; sleep 2
 T xcrun simctl io $U screenConfig --display=TVOut power off >/dev/null 2>&1; sleep 3
