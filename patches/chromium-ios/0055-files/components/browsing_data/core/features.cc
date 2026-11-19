@@ -1,0 +1,26 @@
+// Copyright 2024 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "components/browsing_data/core/features.h"
+
+#include "build/build_config.h"
+#include "build/ios_buildflags.h"
+#include "components/history/core/browser/features.h"
+
+namespace browsing_data::features {
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kBrowsingDataModel, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDbdPasswordRemovalOnAndroid, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IOS_MOBILE_UI)
+BASE_FEATURE(kPasswordRemovalExtensionErrorKillSwitch,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IOS_MOBILE_UI)
+
+BASE_FEATURE(kBrowsingDataModelSharedWorkerKeyWithoutURL,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+}  // namespace browsing_data::features
