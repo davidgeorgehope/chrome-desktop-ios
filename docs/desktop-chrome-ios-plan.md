@@ -205,6 +205,8 @@ under "iOS ports" below.
 | 0083 | `OpaqueBrowserFrameView` implementation linked into the iOS frame factory |
 | 0084 | SaaS usage reporting (Android/desktop shared sources) built |
 | 0084 | Enterprise idle timeout dialog manager + Views idle dialog and enterprise startup dialog built |
+| 0085 | `Widget::CloseAllWidgets` for NativeWidgetIOS (closes every top-level widget window) |
+| 0085 | Built (Mac/Android parity): autofill cross-tab copy/paste tracker, initial account bookmark deduplicator, desktop extension install UI, supervised user web content handler / YouTube verification page, enterprise connectors common + realtime reporting client |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)
