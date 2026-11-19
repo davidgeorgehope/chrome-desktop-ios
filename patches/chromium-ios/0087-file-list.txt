@@ -1,0 +1,11 @@
+components/resources/BUILD.gn
+chrome/browser/background/extensions/BUILD.gn
+chrome/browser/ui/tab_contents/BUILD.gn
+components/component_updater/installer_policies/BUILD.gn
+chrome/common/BUILD.gn
+chrome/browser/extensions/api/image_writer_private/BUILD.gn
+chrome/browser/extensions/api/image_writer_private/removable_storage_provider_ios.cc
+chrome/browser/ui/browser_window/public/browser_window_features.h
+chrome/browser/metrics/chrome_metrics_service_client.cc
+chrome/browser/policy/chrome_browser_cloud_management_controller_desktop.cc
+components/guest_contents/common/buildflags.gni

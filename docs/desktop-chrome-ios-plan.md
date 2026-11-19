@@ -194,6 +194,10 @@ under "iOS ports" below.
 | 0086 | Managed-profile disclaimer in DICE interception and history sync | skipped (managed accounts skip history sync opt-in) | `ProfileManagementDisclaimerService` |
 | 0086 | Structured metrics recorder | not created | build `chrome_structured_metrics_delegate` |
 | 0086 | UI DevTools DOM/overlay agents | server runs with tracing only | `DOMAgentIOS` / `OverlayAgentIOS` |
+| 0087 | Session restore infobar controller member | removed from `BrowserWindowFeatures` on iOS | build `session_restore_infobar` |
+| 0087 | Update metrics provider | not registered (no updater) | n/a |
+| 0087 | CBCM remote commands + invalidator | not started | build `cbcm_remote_commands_factory` |
+| 0087 | Removable storage list (imageWriterPrivate) | always empty | n/a on iOS |
 
 ## iOS ports
 
@@ -216,6 +220,8 @@ under "iOS ports" below.
 | 0084 | Enterprise idle timeout dialog manager + Views idle dialog and enterprise startup dialog built |
 | 0085 | `Widget::CloseAllWidgets` for NativeWidgetIOS (closes every top-level widget window) |
 | 0085 | Built (Mac/Android parity): autofill cross-tab copy/paste tracker, initial account bookmark deduplicator, desktop extension install UI, supervised user web content handler / YouTube verification page, enterprise connectors common + realtime reporting client |
+| 0087 | guest_contents enabled (WebUI browser iframe guests), Controlled Frame API provider, web contents menu helper, IWA key distribution policy, background mode manager (Mac file) built |
+| 0087 | iOS chrome://management resources come from //chrome (drops the duplicate components copy) |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)
