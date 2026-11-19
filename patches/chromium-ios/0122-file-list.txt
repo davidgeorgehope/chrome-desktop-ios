@@ -1,0 +1,4 @@
+media/audio/BUILD.gn
+media/audio/ios/audio_session_manager_ios.h
+media/audio/ios/audio_session_manager_ios.mm
+media/audio/ios/audio_manager_ios.cc
