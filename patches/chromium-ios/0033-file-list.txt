@@ -1,0 +1,9 @@
+tools/grit/grit_args.gni
+components/error_page_strings.grdp
+components/autofill_strings.grdp
+components/autofill_payments_strings.grdp
+components/new_or_sad_tab_strings.grdp
+components/management_strings.grdp
+components/search_engine_choice_strings.grdp
+components/omnibox_strings.grdp
+ui/strings/ui_strings.grd
