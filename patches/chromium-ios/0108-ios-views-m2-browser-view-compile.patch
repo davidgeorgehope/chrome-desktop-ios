@@ -1,0 +1,6 @@
+# 0108 — iOS Views: real owned/child widget enumeration in NativeWidgetIOS
+#
+# File-replacement patch. After 0107, copy the sources under 0108-files/
+# over the corresponding paths in Chromium src/. See 0108-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
