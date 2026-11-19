@@ -1,0 +1,81 @@
+--- a/ios/chrome/app/deskbrowser_external_display.mm
++++ b/ios/chrome/app/deskbrowser_external_display.mm
+@@ -15,6 +15,19 @@
+                                     phase:(NSInteger)phase;
+ @end
+ 
++// OmniboxKeyboardDelegate, used without importing Chrome omnibox headers.
++// kReturnKey is the last OmniboxKeyboardAction enumerator (value 4).
++@protocol DeskBrowserOmniboxKeyboardDelegate <NSObject>
++- (BOOL)canPerformKeyboardAction:(NSInteger)keyboardAction;
++- (void)performKeyboardAction:(NSInteger)keyboardAction;
++@end
++
++static const NSInteger kDeskBrowserOmniboxReturnKey = 4;
++
++@interface NSObject (DeskBrowserOmniboxText)
++- (void)insertTextWhileEditing:(NSString*)text;
++@end
++
+ 
+ namespace {
+ 
+@@ -461,6 +474,28 @@
+   return HostedRenderWidget();
+ }
+ 
++// Programmatic insertText:@"\n" on the composebox UITextView inserts a
++// visual second row and can skip textInputShouldReturn. The omnibox's
++// own keyboard-action path calls the mutator acceptInput instead.
++BOOL TryOmniboxAcceptInput(UIResponder* target) {
++  for (UIResponder* responder = target; responder;
++       responder = responder.nextResponder) {
++    if ([responder
++            respondsToSelector:@selector(canPerformKeyboardAction:)] &&
++        [responder respondsToSelector:@selector(performKeyboardAction:)]) {
++      id<DeskBrowserOmniboxKeyboardDelegate> keyboard =
++          (id<DeskBrowserOmniboxKeyboardDelegate>)responder;
++      if ([keyboard canPerformKeyboardAction:kDeskBrowserOmniboxReturnKey]) {
++        [keyboard performKeyboardAction:kDeskBrowserOmniboxReturnKey];
++        NSLog(@"deskbrowser-external: omnibox accept via %s",
++              Pub(ClassName(responder)));
++        return YES;
++      }
++    }
++  }
++  return NO;
++}
++
+ 
+ BOOL InvokeTapGestureRecognizer(UIGestureRecognizer* gesture) {
+   if (!gesture) {
+@@ -1277,17 +1312,23 @@
+         }
+         continue;
+       }
+-      // OmniboxTextViewIOS treats a literal "\n" / "\r" in
+-      // shouldChangeTextInRange as Accept/Go (textInputShouldReturn),
+-      // not as a visual newline (unless Shift+Return sets
+-      // _insertingNewline).
+       if (key.keyCode == UIKeyboardHIDUsageKeyboardReturnOrEnter ||
+           key.keyCode == UIKeyboardHIDUsageKeypadEnter) {
+-        [input insertText:@"\n"];
++        if (!TryOmniboxAcceptInput(target)) {
++          [input insertText:@"\n"];
++        }
+         continue;
+       }
+       if (key.characters.length) {
+-        [input insertText:key.characters];
++        // insertText: can skip UITextView shouldChangeTextInRange, so
++        // the omnibox never sets processingUserEvent and acceptInput
++        // sees no current match. insertTextWhileEditing: always goes
++        // through the delegate.
++        if ([target respondsToSelector:@selector(insertTextWhileEditing:)]) {
++          [(id)target insertTextWhileEditing:key.characters];
++        } else {
++          [input insertText:key.characters];
++        }
+       } else {
+         [passthrough addObject:press];
+       }
