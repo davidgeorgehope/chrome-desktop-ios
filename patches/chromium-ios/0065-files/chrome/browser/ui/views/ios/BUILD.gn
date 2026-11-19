@@ -1,0 +1,100 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ios/rules.gni")
+import("//build/config/ui.gni")
+import("//chrome/chrome_paks.gni")
+import("//chrome/common/features.gni")
+import("//printing/buildflags/buildflags.gni")
+
+# Probe + host for the real desktop BrowserView on iOS. Only reachable
+# when enable_ios_desktop_views is set; the device IPA leaves the flag
+# off and does not depend on these targets.
+assert(is_ios && enable_ios_desktop_views)
+
+# Forces the //chrome/browser/ui/views/frame:browser_view graph to load
+# under an iOS gn gen so we can walk and widen asserts.
+group("browser_view_ios") {
+  deps = [ "//chrome/browser/ui/views/frame:browser_view" ]
+}
+
+# Mirrors //chrome:dependencies (which lives in a file iOS must not load).
+group("chrome_dependencies_ios") {
+  public_deps = [
+    "//build:branding_buildflags",
+    "//chrome/browser",
+    "//chrome/browser:buildflags",
+    "//chrome/browser:shell_integration",
+    "//chrome/browser/policy:path_parser",
+    "//chrome/child",
+    "//chrome/common",
+    "//chrome/gpu",
+    "//chrome/renderer",
+    "//chrome/utility",
+    "//components/crash/core/app",
+    "//components/memory_system",
+    "//components/startup_metric_utils",
+    "//components/sync",
+    "//components/upload_list",
+    "//components/variations/service",
+    "//components/webui/about",
+    "//content/public/child",
+    "//services/tracing/public/cpp",
+    "//v8:v8_headers",
+  ]
+  if (enable_printing) {
+    public_deps += [ "//printing" ]
+  }
+}
+
+# ChromeMainDelegate, as //chrome:chrome_dll builds it on Mac.
+source_set("chrome_main_ios") {
+  sources = [
+    "//chrome/app/chrome_main_delegate.cc",
+    "//chrome/app/chrome_main_delegate.h",
+    "//chrome/app/startup_timestamps.h",
+  ]
+  deps = [
+    ":chrome_dependencies_ios",
+    "//chrome/app:command_ids",
+    "//chrome/browser:chrome_content_browser_client",
+    "//chrome/browser:chrome_process_singleton",
+    "//chrome/browser:process_singleton",
+    "//chrome/browser:startup_data",
+    "//chrome/browser/lifetime",
+    "//chrome/common:buildflags",
+    "//chrome/common:version_header",
+    "//chrome/common/profiler",
+    "//components/devtools/devtools_pipe",
+    "//components/policy:generated",
+    "//components/webapps/isolated_web_apps:scheme",
+    "//content/public/app",
+    "//third_party/cld_3/src/src:cld_3",
+  ]
+}
+
+ios_app_bundle("chrome_views_ios") {
+  testonly = true
+  info_plist = "Info.plist"
+  sources = [ "chrome_views_ios_main.mm" ]
+  bundle_identifier = "com.davidhope.deskbrowser.chromeviews"
+  deps = [
+    ":chrome_main_ios",
+    ":chrome_views_ios_paks",
+    "//content/public/app",
+    "//third_party/icu:icudata",
+  ]
+  frameworks = [
+    "Foundation.framework",
+    "QuartzCore.framework",
+    "UIKit.framework",
+  ]
+}
+
+# //chrome:packed_resources, bundled the way Mac bundles it (resources.pak,
+# chrome_100_percent.pak, ... in the bundle root and <locale>.lproj/locale.pak).
+chrome_paks("chrome_views_ios_paks") {
+  output_dir = "$root_gen_dir/chrome_views_ios/repack"
+  copy_data_to_bundle = true
+}
