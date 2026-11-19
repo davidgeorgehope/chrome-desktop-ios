@@ -1,5 +1,5 @@
 #!/bin/bash
-# usage: tp-video.sh URL  (sim only) launch with autoplay, then probe <video> + audio state, screenshot --display=LCD TVOut and phone.
+# usage: tp-video.sh URL  (sim only) launch with autoplay, then probe <video> + audio state, screenshot TVOut and phone.
 U=DE1E2D59-E674-4EE1-8096-097886FB5917
 pkill -x chrome_views_ios; sleep 1
 cd ~/chromium-build/logs/views-m2
