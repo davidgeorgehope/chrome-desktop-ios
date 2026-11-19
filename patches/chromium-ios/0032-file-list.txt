@@ -1,0 +1,7 @@
+build/BUILD.gn
+components/regional_capabilities/BUILD.gn
+components/regional_capabilities/regional_capabilities_service.cc
+components/search_engines/BUILD.gn
+components/search_engines/ai_mode_button_service.cc
+ui/webui/resources/cr_elements/BUILD.gn
+ui/webui/resources/js/BUILD.gn
