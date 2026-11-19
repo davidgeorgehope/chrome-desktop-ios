@@ -1,0 +1,5 @@
+ui/webui/resources/mojo/BUILD.gn
+mojo/public/tools/bindings/mojom.gni
+components/policy/resources/webui/mojom/BUILD.gn
+chrome/browser/ui/webui/signin/cross_device_signin_qr_bubble/BUILD.gn
+chrome/browser/resources/settings/BUILD.gn
