@@ -208,6 +208,7 @@ under "iOS ports" below.
 | 0098 | Native display::Screen for Chrome on iOS Views | ported: ChromeBrowserMainExtraPartsViews::PreCreateThreads installs display::ScopedNativeScreen (ScreenIOS), like ChromeBrowserMainExtraPartsMac | — |
 | 0099 | Resource scale factors | ported: iOS Views supports 100P+200P like desktop/Mac (was only the panel DSF, 300P) | 300P pak if wanted for the 3x panel |
 | 0100 | Browser main loop on iOS | ported: ChromeMainDelegate::RunProcess initializes and leaks a BrowserMainRunner and returns to UIApplicationMain (as content_shell iOS does) | — |
+| 0101 | Feature engagement on-device event storage (iOS mobile path) | cut: iOS Views uses desktop profile-only event storage | — |
 
 ## iOS ports
 
