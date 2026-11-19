@@ -1,5 +1,5 @@
 #!/bin/bash
-# Signs out/Release-iphoneos/Chromium.app for David's iPhone with team
+# Signs out/Release-iphoneos/Chromium.app for your iPhone with team
 # YOURTEAMID (Apple Development identity) and packs Chromium-device.ipa.
 # Single-process build: BrowserEngineKit child-process extensions (Extensions/)
 # and app extensions (PlugIns/) are dropped since we lack the

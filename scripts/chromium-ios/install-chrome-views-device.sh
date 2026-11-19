@@ -1,7 +1,7 @@
 #!/bin/bash
 # Install ChromeDesktop-device.ipa (com.davidhope.deskbrowser.chromeviews) on
-# David's iPhone 16 Pro with devicectl, then confirm via the app list. Only run
-# with David's explicit go-ahead. Leaves com.davidhope.deskbrowser.blink alone.
+# an iPhone with devicectl, then confirm via the app list. Leaves
+# com.davidhope.deskbrowser.blink alone.
 set -euo pipefail
 export PATH=/opt/homebrew/bin:$PATH
 UDID=${PHONE_UDID:?set PHONE_UDID}

@@ -1,6 +1,6 @@
 # Desktop-mode verification: iOS desktop Views BrowserView
 
-Run: 2026-11-19, 10:51–11:00 AM ET. iOS 27.2 Simulator (SIM-UDID), TVOut
+Run: 2026-11-19, 10:51–11:00 AM ET. iOS 27.2 Simulator, TVOut
 1920x1080 @1x, build out/Release-iphonesimulator-views at patch 0116.
 Tools: tools/desktop-mode/server.py (local UA echo: request headers plus
 Accept-CH/Critical-CH, JS values), cdp.py (DevTools on 127.0.0.1:9333, the
@@ -73,5 +73,4 @@ tools/desktop-mode/results-2026-11-19-rerun-1315.jsonl.
 
 Request headers on the echo server: Sec-CH-UA-Mobile ?0, Sec-CH-UA-Platform
 "macOS", Sec-CH-UA-Form-Factors "Desktop", Sec-CH-UA-Model "", Mac UA.
-No m./mobile redirects. Screenshots: views-m2-real/desktop-mode/rerun-1315/
-(contact-sheet.png plus one per page). Result: all PASS.
+No m./mobile redirects. Result: all PASS.

@@ -1,14 +1,10 @@
-# Desktop Chrome on iPhone (external monitor)
+# Desktop Chrome on iOS: design and port notes
 
-**Decision (18 Nov 2026, 2:43 PM ET):** port desktop Chrome’s Views
-interface (`//chrome/browser/ui/views`: tab strip, toolbar, omnibox,
-app menu, bookmarks bar, settings via WebUI) to iPhone, rendered on
-the connected monitor, even if it takes weeks.
-
-This document is the Phase 1 feasibility plan and milestone map. It is
-written against the Chromium tree at `~/chromium-build/chromium/src`
-on the Mac mini, `use_blink=true`, jitless-by-default Blink Chrome
-already shipping as `com.davidhope.deskbrowser.blink`.
+How desktop Chrome's Views UI (`//chrome/browser/ui/views`: tab strip,
+toolbar, omnibox, app menu, bookmarks bar, settings via WebUI) was ported to
+iOS and put on an external monitor: the architecture, the gates in the
+Chromium tree, and every feature that is cut, stubbed or ported, by patch.
+Built with `use_blink = true`, jitless by default.
 
 ## Goal
 
@@ -47,7 +43,7 @@ The missing platform piece is a UIKit-backed `NativeWidget` plus an
 - **Official Chrome iOS on Blink** (Igalia / Google, 2024–): reuses
   the existing UIKit `//ios/chrome` UI and implements `//ios/web`
   public APIs with Blink (`ContentWebState`). It is explicitly *not*
-  a Views/Aura port. That is the tree we have been shipping.
+  a Views/Aura port. The jitless iOS Chromium app in this repo builds on it.
 - **`content_shell` on iOS**: a real Content/Blink embedder with a
   UIKit URL bar (`shell_platform_delegate_ios.mm`,
   `shell_application_ios.mm`). Already builds in
@@ -55,7 +51,7 @@ The missing platform piece is a UIKit-backed `NativeWidget` plus an
   desktop chrome. `shell_use_toolkit_views` is `toolkit_views &&
   !is_castos` and therefore false on iOS today.
 - **`ui/views_content_client`**: a small Views+content embedder with
-  Mac and Aura main-parts. A good Milestone 2 stepping stone, lighter
+  Mac and Aura main-parts. A possible stepping stone, lighter
   than all of `//chrome`.
 - **`ui/compositor` on iOS**: already compiles. The test host
   (`test_compositor_host_ios.mm`) is offscreen:
@@ -74,8 +70,8 @@ The missing platform piece is a UIKit-backed `NativeWidget` plus an
 ## Hard gates in the tree
 
 1. `assert(!is_ios)` in `//chrome/BUILD.gn` and `//chrome/test/BUILD.gn`:
-   the entire desktop Chrome target is excluded from iOS. This is the
-   main Milestone 2 wall.
+   the entire desktop Chrome target is excluded from iOS. This was the
+   main wall.
 2. `toolkit_views` defaults off on iOS (`build/config/ui.gni`).
    `use_aura` stays off (Mac-style).
 3. `tools/grit/grit_args.gni` asserts
@@ -90,8 +86,7 @@ The missing platform piece is a UIKit-backed `NativeWidget` plus an
    GN garden, not a single-line flip.
 5. `NativeWidgetPrivate::CreateNativeWidget` exists only for Aura and
    Mac. There is no iOS implementation.
-6. Desktop Chrome’s process model is multi-process. On iOS we will
-   keep the already-working **single-process + in-process GPU**
+6. Desktop Chrome’s process model is multi-process. On iOS the port keeps the already-working **single-process + in-process GPU**
    content path (`--single-process`, `--in-process-gpu`,
    `NetTaskScheduler` off), jitless by default, existing memory
    entitlements and heap cap. JIT stays parked behind the hidden
@@ -108,12 +103,11 @@ The missing platform piece is a UIKit-backed `NativeWidget` plus an
    `UIWindowSceneSessionRoleExternalDisplayNonInteractive`. Info.plist
    alone is not enough on iOS 27; without a successful accessory (or
    a window moved onto `UIScreen.mirroredScreen`) the system **mirrors
-   the phone UI**. That is the bug we saw on the real Dopesplay
-   monitor. The Simulator (iOS 26.5) still creates the external
+   the phone UI**. The Simulator (iOS 26.5) still creates the external
    scene from the plist, which is why sim pre-check looked fine
    while the device kept mirroring.
 
-## What to stub (Milestone 2–4)
+## What to stub
 
 Keep, or reuse from `//components`:
 
@@ -241,7 +235,7 @@ under "iOS ports" below.
 | 0131 | Menu accelerator labels | Accelerator::GetShortcutText falls back to the US-layout character on iOS too, so menus read "Ctrl+R" instead of "Ctrl+". |
 | 0132 | Chrome Desktop name, launch screen | Views app Info.plist: display name "Chrome Desktop", UILaunchScreen dict instead of an empty storyboard name. |
 | 0133 | metagen root target | v8 metagen `gn desc` reuses the build dir's --root-target so the device Views build's //v8:run_metagen resolves. |
-| 0134 | Monitor-only desktop windows | Desktop widgets use only the external scene; phone shows a connect-a-monitor hint, then the trackpad. Plug/unplug verified in the simulator. |
+| 0134 | Monitor-only desktop windows | Desktop widgets use only the external scene; phone shows a connect-a-monitor hint, then the trackpad. Plug/unplug verified in the simulator (screenshots in [img/monitor-0134/](img/monitor-0134/)). |
 | — | Desktop-mode verification | verified: Mac desktop UA, Sec-CH-UA-Mobile ?0, platform macOS, userAgentData.mobile false, maxTouchPoints 0, desktop viewport with meta viewport ignored, no m. redirects on whatismybrowser/YouTube/Google/Wikipedia/Reddit/X. See docs/desktop-mode-verification.md. |
 
 ## iOS ports
@@ -282,7 +276,7 @@ weakly (stale registration on a transient view controller; no
 fallback. UIKit’s own comment on `UIScreen.mirroredScreen` is:
 “Moving a UIWindow to this screen will disable mirroring.”
 
-The 0012 takeover fix (in this same push):
+The 0012 takeover fix:
 
 - Re-register the iOS 27 accessory when the presenter VC changes;
   log `isAvailable`.
@@ -294,107 +288,6 @@ The 0012 takeover fix (in this same push):
   that screen (legacy path) to stop mirroring, then host Chrome
   there with the regular×regular size class.
 
-Simulator regression (iOS 26.5, 2:51 PM ET): the official
-`UIWindowSceneSessionRoleExternalDisplayNonInteractive` session still
-connects; the phone shows the control surface; the external display
-shows the iPad-style tab strip + toolbar. **Not installed on the
-phone in this pass** — the device bug is iOS 27.2.1 mirroring, which
-the Simulator cannot reproduce. Do not ask for a device test until a
-build is signed, installed, and we can verify the takeover ourselves
-with a live monitor.
-
-## Milestones
-
-### Milestone 1 — Views widget on the iOS Simulator
-
-**Target:** a `views::Widget` (a `views_examples` subset, or a
-minimal window with a Views label/button) rendered on-screen in the
-iOS Simulator through a new UIKit-backed platform window. Screenshot
-required.
-
-Work:
-
-1. GN flag `enable_ios_desktop_views` (default false) so
-   `toolkit_views` can be true on iOS without breaking the existing
-   `//ios/chrome` build. Widen the grit assert. Keep `use_aura =
-   false` and `enable_library_cdms = false`.
-2. Walk the desktop-only GN graph that becomes reachable (web_modal,
-   constrained_window, root `views_examples`, watermark, …) and
-   either gate it with `!is_ios` or stub it.
-3. New `NativeWidgetIOS` (in-process, no Mac app-shim mojo) plus
-   `CreateNativeWidget` for iOS.
-4. On-screen compositor host: lift
-   `test_compositor_host_ios` / `display_ca_layer_tree` so a
-   `ui::Compositor` can paint into a `CALayer` inside a `UIWindow`.
-   Simulator first; iphoneos afterwards.
-5. An `ios_app_bundle` host (`views_examples_ios` or
-   `deskbrowser_views_host`) that starts UIKit, `display::Screen`,
-   and a Views widget.
-6. Screenshot both the phone display and, if attached, the Simulator
-   TVOut.
-
-Status at plan time: the GN flag and several all-target gates are
-in the tree; `gn gen out/Release-iphonesimulator-views` is still
-blocked on desktop-only component asserts (next up:
-`components/web_modal`). No Views widget screenshot yet.
-
-**Estimate:** several days to about two weeks.
-
-### Milestone 2 — desktop BrowserView in the Simulator
-
-**Target:** tab strip, toolbar, and a Blink `WebContents` in a Views
-`BrowserView` (or `views_content_client` as an intermediate) running
-in the Simulator, single-process / jitless.
-
-Work: lift `assert(!is_ios)` in `//chrome` for a slim set of
-targets; stub updater/extensions/profile picker; reuse the
-already-working content startup flags; host WebContents in the
-widget from M1. Full `chrome/browser/ui/views/frame/browser_view`
-is the real UI; expect a long dependency walk.
-
-**Estimate:** two to four weeks after M1.
-
-### Milestone 3 — that window on the external display
-
-Host the Milestone 2 widget in the iOS 27 external scene (and the
-mirroring-takeover fallback). Simulator TVOut first, then a signed
-device IPA once we can see a live monitor ourselves. Input: keyboard
-to the external window; phone as pointer / control surface.
-
-**Estimate:** days once M2 works, overlapping the display work
-already started.
-
-### Milestone 4 — device IPA, bookmarks bar, app menu, settings WebUI
-
-Sign with the existing entitlements (EVA, increased-memory-limit,
-get-task-allow), jitless default, memory cap. Turn on the Views
-bookmarks bar and app menu; load `chrome://settings`. Verify on a
-real monitor (takeover, not mirroring) before asking David to test.
-
-**Estimate:** one to two weeks after M3.
-
-### Milestone 5 — remaining desktop chrome
-
-Sync, extensions, extra profiles, printing, performance, and
-anything still stubbed, only as needed.
-
-## Overall estimate
-
-Several weeks to a first useful “desktop Chrome on the monitor”
-device build (M1–M4). That matches the “even if it takes weeks”
-brief. The two longest legs are the GN/component garden (M1) and
-bringing a slim `//chrome` BrowserView up on iOS (M2). The external
-display API is understood; the remaining risk there is iOS 27
-mirroring takeover on a real cable, which we will verify ourselves
-before asking for a test.
-
-## Standing rules
-
-- Jitless remains the default. JIT stays behind the hidden flag.
-- Do not weaken memory entitlements or the heap cap.
-- Long builds run detached with a status file and a
-  `notify-poke.sh` completion poke.
-- Commit to main, no secrets. Do not amend pushed
-  commits.
-- Do not ask David to test until something is signed, installed,
-  and verified here.
+The Views app (0103, 0134) uses the official
+`UIWindowSceneSessionRoleExternalDisplayNonInteractive` scene with the
+accessory registered on the phone scene's stable root view controller.
