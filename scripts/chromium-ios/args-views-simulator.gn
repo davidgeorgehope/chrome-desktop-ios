@@ -27,3 +27,5 @@ enable_printing_tests = false
 enable_screen_ai_service = true
 # Mac parity: live caption translation assumes on-device translation.
 enable_on_device_translation = true
+# Content analysis needs Safe Browsing on desktop; iOS Views builds neither.
+enterprise_cloud_content_analysis = false
