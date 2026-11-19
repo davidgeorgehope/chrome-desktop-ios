@@ -216,6 +216,7 @@ under "iOS ports" below.
 | 0106 | Child processes / JIT / PA quarantine | cut: iOS Views host defaults to --single-process --in-process-gpu --js-flags=--jitless and disables NetTaskScheduler, NetworkServiceTaskScheduler, PartitionAllocSchedulerLoopQuarantine (no BrowserEngineKit extensions bundled; quarantine OOM-traps on a normal free) | BrowserEngineKit renderer/GPU extensions; investigate quarantine sizing |
 | 0107 | NativeWidgetIOS diagnostics | diag: one-shot CALayer/UIView tree dump 8 s after a TYPE_WINDOW moves scenes, and a widget name/type/contents NSLog on Show, used to find the stray bubbles (BubbleDialogModelHost 334x157). Temporary; trim once the stray widgets are gone. |
 | 0108 | Widget ownership (GetAllOwnedWidgets) | port: NativeWidgetIOS tracks its owning widget (InitParams::parent, ReparentNativeViewImpl with cycle check; cleared when the parent dies). GetAllOwnedWidgets returns transitively owned widgets excluding itself; GetAllChildWidgets adds itself. Fixes infinite recursion in BrowserView::GetAccessibleWindowTitle on every navigation (UI froze at "Loading…"; earlier seen as the PA quarantine OOM). Fills the ReparentNativeViewImpl stub. |
+| 0109 | GPU presenter main-queue UAF | fix: ImageTransportSurfaceOverlayMacEGL host-attach block captured raw `this`; surfaces destroyed before the main-queue hop (navigation recreates frame sinks) caused SEGV on 0xcdcd... Now uses a RefCountedThreadSafe guard with a lock, cleared in the destructor. |
 
 ## iOS ports
 
