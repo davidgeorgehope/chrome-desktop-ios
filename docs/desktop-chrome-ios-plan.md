@@ -225,6 +225,7 @@ under "iOS ports" below.
 | 0088 | `base::AtExitManager` created in `main` (content does not create one on iOS) |
 | 0089 | Locale paks bundled as `en.lproj`, `en_GB.lproj`, ... (Apple naming, what `ResourceBundle` iOS looks up) |
 | 0089 | Content/website settings registry: iOS Views registers the Mac platform list (file system access, etc.) |
+| 0090 | Message center + Chrome notifications enabled (Mac parity fallback for web notifications); `MessagePopupView::GetOpacity` reads the UIWindow alpha; `IsFullScreenMode` (false: no foreign full-screen app on iOS) |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)
