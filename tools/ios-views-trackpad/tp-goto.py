@@ -26,9 +26,7 @@ for i in range(10):
     if abs(ex)<6 and abs(ey)<6: break
     dx,dy=ex/gx,ey/gy
     if (dx*dx+dy*dy)**0.5<14:   # too short: would register as a tap; detour
-        sw(-30 if ex>=0 else 30, 0); last=None; continue
+        sw(-25 if ex>=0 else 25, -25 if ey>=0 else 25); last=None; continue
     dx=max(-380,min(380,dx)); dy=max(-450,min(450,dy))
-    if abs(dx)<3: dx=0
-    if abs(dy)<3: dy=0
     sw(dx,dy); last=(c,dx,dy)
 print('cursor', cur())
