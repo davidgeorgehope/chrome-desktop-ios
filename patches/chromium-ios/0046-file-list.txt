@@ -1,0 +1,4 @@
+components/crash/core/app/BUILD.gn
+components/feedback/BUILD.gn
+components/services/filesystem/BUILD.gn
+ui/webui/resources/mojo/BUILD.gn
