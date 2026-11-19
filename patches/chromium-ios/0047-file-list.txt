@@ -1,0 +1,6 @@
+chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.cc
+chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h
+components/sync/base/features.cc
+components/sync/base/features.h
+components/sync/base/sync_util.cc
+components/sync/base/user_selectable_type.cc

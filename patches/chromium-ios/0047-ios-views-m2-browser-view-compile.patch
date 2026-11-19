@@ -1,0 +1,6 @@
+# 0047 — Desktopize sync base features; skip windowing hooks on iOS.
+#
+# File-replacement patch. After 0046, copy the sources under 0047-files/
+# over the corresponding paths in Chromium src/. See 0047-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
