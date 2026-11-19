@@ -1,0 +1,6 @@
+# 0048 — Compile the real BrowserView graph on the iOS Simulator.
+#
+# File-replacement patch. After 0047, copy the sources under 0048-files/
+# over the corresponding paths in Chromium src/. See 0048-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.

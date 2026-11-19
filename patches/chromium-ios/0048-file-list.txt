@@ -1,0 +1,8 @@
+components/browser_sync/browser_sync_switches.cc
+components/browser_sync/common_controller_builder.cc
+components/browser_sync/common_controller_builder.h
+components/browser_sync/sync_to_signin_migration.cc
+components/browser_sync/sync_to_signin_migration.h
+components/browser_sync/sync_to_signin_migration_unittest.cc
+components/webdata_services/web_data_service_wrapper.cc
+components/webdata_services/web_data_service_wrapper_unittest.cc
