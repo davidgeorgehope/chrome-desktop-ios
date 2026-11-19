@@ -1,0 +1,6 @@
+# 0118 — RenderWidgetUIView: don't steal first responder on window move under iOS Views
+#
+# File-replacement patch. After 0117, copy the sources under 0118-files/
+# over the corresponding paths in Chromium src/. See 0118-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
