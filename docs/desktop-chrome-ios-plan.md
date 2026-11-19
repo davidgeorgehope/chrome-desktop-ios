@@ -218,6 +218,7 @@ under "iOS ports" below.
 | 0108 | Widget ownership (GetAllOwnedWidgets) | port: NativeWidgetIOS tracks its owning widget (InitParams::parent, ReparentNativeViewImpl with cycle check; cleared when the parent dies). GetAllOwnedWidgets returns transitively owned widgets excluding itself; GetAllChildWidgets adds itself. Fixes infinite recursion in BrowserView::GetAccessibleWindowTitle on every navigation (UI froze at "Loading…"; earlier seen as the PA quarantine OOM). Fills the ReparentNativeViewImpl stub. |
 | 0109 | GPU presenter main-queue UAF | fix: ImageTransportSurfaceOverlayMacEGL host-attach block captured raw `this`; surfaces destroyed before the main-queue hop (navigation recreates frame sinks) caused SEGV on 0xcdcd... Now uses a RefCountedThreadSafe guard with a lock, cleared in the destructor. |
 | 0110 | System UI font | port: PlatformFontIOS::GetCTFont asks UIKit for systemFontOfSize:weight: (plus italic trait) when the font name is dot-prefixed (".SFUI-Regular"), which fontWithName: maps to Times New Roman on iOS 13+. Views UI now renders in SF. ENABLE_IOS_DESKTOP_VIEWS only. |
+| 0111 | In-process WebContents compositing | port: with --in-process-gpu/--single-process the presenter parents each surface root CALayer directly on its CALayerFrameSinkProvider (RWHV) layer instead of handing it to a BELayerHierarchy nobody hosts, and inserts it at index 0 so native subviews stay on top. First real Blink page (example.com) on TVOut. |
 
 ## iOS ports
 
