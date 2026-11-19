@@ -222,6 +222,9 @@ under "iOS ports" below.
 | 0085 | Built (Mac/Android parity): autofill cross-tab copy/paste tracker, initial account bookmark deduplicator, desktop extension install UI, supervised user web content handler / YouTube verification page, enterprise connectors common + realtime reporting client |
 | 0087 | guest_contents enabled (WebUI browser iframe guests), Controlled Frame API provider, web contents menu helper, IWA key distribution policy, background mode manager (Mac file) built |
 | 0087 | iOS chrome://management resources come from //chrome (drops the duplicate components copy) |
+| 0088 | `base::AtExitManager` created in `main` (content does not create one on iOS) |
+| 0089 | Locale paks bundled as `en.lproj`, `en_GB.lproj`, ... (Apple naming, what `ResourceBundle` iOS looks up) |
+| 0089 | Content/website settings registry: iOS Views registers the Mac platform list (file system access, etc.) |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)
