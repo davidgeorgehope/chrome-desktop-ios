@@ -1,0 +1,3 @@
+components/startup_metric_utils/browser/startup_metric_utils.cc
+extensions/browser/api/system_cpu/cpu_info_provider_mac.cc
+chrome/browser/extensions/BUILD.gn
