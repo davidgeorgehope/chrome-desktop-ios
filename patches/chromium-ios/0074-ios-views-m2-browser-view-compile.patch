@@ -1,0 +1,6 @@
+# 0074 — iOS Views process singleton, memory details, downloads, policy throttle
+#
+# File-replacement patch. After 0073, copy the sources under 0074-files/
+# over the corresponding paths in Chromium src/. See 0074-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
