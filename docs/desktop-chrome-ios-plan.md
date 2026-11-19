@@ -156,6 +156,10 @@ under "iOS ports" below.
 | 0077 | Desktop capture window icons | empty image | not possible on iOS |
 | 0077 | Storage monitor (removable media) | dummy | not needed |
 | 0077 | Download quarantine | generic no-op (OK) | file protection attributes |
+| 0078 | Profile picker window | `ProfilePicker` statics no-op, startup mode always browser window | build `views/profiles` picker + `webui/signin:profile_impl` |
+| 0078 | Profile picker / customization / managed notice WebUIs | configs and binders not registered | same as above |
+| 0078 | Default browser modal WebUI | not registered, target out of graph | build `default_browser_prompt` |
+| 0078 | WhatsNew, web app settings, on-device translation internals, history sync opt-in, chrome://apps binders | not registered | build those WebUI targets |
 
 ## iOS ports
 
