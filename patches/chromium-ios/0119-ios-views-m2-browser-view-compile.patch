@@ -1,0 +1,6 @@
+# 0119 — Phone trackpad for the iOS Views BrowserView
+#
+# File-replacement patch. After 0118, copy the sources under 0119-files/
+# over the corresponding paths in Chromium src/. See 0119-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.

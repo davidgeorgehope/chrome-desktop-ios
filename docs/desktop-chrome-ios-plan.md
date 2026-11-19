@@ -226,6 +226,7 @@ under "iOS ports" below.
 | 0116 | PA quarantine back on | revert of the 0106 workaround: PartitionAllocSchedulerLoopQuarantine is no longer disabled by the iOS Views host. Its OOM trap was the GetAllOwnedWidgets recursion fixed in 0108. |
 | 0117 | NativeWidgetIOS trackpad input + focus | static DispatchTrackpadMouseEvent / DispatchTrackpadKeyEvent entry points; NativeWidgetIOS is a FocusChangeListener and resigns the window first responder (endEditing) when Views focus moves to a non-NativeViewHost view, like NativeWidgetMacNSWindowHost::OnDidChangeFocus. |
 | 0118 | RenderWidgetUIView focus gate | under ENABLE_IOS_DESKTOP_VIEWS, didMoveToWindow only re-grabs first responder if the view already had focus; Views FocusManager owns focus. Fixes omnibox focus being stolen back by ContentsWebView after a click. |
+| 0119 | Phone trackpad for the Views BrowserView | ChromeViewsIOSTrackpadView on the phone scene: 1-finger pan moves a cursor overlay on the TVOut scene, tap = left click, two-finger tap = right click, two-finger pan = scroll; clicks/scroll go to Blink (RenderWidgetUIView inject) or Views (NativeWidgetIOS); UIKeyInput + presses -> ui::KeyEvent. Keyboard button toggles soft keyboard. Omnibox navigation verified. |
 | — | Desktop-mode verification | verified: Mac desktop UA, Sec-CH-UA-Mobile ?0, platform macOS, userAgentData.mobile false, maxTouchPoints 0, desktop viewport with meta viewport ignored, no m. redirects on whatismybrowser/YouTube/Google/Wikipedia/Reddit/X. See docs/desktop-mode-verification.md. |
 
 ## iOS ports
