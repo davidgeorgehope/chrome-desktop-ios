@@ -1,0 +1,16 @@
+chrome/browser/ui/toolbar/app_menu_icon_controller.cc
+chrome/browser/ui/views/app_menu/action_app_menu_manager.cc
+chrome/browser/ui/browser_commands.cc
+chrome/browser/ui/browser_commands.h
+chrome/browser/ui/browser_actions.cc
+chrome/browser/ui/toolbar/app_menu_model.cc
+chrome/browser/ui/webui/new_tab_page/new_tab_page_handler.cc
+chrome/browser/sessions/session_restore.cc
+chrome/browser/ui/startup/startup_browser_creator_impl.cc
+chrome/browser/ui/webui/infobar_internals/infobar_internals_handler.cc
+chrome/browser/ui/infobars/browser_infobar_registry.cc
+chrome/browser/ui/browser_window/internal/browser_window_features.cc
+chrome/browser/prefs/browser_prefs.cc
+chrome/browser/ui/startup/infobar_utils.cc
+chrome/browser/ui/webui/settings/settings_ui.cc
+chrome/browser/ui/browser_command_controller.cc

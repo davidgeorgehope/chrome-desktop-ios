@@ -160,6 +160,15 @@ under "iOS ports" below.
 | 0078 | Profile picker / customization / managed notice WebUIs | configs and binders not registered | same as above |
 | 0078 | Default browser modal WebUI | not registered, target out of graph | build `default_browser_prompt` |
 | 0078 | WhatsNew, web app settings, on-device translation internals, history sync opt-in, chrome://apps binders | not registered | build those WebUI targets |
+| 0079 | Default browser prompt (infobar, app menu item, action, prefs) | not shown / not registered | build `startup/default_browser_prompt` |
+| 0079 | Scheduled restart (menu item, icon badge, bubble, NTP nudge, prefs) | narrowed to Win/Mac/Linux | build `views/scheduled_restart` + relaunch |
+| 0079 | WhatsNew startup fetch + local state prefs | narrowed to Win/Mac/Linux | build `webui/whats_new` |
+| 0079 | Session restore infobar (controller, registry, internals) | narrowed / returns false | build `views/session_restore_infobar` |
+| 0079 | Create desktop shortcut | command disabled | `ui/shortcuts` on iOS |
+| 0079 | Settings handlers: default browser, manage profile, system | not added | build those handlers |
+| 0080 | Platform policy provider | null (no managed app config) | `PolicyLoaderIOS` |
+| 0080 | Policies: browser switcher, enterprise skills, memory saver / search aggregator / site search, guest mode / local sync / theme color, Gemini URL, battery saver | handlers not registered | build the handlers' targets |
+| 0080 | Browser switcher, enterprise signin profile prefs | not registered | build `browser_switcher`, `enterprise/signin` |
 
 ## iOS ports
 
@@ -171,6 +180,7 @@ under "iOS ports" below.
 | 0077 | `WindowSizer` popup origin on the external display |
 | 0077 | tabs_api drag input adapter over `EventMonitor` |
 | 0077 | `ChromeViewsDelegate` uses content's context factory (Mac file) |
+| 0080 | Proxy and cookie settings policy handlers built (components) |
 | 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
 
 ## External display (parallel to Views)
