@@ -1,0 +1,17 @@
+# Copyright 2025 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/chrome_build.gni")
+import("//build/config/ui.gni")
+
+# iOS and Fuchsia don't support DevTools front-end. iOS desktop Views follows
+# Mac and bundles it.
+enable_devtools_frontend =
+    (!is_ios || enable_ios_desktop_views) && !is_fuchsia
+
+declare_args() {
+  # Bundles the ChromeDriver BiDi mapper JS implementation into the browser
+  # binary.
+  bundle_chrome_bidi_mapper = !is_android && !is_ios && !is_fuchsia
+}
