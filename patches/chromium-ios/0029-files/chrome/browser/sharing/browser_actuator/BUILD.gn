@@ -1,0 +1,56 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("browser_actuator") {
+  sources = [ "browser_actuator_message_handler.cc" ]
+  public = [ "browser_actuator_message_handler.h" ]
+
+  public_deps = [
+    "//base",
+    "//components/sharing_message",
+    "//components/sharing_message/proto",
+  ]
+
+  deps = [
+    "//components/browser_actuator/public:feature_list",
+    "//components/stream_transport/internal/proto",
+    "//components/stream_transport/public:payload_type_mapping",
+    "//components/stream_transport/public:service",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "browser_actuator_message_handler_unittest.cc" ]
+  deps = [
+    ":browser_actuator",
+    "//base/test:test_support",
+    "//chrome/browser/signin",
+    "//chrome/browser/stream_transport",
+    "//components/browser_actuator/public:feature_list",
+    "//components/gcm_driver/common",
+    "//components/sharing_message:test_support",
+    "//components/sharing_message/proto",
+    "//components/signin/public/identity_manager",
+    "//components/stream_transport/internal:features",
+    "//components/stream_transport/internal:session_stream_recorder",
+    "//components/stream_transport/internal/proto",
+    "//components/stream_transport/internal/test_support",
+    "//components/stream_transport/public",
+    "//components/stream_transport/public:payload_type_mapping",
+    "//components/stream_transport/public:service",
+    "//components/stream_transport/test_support",
+    "//components/stream_transport/test_support/proto_stream",
+    "//components/sync_device_info:test_support",
+    "//content/test:test_support",
+    "//net",
+    "//services/network:test_support",
+    "//services/network/public/cpp",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+  if (!is_ios) {
+    deps += [ "//chrome/test:test_support" ]
+  }
+}

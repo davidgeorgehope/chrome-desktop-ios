@@ -1,0 +1,32 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+assert(is_chromeos)
+
+source_set("browser_tests") {
+  testonly = true
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  sources = [
+    "set_shape_allowlist_browsertest.cc",
+    "set_shape_browsertest.cc",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/ui/web_applications/test:test_support_ui",
+    "//chrome/browser/web_applications:web_applications_test_support",
+    "//chrome/browser/web_applications/isolated_web_apps/test:test_support",
+    "//chromeos/ash/experiences/isolated_web_app",
+    "//components/web_package/test_support",
+    "//content/public/common",
+    "//content/test:test_support",
+    "//testing/gtest",
+    "//url",
+  ]
+  if (!is_ios) {
+    deps += [ "//chrome/test:test_support" ]
+  }
+}

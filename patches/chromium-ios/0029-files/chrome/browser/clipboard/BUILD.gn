@@ -1,0 +1,54 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//extensions/buildflags/buildflags.gni")
+
+assert(enable_extensions_core)
+
+source_set("clipboard") {
+  sources = [ "chrome_clipboard_permission_context_delegate.h" ]
+
+  public_deps = [
+    "//base",
+    "//components/content_settings/core/common",
+    "//components/permissions",
+    "//url",
+  ]
+}
+
+source_set("impl") {
+  sources = [ "chrome_clipboard_permission_context_delegate.cc" ]
+
+  deps = [
+    ":clipboard",
+    "//base",
+    "//content/public/browser",
+    "//third_party/blink/public/common",
+  ]
+  if (enable_extensions_core) {
+    deps += [ "//extensions/browser" ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "chrome_clipboard_permission_context_delegate_unittest.cc" ]
+
+  deps = [
+    ":clipboard",
+    "//components/content_settings/core/common",
+    "//content/test:test_support",
+    "//testing/gtest",
+    "//url",
+  ]
+  if (enable_extensions_core) {
+    deps += [
+      "//extensions/browser",
+      "//extensions/common",
+    ]
+  }
+  if (!is_ios) {
+    deps += [ "//chrome/test:test_support" ]
+  }
+}

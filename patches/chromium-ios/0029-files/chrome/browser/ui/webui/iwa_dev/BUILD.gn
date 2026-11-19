@@ -1,0 +1,74 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//build/config/ui.gni")
+
+assert(!is_android)
+
+mojom("mojo_bindings") {
+  sources = [ "iwa_dev.mojom" ]
+
+  public_deps = [
+    "//mojo/public/mojom/base",
+    "//url/mojom:url_mojom_gurl",
+    "//url/mojom:url_mojom_origin",
+  ]
+
+  webui_module_path = "/"
+}
+
+source_set("iwa_dev") {
+  visibility = [ "//chrome/browser/*" ]
+  sources = [
+    "iwa_dev_page_handler.cc",
+    "iwa_dev_page_handler.h",
+    "iwa_dev_ui.cc",
+    "iwa_dev_ui.h",
+  ]
+  public_deps = [ "//chrome/browser/web_applications/isolated_web_apps" ]
+  deps = [
+    ":mojo_bindings",
+    "//base",
+    "//chrome/browser:file_select_helper",
+    "//chrome/browser:flags",
+    "//chrome/browser/lifetime",
+    "//chrome/browser/policy",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/resources/iwa_dev:resources",
+    "//chrome/browser/web_applications",
+    "//chrome/common",
+    "//components/policy/core/browser",
+    "//components/webapps/isolated_web_apps",
+    "//content/public/browser",
+    "//ui/base",
+    "//ui/webui",
+  ]
+  if (is_chromeos) {
+    deps += [ "//chrome/browser/ash/settings" ]
+  }
+}
+
+source_set("browser_tests") {
+  testonly = true
+  sources = [ "iwa_dev_page_handler_browsertest.cc" ]
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  deps = [
+    ":iwa_dev",
+    "//base/test:test_support",
+    "//chrome/browser:flags",
+    "//chrome/browser/ui/web_applications/test:test_support_ui",
+    "//chrome/browser/web_applications:web_applications_test_support",
+    "//content/test:test_support",
+    "//net:test_support",
+    "//testing/gtest",
+    "//ui/shell_dialogs:test_support",
+  ]
+  if (!is_ios) {
+    deps += [ "//chrome/test:test_support" ]
+  }
+  if (use_aura || is_android || is_mac) {
+    deps += [ "//chrome/test/base:drag_and_drop_test_utils" ]
+  }
+}

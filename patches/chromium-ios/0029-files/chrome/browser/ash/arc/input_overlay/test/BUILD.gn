@@ -1,0 +1,46 @@
+# Copyright 2024 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+assert(is_chromeos)
+
+static_library("test_support") {
+  testonly = true
+
+  sources = [
+    "event_capturer.cc",
+    "event_capturer.h",
+    "game_controls_test_base.cc",
+    "game_controls_test_base.h",
+    "overlay_view_test_base.cc",
+    "overlay_view_test_base.h",
+    "test_utils.cc",
+    "test_utils.h",
+  ]
+
+  public_deps = [
+    "//chrome/browser/ash/app_list/arc:test_support",
+    "//chrome/browser/ash/arc/input_overlay/db/proto",
+  ]
+
+  deps = [
+    "//ash",
+    "//ash/constants",
+    "//ash/public/cpp",
+    "//chrome/browser/ash/arc/input_overlay",
+    "//chrome/browser/ash/arc/input_overlay/actions",
+    "//chrome/browser/ash/arc/input_overlay/ui",
+    "//chromeos/ash/experiences/arc",
+    "//chromeos/ash/experiences/arc:arc_test_support",
+    "//chromeos/strings:strings_grit",
+    "//content/test:test_support",
+    "//ui/aura",
+    "//ui/lottie",
+  ]
+  if (!is_ios) {
+    deps += [ "//chrome/test:test_support" ]
+  }
+  if (!is_ios) {
+    public_deps += [ "//chrome/test:test_support_unit" ]
+  }
+}
