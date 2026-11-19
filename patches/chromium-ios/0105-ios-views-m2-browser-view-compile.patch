@@ -1,0 +1,6 @@
+# 0105 — Report one display per UIScreen on iOS Views
+#
+# File-replacement patch. After 0104, copy the sources under 0105-files/
+# over the corresponding paths in Chromium src/. See 0105-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.
