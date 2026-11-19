@@ -204,6 +204,7 @@ under "iOS ports" below.
 | 0094 | Accelerator long-form Cmd modifier text | ported: iOS uses the Mac "Command" string (was NOTREACHED) | — |
 | 0095 | ui::ImageModel vector icon rasterize | ported: ThemedVectorIcon path enabled on iOS Views (was NOTREACHED on iOS) | — |
 | 0096 | OS-level geolocation permission manager | ported: created at PreMainMessageLoopRun via SystemGeolocationSourceApple, like Mac (new browser_process_platform_part_ios.mm) | — |
+| 0097 | Instant extended API (WebUI NTP instant process) | enabled on iOS Views like desktop (was false for all iOS) | — |
 
 ## iOS ports
 
