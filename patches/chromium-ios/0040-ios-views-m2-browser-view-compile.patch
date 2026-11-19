@@ -1,0 +1,6 @@
+# 0040 — Build desktop Views on iOS with extensions and guest_view on.
+#
+# File-replacement patch. After 0039, copy the sources under 0040-files/
+# over the corresponding paths in Chromium src/. See 0040-files/README.md.
+#
+# Keep enable_ios_desktop_views off for the jitless device IPA.

@@ -1,0 +1,7 @@
+apps/BUILD.gn
+chrome/browser/extensions/BUILD.gn
+chrome/browser/guest_view/BUILD.gn
+chrome/browser/resources/extensions_zero_state_promo/BUILD.gn
+chrome/renderer/controlled_frame/BUILD.gn
+extensions/BUILD.gn
+extensions/renderer/BUILD.gn
