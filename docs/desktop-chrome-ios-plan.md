@@ -130,6 +130,45 @@ Stub, disable, or defer:
 - Safe-browsing / sync: only after a basic BrowserView loads pages
 - Anything that assumes a separate GPU or renderer process
 
+## iOS cut list (re-enable later)
+
+Things cut, stubbed, or narrowed on `is_ios && enable_ios_desktop_views`
+to get `chrome_views_ios` to link and launch. Each line names the patch
+and what re-enabling it would take. Real ports (not cuts) are listed
+under "iOS ports" below.
+
+| Patch | Area | What iOS does now | To re-enable |
+|---|---|---|---|
+| 0068 | `platform_util` show-in-folder / open item | no-op | Files app / `UIDocumentInteractionController` |
+| 0070 | Create app shortcut dialog | callback(false) | web app OS integration on iOS |
+| 0071 | Device reauth (password manager) | never available, auth fails | `LAContext` authenticator |
+| 0071 | OS crypt | posix obfuscation key provider only | Keychain key provider |
+| 0072 | Profile picker hide at shutdown | skipped | build profile picker (below) |
+| 0072 | Native notifications bridge | null, message center fallback | `UNUserNotificationCenter` bridge |
+| 0072 | First run (initial prefs, EULA, relaunch) | no-op / false | first run flow on iOS |
+| 0073 | Web contents view delegate (context menus) | null delegate | Views render context menu without Aura |
+| 0073 | AI overlay, headless metrics | built, unused | n/a |
+| 0074 | Process singleton | always creates, no IPC | not needed (one process per app) |
+| 0074 | Gapis service | narrowed to Linux/Mac | build `//chrome/browser/gapis` |
+| 0074 | WhatsNew registry, scheduled restart manager | nullptr | build WhatsNew / scheduled restart |
+| 0074 | chrome://apps (AppHome) | not registered | build `webui/app_home` |
+| 0077 | Chrome Apps windows | `CreateNativeAppWindowImpl` returns null | `ChromeNativeAppWindowViews` iOS subclass |
+| 0077 | Desktop capture window icons | empty image | not possible on iOS |
+| 0077 | Storage monitor (removable media) | dummy | not needed |
+| 0077 | Download quarantine | generic no-op (OK) | file protection attributes |
+
+## iOS ports
+
+| Patch | Piece |
+|---|---|
+| 0075 | `views::EventMonitor` (`event_monitor_ios.mm`) |
+| 0077 | `NativeViewHostIOS` (hosts WebContents `UIView` in the widget) |
+| 0077 | `UnhandledKeyboardEventHandler` (Views accelerators from web keys) |
+| 0077 | `WindowSizer` popup origin on the external display |
+| 0077 | tabs_api drag input adapter over `EventMonitor` |
+| 0077 | `ChromeViewsDelegate` uses content's context factory (Mac file) |
+| 0077 | `RunDragDropLoop` (Mac no-op), `GetMenuSourceTypeForEvent`, `ResizedImageForMaxDimensions` (UIKit) |
+
 ## External display (parallel to Views)
 
 iOS 27 default, if the app does not take over the display, is **phone
