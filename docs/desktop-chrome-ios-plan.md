@@ -236,6 +236,8 @@ under "iOS ports" below.
 | 0132 | Chrome Desktop name, launch screen | Views app Info.plist: display name "Chrome Desktop", UILaunchScreen dict instead of an empty storyboard name. |
 | 0133 | metagen root target | v8 metagen `gn desc` reuses the build dir's --root-target so the device Views build's //v8:run_metagen resolves. |
 | 0134 | Monitor-only desktop windows | Desktop widgets use only the external scene; phone shows a connect-a-monitor hint, then the trackpad. Plug/unplug verified in the simulator (screenshots in [img/monitor-0134/](img/monitor-0134/)). |
+| 0136 | Home-screen icon | AppIcon asset catalog: Chromium logo with a monitor badge (light, dark, tinted). |
+| 0137 | External screen mode changes | Refit BrowserView and refresh display::Screen when a connected screen changes size (AirPlay mode renegotiation, TV resolution switch). |
 | — | Desktop-mode verification | verified: Mac desktop UA, Sec-CH-UA-Mobile ?0, platform macOS, userAgentData.mobile false, maxTouchPoints 0, desktop viewport with meta viewport ignored, no m. redirects on whatismybrowser/YouTube/Google/Wikipedia/Reddit/X. See docs/desktop-mode-verification.md. |
 
 ## iOS ports

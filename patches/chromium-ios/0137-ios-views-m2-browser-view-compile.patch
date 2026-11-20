@@ -1,0 +1,6 @@
+# 0137 — iOS Views: follow external screen mode changes
+#
+# File-replacement patch. After 0136, copy the sources under 0137-files/
+# over the corresponding paths in Chromium src/. See 0137-files/README.md.
+#
+# Keep enable_ios_desktop_views off in out/Release-iphoneos (Chromium.app).
