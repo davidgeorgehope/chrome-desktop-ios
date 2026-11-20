@@ -1,0 +1,4 @@
+chrome/browser/ui/views/ios/views_trackpad_ios.mm
+chrome/browser/ui/views/ios/views_trackpad_ios_geometry.h
+chrome/browser/ui/views/ios/views_trackpad_ios_geometry_checks.cc
+chrome/browser/ui/views/ios/BUILD.gn
