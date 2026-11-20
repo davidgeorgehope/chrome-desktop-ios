@@ -1,0 +1,6 @@
+# 0138 — iOS Views: close client-owned widgets and lay out on frames
+#
+# File-replacement patch. After 0137, copy the sources under 0138-files/
+# over the corresponding paths in Chromium src/. See 0138-files/README.md.
+#
+# Keep enable_ios_desktop_views off in out/Release-iphoneos (Chromium.app).
