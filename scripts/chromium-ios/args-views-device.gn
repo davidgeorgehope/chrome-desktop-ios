@@ -25,3 +25,6 @@ enable_printing_tests = false
 enable_screen_ai_service = true
 enable_on_device_translation = true
 enterprise_cloud_content_analysis = false
+# ANGLE ASSERT()s are debug checks. With dcheck_always_on they turned a failed
+# GPU channel setup into a fatal trap in gl::Context teardown on device.
+angle_assert_always_on = false
