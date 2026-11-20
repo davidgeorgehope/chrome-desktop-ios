@@ -1,0 +1,6 @@
+# 0136 — iOS Views app: home-screen icon
+#
+# File-replacement patch. After 0135, copy the sources under 0136-files/
+# over the corresponding paths in Chromium src/. See 0136-files/README.md.
+#
+# Keep enable_ios_desktop_views off in out/Release-iphoneos (Chromium.app).

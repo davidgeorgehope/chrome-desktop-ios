@@ -1,0 +1,5 @@
+chrome/browser/ui/views/ios/BUILD.gn
+chrome/browser/ui/views/ios/resources/ChromeDesktopIcons.xcassets/AppIcon.appiconset/Contents.json
+chrome/browser/ui/views/ios/resources/ChromeDesktopIcons.xcassets/AppIcon.appiconset/Icon-1024.png
+chrome/browser/ui/views/ios/resources/ChromeDesktopIcons.xcassets/AppIcon.appiconset/Icon-1024Dark.png
+chrome/browser/ui/views/ios/resources/ChromeDesktopIcons.xcassets/AppIcon.appiconset/Icon-1024Tinted.png
