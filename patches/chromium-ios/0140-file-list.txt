@@ -1,0 +1,5 @@
+chrome/browser/ui/views/ios/views_trackpad_ios.mm
+chrome/browser/ui/views/ios/views_trackpad_ios.h
+chrome/browser/ui/views/ios/chrome_views_ios_main.mm
+chrome/browser/ui/views/ios/BUILD.gn
+chrome/browser/ui/views/ios/Info.plist
