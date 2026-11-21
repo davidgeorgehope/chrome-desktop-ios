@@ -127,9 +127,13 @@ NSArray<UIScreen*>* GetAllActiveScreens() {
 #endif
 }
 
+class ScreenIos;
+ScreenIos* g_screen_ios = nullptr;
+
 class ScreenIos : public ScreenBase, public ScreenNotification {
  public:
   ScreenIos() {
+    g_screen_ios = this;
     observer_ = [[ScreenObserver alloc] initWithNotifier:this];
     ScreenChanged();
   }
@@ -140,6 +144,12 @@ class ScreenIos : public ScreenBase, public ScreenNotification {
   void ScreenChanged() override {
 #if BUILDFLAG(ENABLE_IOS_DESKTOP_VIEWS)
     DesktopViewsScreensChanged();
+    // Web views cache screen info and only refresh it on layout; a display
+    // swap (phone panel <-> monitor) can leave their size unchanged, so tell
+    // them. Observed by the iOS render widget host UIView.
+    [NSNotificationCenter.defaultCenter
+        postNotificationName:@"DeskBrowserDisplaysChangedForIOS"
+                      object:nil];
 #else
     MobileScreenChanged();
 #endif
@@ -229,11 +239,32 @@ class ScreenIos : public ScreenBase, public ScreenNotification {
       return;
     }
     NSArray<UIScreen*>* screens = GetAllActiveScreens();
+    // The monitor is the screen of the external-display scene. Do not assume
+    // every screen but UIScreen.mainScreen is a monitor: on the iPhone Duo
+    // the unfolded inner panel is a UIScreen of its own.
     UIScreen* primary = nil;
+    NSMutableSet<UIScreen*>* phone_screens = [NSMutableSet set];
+    if (UIScreen* main = UIScreen.mainScreen) {
+      [phone_screens addObject:main];
+    }
+    for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
+      auto* window_scene = base::apple::ObjCCast<UIWindowScene>(scene);
+      if (!window_scene || !window_scene.screen) {
+        continue;
+      }
+      if ([scene.session.role
+              isEqualToString:UIWindowSceneSessionRoleApplication]) {
+        [phone_screens addObject:window_scene.screen];
+      } else if (!primary) {
+        primary = window_scene.screen;
+      }
+    }
     for (UIScreen* screen in screens) {
-      if (screen != UIScreen.mainScreen) {
-        primary = screen;
+      if (primary) {
         break;
+      }
+      if (![phone_screens containsObject:screen]) {
+        primary = screen;
       }
     }
     if (!primary) {
@@ -257,7 +288,7 @@ class ScreenIos : public ScreenBase, public ScreenNotification {
       display.set_device_scale_factor(Display::HasForceDeviceScaleFactor()
                                           ? Display::GetForcedDeviceScaleFactor()
                                           : screen.scale);
-      if (screen == UIScreen.mainScreen) {
+      if ([phone_screens containsObject:screen]) {
         display.set_touch_support(Display::TouchSupport::AVAILABLE);
         AddInternalDisplayId(id);
       }
@@ -379,7 +410,14 @@ PhoneDesktopForIOS& PhoneDesktop() {
 }  // namespace
 
 void SetPhoneDesktopForIOS(const PhoneDesktopForIOS& desktop) {
+  const PhoneDesktopForIOS old = PhoneDesktop();
   PhoneDesktop() = desktop;
+  // Entering or leaving the on-phone desktop, or resizing it, changes the
+  // display list; pan and zoom do not.
+  if (g_screen_ios &&
+      (old.active != desktop.active || old.size != desktop.size)) {
+    g_screen_ios->ScreenChanged();
+  }
 }
 
 const PhoneDesktopForIOS& GetPhoneDesktopForIOS() {

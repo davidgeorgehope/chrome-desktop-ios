@@ -171,6 +171,18 @@ NSString* const kDoneAccessoryImageName = @"checkmark";
   [center removeObserver:self
                     name:UISceneWillEnterForegroundNotification
                   object:nil];
+  [center removeObserver:self
+                    name:@"DeskBrowserDisplaysChangedForIOS"
+                  object:nil];
+}
+
+// The display list changed (phone panel <-> monitor). The view size may be
+// unchanged, so layout alone would keep the old screen rect, and the renderer
+// would keep drawing at the old display size.
+- (void)deskBrowserDisplaysChanged:(NSNotification*)notification {
+  if (_view && self.window) {
+    _view->UpdateScreenInfo();
+  }
 }
 
 - (void)didMoveToWindow {
@@ -188,6 +200,11 @@ NSString* const kDoneAccessoryImageName = @"checkmark";
                      name:UISceneWillEnterForegroundNotification
                    object:scene];
     }
+    [[NSNotificationCenter defaultCenter]
+        addObserver:self
+           selector:@selector(deskBrowserDisplaysChanged:)
+               name:@"DeskBrowserDisplaysChangedForIOS"
+             object:nil];
     // Re-bind the remote CALayer tree now that we have a (possibly new)
     // UIWindow / UIWindowScene. Must run after the view is in the window
     // so BrowserEngineKit has a non-zero render-server context.

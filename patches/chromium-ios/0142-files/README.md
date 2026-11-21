@@ -59,6 +59,17 @@ Design
   "Restore pages? Chromium didn't shut down correctly" on every launch. The
   app now adds --hide-crash-restore-bubble to its own command line unless
   it is already there.
+- Which screen is the monitor. ScreenIos used to treat every screen other
+  than UIScreen.mainScreen as the monitor. On the iPhone Duo the unfolded
+  inner panel is a screen of its own, so with a monitor attached the panel
+  (951x669) became the primary display, and web content on the monitor was
+  drawn in a 951x669 corner over the compositor's red background. The
+  primary display is now the screen of the external-display scene; screens
+  of application-role scenes count as the phone.
+- Display changes reach web views. Entering or leaving the on-phone desktop
+  (or resizing it) refreshes the display list, and every display-list
+  refresh posts DeskBrowserDisplaysChangedForIOS so the render widget host
+  view refreshes its screen info even when its own size has not changed.
 - Surface ids. BrowserCompositorIOS now allocates a new renderer surface id
   when the screen size changes. The renderer's compositor viewport is the
   screen rect, so a display resize with an unchanged view size (seen when
@@ -76,6 +87,8 @@ Simulator check (iPhone 16 Pro, iOS 26.5; iPhone Duo, iOS 27.2)
   tools/ios-views-onphone/simrotate.m): device portrait, landscape-left and
   portrait again leave the interface in landscape-right with the desktop
   full size; the status bar stays hidden.
+- Monitor mode on the iPhone Duo (inner screen) and iPhone 16 Pro: after
+  plugging in a 1920x1080 TVOut the page fills the monitor with no red area.
 - Restore bubble: launched without the flag, killed with SIGKILL, and
   relaunched; no "Restore pages?" bubble.
 - iPhone Duo: outer screen in portrait and landscape, inner screen in

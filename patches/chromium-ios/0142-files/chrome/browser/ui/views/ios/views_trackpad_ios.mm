@@ -741,12 +741,6 @@ UIInterfaceOrientationMask ChromeViewsIOSPhoneOrientations(void) {
   views_trackpad_ios::Extent usable{
       safe.left, safe.top, self.bounds.size.width - safe.left - safe.right,
       self.bounds.size.height - safe.top};
-  NSLog(@"[DeskBrowser] phone panel %@ safe %@ statusbar hidden=%d frame=%@ "
-        @"level=%.0f",
-        NSStringFromCGSize(self.bounds.size), NSStringFromUIEdgeInsets(safe),
-        self.window.windowScene.statusBarManager.statusBarHidden,
-        NSStringFromCGRect(self.window.windowScene.statusBarManager.statusBarFrame),
-        self.window.windowLevel);
   if (_rotateHint) {
     // Landscape-right: the panel's long side across, the side safe areas
     // where portrait has its top and bottom ones.
