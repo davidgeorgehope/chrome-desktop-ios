@@ -1,0 +1,6 @@
+# 0142 — iOS Views: desktop Chrome on the phone's own screen
+#
+# File-replacement patch. After 0141, copy the sources under 0142-files/
+# over the corresponding paths in Chromium src/. See 0142-files/README.md.
+#
+# Keep enable_ios_desktop_views off in out/Release-iphoneos (Chromium.app).
