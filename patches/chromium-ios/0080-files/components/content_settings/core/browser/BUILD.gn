@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//build/config/features.gni")
+import("//build/config/ui.gni")
 import("//content/public/common/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 
@@ -92,7 +93,9 @@ source_set("cookie_settings") {
     "cookie_settings.h",
   ]
 
-  if (!is_ios || use_blink) {
+  # Policy keys for this handler exist on iOS only with the Mac policy set
+  # (Desktop Views); plain use_blink iOS builds (content_shell) lack them.
+  if (!is_ios || enable_ios_desktop_views) {
     sources += [
       "cookie_settings_policy_handler.cc",
       "cookie_settings_policy_handler.h",
