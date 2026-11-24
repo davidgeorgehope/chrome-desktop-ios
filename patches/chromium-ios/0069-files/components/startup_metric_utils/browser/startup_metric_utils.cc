@@ -287,7 +287,7 @@ BrowserStartupMetricRecorder::GetHardFaultCountForCurrentProcess() {
 
   return std::nullopt;
 }
-#elif BUILDFLAG(IS_APPLE)  // Mac, and iOS desktop Views.
+#elif BUILDFLAG(IS_MAC) || BUILDFLAG(ENABLE_IOS_DESKTOP_VIEWS)
 std::optional<uint32_t>
 BrowserStartupMetricRecorder::GetHardFaultCountForCurrentProcess() {
   task_events_info_data_t events_info;
